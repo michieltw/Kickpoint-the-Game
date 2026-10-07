@@ -60,8 +60,32 @@ function refreshReplayControls() {
   document.getElementById('replayPlayPause').textContent = replayPaused ? '▶ Afspelen' : '❚❚ Pauze';
 }
 
+window.triggerPuckReset = resetPuck;
+
 function resetPuck() {
-  game.puck.position.set(95, 12.5, -20120);
+  if (game.mode === 'randomSpawn') {
+      // Offensive zone: from roughly blue line (z=-10000) to below the circles (z=-20000)
+      // Avoid edges: limit width to roughly +/- 6000
+      const randomZ = -10000 - Math.random() * 10000;
+      const randomX = (Math.random() - 0.5) * 12000;
+      game.puck.position.set(randomX, 12.5, randomZ);
+
+      // Also update stick position to follow the puck in randomSpawn mode
+      if (stickParams.stickGroup) {
+          stickParams.stickGroup.position.set(randomX - 95, stickParams.stickRestY || 0, randomZ - 380);
+      }
+      // Update camera and controls to follow the random spawn
+      camera.position.set(randomX, 1000, randomZ + 2420);
+      controls.target.set(randomX, 600, randomZ - 580);
+  } else {
+      game.puck.position.set(95, 12.5, -20120);
+      if (stickParams.stickGroup && stickParams.stickRestY !== undefined) {
+          stickParams.stickGroup.position.set(0, stickParams.stickRestY, -20500);
+      }
+      camera.position.set(0, 1000, -17700);
+      controls.target.set(0, 600, -20700);
+  }
+
   game.puck.rotation.set(0, 0, 0);
   game.puckVelocity.set(0, 0, 0);
   game.puckState = 'idle';

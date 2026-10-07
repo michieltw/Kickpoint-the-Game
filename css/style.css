@@ -269,19 +269,20 @@ body, html {
 }
 .param-slider {
   flex: 1;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.2);
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.4); /* Make background slightly lighter */
   outline: none;
   cursor: pointer;
   appearance: none;
 }
 .param-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #ffeb3b; /* Papaya yellow highlight */
+  border: 2px solid #000000;
   cursor: pointer;
 }
 .param-num {
@@ -474,16 +475,17 @@ body, html {
 .game-setting-row input {
   width: 100%;
   appearance: none;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.4);
+  border-radius: 3px;
 }
 .game-setting-row input::-webkit-slider-thumb {
   appearance: none;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #ffeb3b; /* Papaya yellow highlight */
+  border: 2px solid #000000;
   cursor: pointer;
 }
 .game-settings-actions {

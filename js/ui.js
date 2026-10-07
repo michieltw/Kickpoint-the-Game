@@ -227,6 +227,14 @@ export function initUiBindings(updatePhysics) {
         updateUiMode();
     });
 
+    document.getElementById('btnRandomSpawn').addEventListener('click', () => {
+        game.mode = 'randomSpawn';
+        appState.mode = 'game';
+        updateUiMode();
+        // The resetPuck logic in main.js will detect this mode and spawn semi-randomly.
+        if (typeof window.triggerPuckReset === 'function') window.triggerPuckReset();
+    });
+
     document.getElementById('btnTargetPractice').addEventListener('click', () => {
         game.mode = 'targets';
 

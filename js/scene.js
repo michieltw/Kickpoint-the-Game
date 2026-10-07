@@ -234,14 +234,12 @@ const logoMat = new THREE.MeshBasicMaterial({
     transparent: true,
     depthWrite: false
 });
-// Maintain aspect ratio. The board height is 1100, leaving some padding.
-// The image seems to be roughly square-ish or wide. Let's make it 800 high.
+// Aspect ratio is 4617 / 1049 = ~4.401
 const logoHeight = 800;
-// Assuming a roughly 1:1 or 4:3 aspect, but a standard 1:1 scale plane is safest if we don't know the exact bounds,
-// we will stretch slightly to 1000 width, which usually looks fine.
-const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1000, logoHeight), logoMat);
-// Position directly behind the goal
-logoPlane.position.set(0, logoHeight/2 + 150, -rinkDepth + 1); // +1 z to avoid z-fighting with the board
+const logoWidth = logoHeight * (4617 / 1049);
+const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(logoWidth, logoHeight), logoMat);
+// Position directly behind the goal, pushed slightly further off the boards to prevent z-fighting
+logoPlane.position.set(0, logoHeight/2 + 150, -rinkDepth + 15);
 boardGroup.add(logoPlane);
 
 scene.add(boardGroup);
