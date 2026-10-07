@@ -20,19 +20,23 @@
 
   <!-- Splash Screen State -->
   <div id="splash-screen">
+    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo" alt="Blackout Hockey">
     <div class="splash-title">Hockey Game</div>
     <div class="splash-loading" id="splash-text">LOADING ENGINE...</div>
   </div>
 
   <div id="main-menu" class="hidden glass-panel" style="border: none; box-shadow: none; border-radius: 0;">
-    <div class="menu-title">Hockey Game</div>
-    <button class="menu-btn" id="btnPlayNow">Play Now</button>
+    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo" alt="Blackout Hockey">
+    <div class="menu-title" style="margin-top: 20px;">Hockey Game</div>
+    <button class="menu-btn" id="btnPlayNow">Free Play</button>
+    <button class="menu-btn" id="btnTargetPractice" style="background:#eab308; color:#000;">Target Practice</button>
     <button class="menu-btn secondary" id="btnSettings">Settings</button>
     <button class="menu-btn secondary" id="btnCustomizer">Customize Stick</button>
   </div>
 
   <section id="game-settings" class="hidden glass-panel" style="border:none; box-shadow:none; border-radius:0;" aria-label="Spelinstellingen">
-    <div class="game-settings-card glass-panel">
+    <div class="game-settings-card glass-panel" style="position:relative;">
+      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Spelinstellingen</h2>
       <p>Configureer de gameplay mechanics.</p>
 
@@ -72,7 +76,8 @@
 
   <!-- Separate Customizer Menu -->
   <section id="stick-customizer" class="hidden glass-panel" style="position:absolute; inset:0; z-index: 45; border:none; box-shadow:none; border-radius:0; align-items: center; justify-content: center; padding: 20px; display: none;">
-    <div class="game-settings-card glass-panel">
+    <div class="game-settings-card glass-panel" style="position:relative;">
+      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Stick Customizer</h2>
       <p>Personaliseer je stick visueel en fysiek.</p>
 
@@ -142,6 +147,12 @@
     <div id="score-overlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #fff; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: flex; gap: 40px; pointer-events: none;">
       <div>Score: <span id="score-val">0</span></div>
       <div>Shots: <span id="shots-val">0</span></div>
+    </div>
+
+    <!-- Target Mode HUD -->
+    <div id="target-hud" style="display:none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; color: #eab308; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); gap: 40px; pointer-events: none;">
+      <div>Targets Left: <span id="target-count">4</span></div>
+      <div>Time: <span id="target-time">0.00</span>s</div>
     </div>
 
     <div id="replay-controls" class="glass-panel" aria-label="Replay bediening">

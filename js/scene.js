@@ -175,12 +175,8 @@ scene.add(projectedArrow);
 const boardGroup = new THREE.Group();
 
 const textureLoader = new THREE.TextureLoader();
-const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145');
-logoTex.wrapS = THREE.RepeatWrapping;
-logoTex.wrapT = THREE.RepeatWrapping;
-logoTex.repeat.set(-10, 1);
-
-const boardMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: logoTex, roughness: 0.2, side: THREE.DoubleSide });
+// Base white board material
+const boardMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, side: THREE.DoubleSide });
 const kickPlateMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, side: THREE.DoubleSide });
 const topRailMat = new THREE.MeshStandardMaterial({ color: 0x0033a0, roughness: 0.3 });
 const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, ior: 1.5, side: THREE.DoubleSide });
@@ -230,6 +226,24 @@ function createCorner(x, z, rY) {
 }
 boardGroup.add(createCorner(-rinkWidth/2 + cornerRadius, -rinkDepth + cornerRadius, Math.PI/2));
 boardGroup.add(createCorner(rinkWidth/2 - cornerRadius, -rinkDepth + cornerRadius, 0));
+
+// Add giant non-repeating logo decal to the center of the far boards
+const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145');
+const logoMat = new THREE.MeshBasicMaterial({
+    map: logoTex,
+    transparent: true,
+    depthWrite: false
+});
+// Maintain aspect ratio. The board height is 1100, leaving some padding.
+// The image seems to be roughly square-ish or wide. Let's make it 800 high.
+const logoHeight = 800;
+// Assuming a roughly 1:1 or 4:3 aspect, but a standard 1:1 scale plane is safest if we don't know the exact bounds,
+// we will stretch slightly to 1000 width, which usually looks fine.
+const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(1000, logoHeight), logoMat);
+// Position directly behind the goal
+logoPlane.position.set(0, logoHeight/2 + 150, -rinkDepth + 1); // +1 z to avoid z-fighting with the board
+boardGroup.add(logoPlane);
+
 scene.add(boardGroup);
 
 // Tribune
@@ -342,6 +356,42 @@ export function createMarker(colorHex) {
 }
 export const bgMarker = createMarker(0xf59e0b);
 export const thMarker = createMarker(0x38bdf8);
+
+// Targets and Particles
+export function createTargetTexture() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+
+    // Outer white circle
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(128, 128, 120, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer red ring
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 20;
+    ctx.beginPath();
+    ctx.arc(128, 128, 80, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner red bullseye
+    ctx.fillStyle = '#ff0000';
+    ctx.beginPath();
+    ctx.arc(128, 128, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+}
+
+export const targetGroup = new THREE.Group();
+scene.add(targetGroup);
+
+export const particleGroup = new THREE.Group();
+scene.add(particleGroup);
 
 export let stickParams = {
     stickMesh: null,

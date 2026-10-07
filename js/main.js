@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appState, state, game, swipeData } from './state.js';
 import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams } from './scene.js';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture } from './scene.js';
 import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
 import { bindInput } from './input.js';
 
@@ -138,12 +138,102 @@ document.getElementById('ghostStickToggle').addEventListener('change', refreshRe
 document.getElementById('ghostPuckToggle').addEventListener('change', refreshReplayControls);
 document.getElementById('replayClose').addEventListener('click', resetPuck);
 
+// Target Practice Logic
+const targetRadius = 120;
+let targetMaterial = null;
+
+function spawnTargets() {
+    targetGroup.clear();
+    particleGroup.clear();
+    game.activeTargets = [];
+    game.particles = [];
+
+    if(!targetMaterial) {
+        targetMaterial = new THREE.MeshBasicMaterial({
+            map: createTargetTexture(),
+            transparent: true,
+            side: THREE.DoubleSide
+        });
+    }
+
+    // Goal net dimensions roughly: width=1830, height=1220
+    const netX = game.net.position.x;
+    const netZ = game.net.position.z;
+    const netWidth = 1830;
+    const netHeight = 1220;
+
+    const offsets = [
+        { x: -netWidth/2 + targetRadius + 50, y: netHeight - targetRadius - 50 }, // Top Left
+        { x: netWidth/2 - targetRadius - 50, y: netHeight - targetRadius - 50 },  // Top Right
+        { x: -netWidth/2 + targetRadius + 50, y: targetRadius + 50 },            // Bottom Left
+        { x: netWidth/2 - targetRadius - 50, y: targetRadius + 50 }              // Bottom Right
+    ];
+
+    for(const offset of offsets) {
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(targetRadius*2, targetRadius*2), targetMaterial);
+        // Position them slightly inside the goal mouth so they are hittable
+        mesh.position.set(netX + offset.x, offset.y, netZ + 100);
+        targetGroup.add(mesh);
+        game.activeTargets.push({
+            mesh: mesh,
+            x: netX + offset.x,
+            y: offset.y,
+            z: netZ + 100,
+            radius: targetRadius
+        });
+    }
+}
+
+window.addEventListener('startTargetPractice', () => {
+    spawnTargets();
+    resetPuck();
+});
+
+function shatterTarget(target) {
+    targetGroup.remove(target.mesh);
+    game.activeTargets = game.activeTargets.filter(t => t !== target);
+
+    // Spawn particles
+    const particleGeo = new THREE.PlaneGeometry(30, 30);
+    const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const particleRedMat = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
+
+    for(let i=0; i<15; i++) {
+        const mat = Math.random() > 0.5 ? particleMat : particleRedMat;
+        const pMesh = new THREE.Mesh(particleGeo, mat);
+        pMesh.position.copy(target.mesh.position);
+        particleGroup.add(pMesh);
+
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 500 + Math.random() * 1500;
+
+        game.particles.push({
+            mesh: pMesh,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            vz: 500 + Math.random() * 1000, // burst out towards camera
+            rx: Math.random() * 10,
+            ry: Math.random() * 10,
+            life: 1.0
+        });
+    }
+
+    document.getElementById('target-count').textContent = game.activeTargets.length;
+}
+
 // Animation Loop
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
   const delta = Math.min(0.05, (now - lastTime) / 1000);
   lastTime = now;
+
+  if(appState.mode === 'game' && game.mode === 'targets') {
+      if(game.activeTargets.length > 0) {
+          game.targetTimeElapsed = (now - game.targetStartTime) / 1000;
+          document.getElementById('target-time').textContent = game.targetTimeElapsed.toFixed(2);
+      }
+  }
 
   if (state.isPlaying && !state.holdMaxBend) {
     const stepRate = 800 * delta;
@@ -304,6 +394,28 @@ function animate() {
     if (game.puckState === 'shot') {
        const netX = game.net.position.x;
        const netZ = game.net.position.z;
+
+       // Target Collision Check
+       if(game.mode === 'targets' && game.activeTargets.length > 0) {
+           // Puck radius is 38. Use a rough bounding sphere check.
+           const hitDistSq = Math.pow(targetRadius + 38, 2);
+
+           // We check targets if the puck is crossing the Z plane of the targets
+           for(let t of game.activeTargets) {
+               if(game.puck.position.z < t.z + 50 && game.puck.position.z > t.z - 200) {
+                   const distSq = Math.pow(game.puck.position.x - t.x, 2) + Math.pow(game.puck.position.y - t.y, 2);
+                   if(distSq < hitDistSq) {
+                       shatterTarget(t);
+                       // Slightly deflect puck
+                       game.puckVelocity.z *= 0.5;
+                       game.puckVelocity.x += (Math.random() - 0.5) * 2000;
+                       game.puckVelocity.y += (Math.random() - 0.5) * 2000;
+                       break; // Only hit one per frame
+                   }
+               }
+           }
+       }
+
        if (game.puck.position.z < netZ && game.puck.position.z > netZ - 1000) {
          if (Math.abs(game.puck.position.x - netX) < (1830 / 2) && game.puck.position.y < 1220) {
             game.puckState = 'goal';
@@ -385,6 +497,24 @@ function animate() {
     if (game.replayFrames.length > 400) game.replayFrames.shift();
     game.replayFrames.push(captureReplayFrame());
     document.getElementById('btnInstantReplay').disabled = true;
+  }
+
+  // Animate Particles
+  for (let i = game.particles.length - 1; i >= 0; i--) {
+      let p = game.particles[i];
+      p.mesh.position.x += p.vx * delta;
+      p.mesh.position.y += p.vy * delta;
+      p.mesh.position.z += p.vz * delta;
+      p.vy -= 9810 * delta; // gravity
+      p.mesh.rotation.x += p.rx * delta;
+      p.mesh.rotation.y += p.ry * delta;
+      p.life -= delta;
+      p.mesh.material.opacity = p.life;
+
+      if(p.life <= 0) {
+          particleGroup.remove(p.mesh);
+          game.particles.splice(i, 1);
+      }
   }
 
   controls.update();

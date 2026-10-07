@@ -12,6 +12,8 @@ export function updateUiMode() {
   const customizerMenu = document.getElementById('stick-customizer');
   const btnPlayNow = document.getElementById('btnPlayNow');
 
+  const targetHud = document.getElementById('target-hud');
+
   if (appState.mode === 'splash') {
     splash.style.opacity = '1';
     splash.style.pointerEvents = 'auto';
@@ -20,6 +22,7 @@ export function updateUiMode() {
     settings.style.display = 'none';
     gameSettingsMenu.classList.remove('visible');
     customizerMenu.style.display = 'none';
+    if(targetHud) targetHud.style.display = 'none';
   } else {
     splash.style.opacity = '0';
     splash.style.pointerEvents = 'none';
@@ -31,12 +34,16 @@ export function updateUiMode() {
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.style.display = 'none';
       btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Play Now';
+      if(targetHud) targetHud.style.display = 'none';
     } else if (appState.mode === 'game') {
       menu.classList.add('hidden');
       gameUi.classList.add('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.style.display = 'none';
+      if(targetHud) {
+          targetHud.style.display = game.mode === 'targets' ? 'flex' : 'none';
+      }
     } else if (appState.mode === 'gameSettings') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
@@ -214,7 +221,29 @@ export function syncUiFromState() {
 
 export function initUiBindings(updatePhysics) {
     // Basic navigation
-    document.getElementById('btnPlayNow').addEventListener('click', () => { appState.mode = 'game'; updateUiMode(); });
+    document.getElementById('btnPlayNow').addEventListener('click', () => {
+        game.mode = 'free';
+        appState.mode = 'game';
+        updateUiMode();
+    });
+
+    document.getElementById('btnTargetPractice').addEventListener('click', () => {
+        game.mode = 'targets';
+
+        // Let main loop handle spawning targets if mode is changed to targets.
+        // It will need an explicit initialization sequence.
+        game.targetStartTime = performance.now();
+        game.targetTimeElapsed = 0;
+        document.getElementById('target-count').textContent = '4';
+        document.getElementById('target-time').textContent = '0.00';
+
+        // Dispatch an event to main.js so it knows to spawn targets
+        window.dispatchEvent(new Event('startTargetPractice'));
+
+        appState.mode = 'game';
+        updateUiMode();
+    });
+
     document.getElementById('btnSettings').addEventListener('click', () => { appState.mode = 'gameSettings'; updateUiMode(); });
     document.getElementById('btnCustomizer').addEventListener('click', () => { appState.mode = 'customizer'; updateUiMode(); });
     document.getElementById('btnSettingsPlay').addEventListener('click', () => { appState.mode = 'game'; updateUiMode(); });

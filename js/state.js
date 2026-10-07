@@ -53,7 +53,14 @@ export const game = {
   bladeTipIndex: -1,
   bladeContactProgress: 0,
   bladeContactOffset: new THREE.Vector3(),
-  bladeContactAxis: new THREE.Vector3(1, 0, 0)
+  bladeContactAxis: new THREE.Vector3(1, 0, 0),
+
+  // Target Practice Mode additions
+  mode: 'free', // 'free' or 'targets'
+  targetStartTime: 0,
+  targetTimeElapsed: 0,
+  activeTargets: [],
+  particles: []
 };
 
 export const swipeData = {

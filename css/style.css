@@ -55,6 +55,21 @@ body, html {
   letter-spacing: 0.05em;
 }
 
+.menu-logo {
+  max-width: 280px;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.menu-logo-small {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  max-width: 80px;
+  height: auto;
+  opacity: 0.8;
+}
+
 /* Glassmorphism Classes */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);
