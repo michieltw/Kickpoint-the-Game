@@ -228,7 +228,7 @@ boardGroup.add(createCorner(-rinkWidth/2 + cornerRadius, -rinkDepth + cornerRadi
 boardGroup.add(createCorner(rinkWidth/2 - cornerRadius, -rinkDepth + cornerRadius, 0));
 
 // Add giant non-repeating logo decal to the center of the far boards
-const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145');
+const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612');
 const logoMat = new THREE.MeshBasicMaterial({
     map: logoTex,
     transparent: true,
@@ -392,6 +392,24 @@ scene.add(targetGroup);
 
 export const particleGroup = new THREE.Group();
 scene.add(particleGroup);
+
+// Tracers
+export const shotTracerGeo = new THREE.BufferGeometry();
+// Maximum points for the shot tracer
+const maxPoints = 500;
+const tracerPositions = new Float32Array(maxPoints * 3);
+shotTracerGeo.setAttribute('position', new THREE.BufferAttribute(tracerPositions, 3));
+// Setting draw range to 0 initially
+shotTracerGeo.setDrawRange(0, 0);
+
+const shotTracerMat = new THREE.LineBasicMaterial({
+    color: 0x38bdf8,
+    linewidth: 2,
+    transparent: true,
+    opacity: 0.8
+});
+export const shotTracerLine = new THREE.Line(shotTracerGeo, shotTracerMat);
+scene.add(shotTracerLine);
 
 export let stickParams = {
     stickMesh: null,

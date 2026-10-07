@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appState, state, game, swipeData } from './state.js';
 import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture } from './scene.js';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine } from './scene.js';
 import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
 import { bindInput } from './input.js';
 
@@ -81,6 +81,15 @@ function resetPuck() {
   document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
   swipeData.triggered = false;
 
+  // Clear Tracers
+  shotTracerLine.visible = false;
+  shotTracerGeo.setDrawRange(0, 0);
+  const aimCanvas = document.getElementById('aimTracerCanvas');
+  if(aimCanvas) {
+      const aimCtx = aimCanvas.getContext('2d');
+      aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
+  }
+
   if (state.isPlaying) {
      state.isPlaying = false;
      document.getElementById('btnPlay').textContent = '▶ Play';
@@ -139,7 +148,7 @@ document.getElementById('ghostPuckToggle').addEventListener('change', refreshRep
 document.getElementById('replayClose').addEventListener('click', resetPuck);
 
 // Target Practice Logic
-const targetRadius = 120;
+const targetRadius = 240;
 let targetMaterial = null;
 
 function spawnTargets() {
@@ -163,10 +172,10 @@ function spawnTargets() {
     const netHeight = 1220;
 
     const offsets = [
-        { x: -netWidth/2 + targetRadius + 50, y: netHeight - targetRadius - 50 }, // Top Left
-        { x: netWidth/2 - targetRadius - 50, y: netHeight - targetRadius - 50 },  // Top Right
-        { x: -netWidth/2 + targetRadius + 50, y: targetRadius + 50 },            // Bottom Left
-        { x: netWidth/2 - targetRadius - 50, y: targetRadius + 50 }              // Bottom Right
+        { x: -netWidth/2 + targetRadius - 30, y: netHeight - targetRadius + 30 }, // Top Left
+        { x: netWidth/2 - targetRadius + 30, y: netHeight - targetRadius + 30 },  // Top Right
+        { x: -netWidth/2 + targetRadius - 30, y: targetRadius - 30 },            // Bottom Left
+        { x: netWidth/2 - targetRadius + 30, y: targetRadius - 30 }              // Bottom Right
     ];
 
     for(const offset of offsets) {
@@ -347,6 +356,17 @@ function animate() {
         const launchVelocity = shotDirection.multiplyScalar(swipeDrivenSpeed).add(game.bladeVelocity);
         game.puckVelocity.copy(launchVelocity.multiplyScalar(gameSettings.shotSpeed));
         const speed = game.puckVelocity.length();
+
+        // Calculate and show speed in km/h or mph.
+        // speed is in mm/s. Convert to m/s by dividing by 1000.
+        const speedMs = speed / 1000;
+        const speedKmh = speedMs * 3.6;
+        const speedMph = speedKmh * 0.621371;
+        const speedVal = gameSettings.speedUnit === 'kmh' ? speedKmh : speedMph;
+
+        document.getElementById('speed-val').textContent = speedVal.toFixed(1);
+        document.getElementById('speed-overlay').style.display = 'block';
+
         game.flightStart.copy(game.puck.position);
         game.flightDuration = game.flightStart.distanceTo(flightTarget) / speed;
 
@@ -356,6 +376,12 @@ function animate() {
         game.puckState = 'shot';
         document.getElementById('btnInstantReplay').disabled = true;
         swipeData.triggered = false;
+
+        // Init 3D Tracer
+        if(gameSettings.showShotTracer) {
+            shotTracerGeo.setDrawRange(0, 0);
+            shotTracerLine.visible = true;
+        }
       }
     }
   }
@@ -372,6 +398,21 @@ function animate() {
       game.puck.rotation.set(turbulence, game.shotElapsed * 8, Math.sin(game.shotElapsed * 19 + 0.8) * wobbleAmount * 0.08);
     } else {
       game.puck.position.addScaledVector(game.puckVelocity, delta);
+    }
+
+    // Update 3D Tracer
+    if(gameSettings.showShotTracer && game.puckState === 'shot') {
+        const positions = shotTracerGeo.attributes.position.array;
+        const currentCount = shotTracerGeo.drawRange.count;
+        const maxPoints = positions.length / 3;
+
+        if (currentCount < maxPoints) {
+            positions[currentCount * 3] = game.puck.position.x;
+            positions[currentCount * 3 + 1] = game.puck.position.y;
+            positions[currentCount * 3 + 2] = game.puck.position.z;
+            shotTracerGeo.setDrawRange(0, currentCount + 1);
+            shotTracerGeo.attributes.position.needsUpdate = true;
+        }
     }
 
     if (game.puck.position.y < 12.5) {

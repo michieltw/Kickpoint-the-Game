@@ -16,7 +16,10 @@ export const gameSettings = {
   kickpointEffect: 1,
   minSwipeSpeed: 0.3,
   precisionTolerance: 12,
-  deviationPenalty: 1
+  deviationPenalty: 1,
+  speedUnit: 'kmh', // 'kmh' or 'mph'
+  showShotTracer: true,
+  showAimTracer: true
 };
 
 export const StickCustomizerState = {
