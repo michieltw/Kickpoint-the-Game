@@ -136,6 +136,7 @@ document.getElementById('replayTimeline').addEventListener('input', () => {
 });
 document.getElementById('ghostStickToggle').addEventListener('change', refreshReplayControls);
 document.getElementById('ghostPuckToggle').addEventListener('change', refreshReplayControls);
+document.getElementById('replayClose').addEventListener('click', resetPuck);
 
 // Animation Loop
 function animate() {

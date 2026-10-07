@@ -173,7 +173,14 @@ scene.add(projectedArrow);
 
 // Boarding
 const boardGroup = new THREE.Group();
-const boardMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, side: THREE.DoubleSide });
+
+const textureLoader = new THREE.TextureLoader();
+const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145');
+logoTex.wrapS = THREE.RepeatWrapping;
+logoTex.wrapT = THREE.RepeatWrapping;
+logoTex.repeat.set(-10, 1);
+
+const boardMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: logoTex, roughness: 0.2, side: THREE.DoubleSide });
 const kickPlateMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, side: THREE.DoubleSide });
 const topRailMat = new THREE.MeshStandardMaterial({ color: 0x0033a0, roughness: 0.3 });
 const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, ior: 1.5, side: THREE.DoubleSide });

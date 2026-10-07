@@ -57,11 +57,25 @@ body, html {
 
 /* Glassmorphism Classes */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  color: #111111;
+}
+
+.glass-panel h2, .glass-panel h3, .glass-panel label {
+  color: #111111 !important;
+}
+
+.glass-panel p, .glass-panel span {
+  color: #333333 !important;
+}
+
+.glass-panel output {
+  color: #000000 !important;
+  font-weight: 700;
 }
 
 /* Top Bar */
@@ -95,9 +109,9 @@ body, html {
   pointer-events: auto;
 }
 .btn-action {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  color: #111111;
   padding: 6px 12px;
   border-radius: 8px;
   font-size: 12px;
@@ -110,7 +124,7 @@ body, html {
   transition: all 0.2s ease;
 }
 .btn-action:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.9);
 }
 .btn-action:disabled {
   opacity: 0.3;
@@ -367,13 +381,13 @@ body, html {
 .menu-title {
   font-size: 48px;
   font-weight: 900;
-  color: #ffffff;
+  color: #000000;
   margin-bottom: 40px;
   letter-spacing: 0.05em;
 }
 .menu-btn {
-  background: #ffffff;
-  color: #000000;
+  background: #111111;
+  color: #ffffff;
   border: none;
   padding: 16px 48px;
   border-radius: 12px;
@@ -391,8 +405,8 @@ body, html {
 }
 .menu-btn.secondary {
   background: transparent;
-  color: #ffffff;
-  border: 1px solid #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
 }
 
 #game-ui {
@@ -473,9 +487,9 @@ body, html {
 .customizer-select {
     width: 100%;
     padding: 8px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white;
+    background: rgba(255,255,255,0.8);
+    border: 1px solid rgba(0,0,0,0.2);
+    color: #111111;
     border-radius: 6px;
     font-size: 12px;
     margin-top: 4px;
@@ -485,7 +499,7 @@ body, html {
     align-items: center;
     gap: 8px;
     font-size: 12px;
-    color: #ddd;
+    color: #111111 !important;
     margin-top: 8px;
     cursor: pointer;
 }
@@ -505,16 +519,16 @@ body, html {
 #replay-controls.visible { display: block; }
 .replay-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .replay-toolbar button, .replay-toolbar select {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 6px;
-  color: #ffffff;
+  color: #111111;
   padding: 6px 10px;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
-.replay-toolbar button:hover, .replay-toolbar select:hover { background: rgba(255, 255, 255, 0.2); }
-.replay-toggle { display: flex; align-items: center; gap: 6px; color: #bbbbbb; font-size: 11px; }
+.replay-toolbar button:hover, .replay-toolbar select:hover { background: rgba(255, 255, 255, 1); }
+.replay-toggle { display: flex; align-items: center; gap: 6px; color: #333333; font-size: 11px; }
 #replayTimeline { flex: 1 1 180px; min-width: 140px; }
-#replayFrameLabel { min-width: 72px; color: #ffffff; font: 11px monospace; text-align: right; }
+#replayFrameLabel { min-width: 72px; color: #111111; font: 11px monospace; text-align: right; }

@@ -9,6 +9,7 @@ export function updateUiMode() {
   const gameUi = document.getElementById('game-ui');
   const settings = document.getElementById('workbenchPanel');
   const gameSettingsMenu = document.getElementById('game-settings');
+  const customizerMenu = document.getElementById('stick-customizer');
   const btnPlayNow = document.getElementById('btnPlayNow');
 
   if (appState.mode === 'splash') {
@@ -18,6 +19,7 @@ export function updateUiMode() {
     gameUi.classList.remove('visible');
     settings.style.display = 'none';
     gameSettingsMenu.classList.remove('visible');
+    customizerMenu.style.display = 'none';
   } else {
     splash.style.opacity = '0';
     splash.style.pointerEvents = 'none';
@@ -27,21 +29,31 @@ export function updateUiMode() {
       gameUi.classList.remove('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.remove('visible');
+      customizerMenu.style.display = 'none';
       btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Play Now';
     } else if (appState.mode === 'game') {
       menu.classList.add('hidden');
       gameUi.classList.add('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.remove('visible');
+      customizerMenu.style.display = 'none';
     } else if (appState.mode === 'gameSettings') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.add('visible');
+      customizerMenu.style.display = 'none';
+    } else if (appState.mode === 'customizer') {
+      menu.classList.add('hidden');
+      gameUi.classList.remove('visible');
+      settings.style.display = 'none';
+      gameSettingsMenu.classList.remove('visible');
+      customizerMenu.style.display = 'flex';
     } else if (appState.mode === 'settings') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
+      customizerMenu.style.display = 'none';
       settings.style.display = 'flex';
       settings.classList.remove('collapsed');
     }
@@ -204,6 +216,7 @@ export function initUiBindings(updatePhysics) {
     // Basic navigation
     document.getElementById('btnPlayNow').addEventListener('click', () => { appState.mode = 'game'; updateUiMode(); });
     document.getElementById('btnSettings').addEventListener('click', () => { appState.mode = 'gameSettings'; updateUiMode(); });
+    document.getElementById('btnCustomizer').addEventListener('click', () => { appState.mode = 'customizer'; updateUiMode(); });
     document.getElementById('btnSettingsPlay').addEventListener('click', () => { appState.mode = 'game'; updateUiMode(); });
     document.getElementById('btnPhysicsSettings').addEventListener('click', () => {
         appState.mode = 'settings';
@@ -211,6 +224,7 @@ export function initUiBindings(updatePhysics) {
         setTimeout(drawStiffnessCurve, 50); // Redraw after panel shows
     });
     document.getElementById('btnGameSettingsBack').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
+    document.getElementById('btnCustomizerBack').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
     document.getElementById('btnMenu').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
     document.getElementById('btnSettingsBack').addEventListener('click', (e) => {
         e.stopPropagation();
