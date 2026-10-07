@@ -1,0 +1,116 @@
+import * as THREE from 'three';
+import { gameSettings } from './config.js';
+import { state, game, swipeData } from './state.js';
+import { getStiffnessDynamics } from './physics.js';
+import { camera } from './scene.js'; // game.net is in sceneGame.net technically, or we map it
+
+export function getGoalAim(clientX, clientY, pathErrorX = 0) {
+  const aimX = clientX + pathErrorX * 1.5;
+  const ndc = new THREE.Vector2(
+    (aimX / window.innerWidth) * 2 - 1,
+    -(clientY / window.innerHeight) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(ndc, camera);
+  const goalPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -game.net.position.z);
+  const hit = new THREE.Vector3();
+  const netWidth = 1830;
+  const netHeight = 1220;
+  const fallbackX = ((aimX / window.innerWidth) - 0.5) * netWidth;
+  const fallbackY = (1 - clientY / window.innerHeight) * netHeight;
+  const point = raycaster.ray.intersectPlane(goalPlane, hit)
+    ? hit
+    : new THREE.Vector3(fallbackX, fallbackY, game.net.position.z);
+  return new THREE.Vector3(
+    THREE.MathUtils.clamp(point.x, -netWidth / 2 - 500, netWidth / 2 + 500),
+    THREE.MathUtils.clamp(point.y, 25, netHeight + 400),
+    game.net.position.z
+  );
+}
+
+export function bindInput(controls, syncUiFromState) {
+  const swipeZone = document.getElementById('swipeZone');
+
+  swipeZone.addEventListener('pointerdown', (e) => {
+    if (game.puckState !== 'idle' || state.isPlaying) return;
+    swipeData.isSwiping = true;
+    swipeData.startY = e.clientY;
+    swipeData.startX = e.clientX;
+    swipeData.startTime = performance.now();
+    swipeData.triggered = false;
+    swipeData.puckHitTime = 0;
+    swipeData.path = [{ x: e.clientX, y: e.clientY }];
+
+    controls.enabled = false;
+    e.stopPropagation();
+  });
+
+  window.addEventListener('pointermove', (e) => {
+    if (!swipeData.isSwiping) return;
+    swipeData.path.push({ x: e.clientX, y: e.clientY });
+    const puckScreenY = window.innerHeight * 0.75;
+    if (swipeData.startY > puckScreenY && e.clientY <= puckScreenY && swipeData.puckHitTime === 0) {
+        swipeData.puckHitY = e.clientY;
+        swipeData.puckHitTime = performance.now();
+    }
+  });
+
+  window.addEventListener('pointerup', (e) => {
+    if (!swipeData.isSwiping) {
+        controls.enabled = true;
+        return;
+    }
+    swipeData.isSwiping = false;
+    controls.enabled = true;
+    swipeData.endY = e.clientY;
+    swipeData.endX = e.clientX;
+    swipeData.endTime = performance.now();
+
+    if (swipeData.startY - swipeData.endY > 100) {
+        let timeToPuck = swipeData.puckHitTime > 0 ? (swipeData.puckHitTime - swipeData.startTime) : (swipeData.endTime - swipeData.startTime) / 2;
+        if (timeToPuck < 50) timeToPuck = 50;
+
+        let distToPuck = swipeData.puckHitY > 0 ? (swipeData.startY - swipeData.puckHitY) : (swipeData.startY - swipeData.endY) / 2;
+
+        const speed = distToPuck / timeToPuck;
+        if (speed < gameSettings.minSwipeSpeed) return;
+        swipeData.power = Math.max(20, Math.min(100, speed * 52 * gameSettings.swipeRange));
+
+        let maxPathErrorX = 0;
+        let maxPathErrorMagnitude = 0;
+        const swipeHeight = swipeData.startY - swipeData.endY;
+        for (const point of swipeData.path) {
+          const progress = swipeHeight ? Math.max(0, Math.min(1, (swipeData.startY - point.y) / swipeHeight)) : 0;
+          const expectedX = swipeData.startX + (swipeData.endX - swipeData.startX) * progress;
+          const errorX = point.x - expectedX;
+          if (Math.abs(errorX) > maxPathErrorMagnitude) {
+            maxPathErrorMagnitude = Math.abs(errorX);
+            maxPathErrorX = errorX;
+          }
+        }
+        const effectivePathError = Math.max(0, maxPathErrorMagnitude - gameSettings.precisionTolerance);
+        const signedPathError = Math.sign(maxPathErrorX) * effectivePathError;
+        swipeData.accuracy = signedPathError / window.innerWidth;
+        game.shotAim = getGoalAim(swipeData.endX, swipeData.endY);
+        const netWidth = 1830;
+        game.shotDeviationX = THREE.MathUtils.clamp(
+          (signedPathError / window.innerWidth) * netWidth * 0.75 * gameSettings.deviationPenalty,
+          -netWidth * 0.35,
+          netWidth * 0.35
+        );
+        const stiffnessDynamics = getStiffnessDynamics();
+        game.contactTime = Math.max(540, Math.min(660, 600 * stiffnessDynamics.timingScale));
+        game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;
+
+        swipeData.triggered = true;
+        state.timeline = 0;
+        state.isPlaying = true;
+        state.holdMaxBend = false;
+        game.replayFrames = [];
+        game.replayRecording = true;
+        syncUiFromState();
+    }
+  });
+
+  document.getElementById('canvas-container').addEventListener('pointercancel', () => swipeData.isSwiping = false);
+}
