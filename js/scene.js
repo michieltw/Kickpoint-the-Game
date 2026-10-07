@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { game } from './state.js';
+import { game } from './state.js?v=goal-net-3';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export const scene = new THREE.Scene();
@@ -303,22 +303,48 @@ function createPostTexture() {
     return tex;
 }
 
-const netWidth = 1830, netHeight = 1220, netDepth = 1000;
+export const GOAL = Object.freeze({
+    width: 1830,
+    height: 1220,
+    depth: 1000,
+    rearWidth: 1400,
+    rearHeight: 900,
+    cornerRadius: 215,
+    postRadius: 30
+});
+
+const { width: netWidth, height: netHeight, depth: netDepth } = GOAL;
 game.net = new THREE.Group();
 const postMat = new THREE.MeshStandardMaterial({ map: createPostTexture(), roughness: 0.4 });
-const postGeo = new THREE.CylinderGeometry(30, 30, netHeight);
+const postGeo = new THREE.CylinderGeometry(GOAL.postRadius, GOAL.postRadius, netHeight);
 const leftPost = new THREE.Mesh(postGeo, postMat); leftPost.position.set(-netWidth/2, netHeight/2, 0);
 const rightPost = new THREE.Mesh(postGeo, postMat); rightPost.position.set(netWidth/2, netHeight/2, 0);
-const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(30, 30, netWidth), postMat);
+const crossbar = new THREE.Mesh(new THREE.CylinderGeometry(GOAL.postRadius, GOAL.postRadius, netWidth), postMat);
 crossbar.rotation.z = Math.PI / 2; crossbar.position.set(0, netHeight, 0);
 game.net.add(leftPost, rightPost, crossbar);
 
 const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
-const bottomGeo = new THREE.CylinderGeometry(20, 20, netDepth);
-const leftBottom = new THREE.Mesh(bottomGeo, frameMat); leftBottom.rotation.x = Math.PI/2; leftBottom.position.set(-netWidth/2, 20, -netDepth/2);
-const rightBottom = new THREE.Mesh(bottomGeo, frameMat); rightBottom.rotation.x = Math.PI/2; rightBottom.position.set(netWidth/2, 20, -netDepth/2);
-const backBottom = new THREE.Mesh(new THREE.CylinderGeometry(20, 20, netWidth), frameMat); backBottom.rotation.z = Math.PI/2; backBottom.position.set(0, 20, -netDepth);
-game.net.add(leftBottom, rightBottom, backBottom);
+const frameRadius = 20;
+for (const side of [-1, 1]) {
+    const railPoints = [new THREE.Vector3(side * netWidth / 2, frameRadius, 0)];
+    for (let i = 0; i <= 12; i++) {
+        const angle = (Math.PI / 2) * i / 12;
+        railPoints.push(new THREE.Vector3(
+            side * (netWidth / 2 - GOAL.cornerRadius * (1 - Math.cos(angle))),
+            frameRadius,
+            -(netDepth - GOAL.cornerRadius) - GOAL.cornerRadius * Math.sin(angle)
+        ));
+    }
+    const railCurve = new THREE.CatmullRomCurve3(railPoints);
+    game.net.add(new THREE.Mesh(new THREE.TubeGeometry(railCurve, 32, frameRadius, 8, false), frameMat));
+}
+const backBottom = new THREE.Mesh(
+    new THREE.CylinderGeometry(frameRadius, frameRadius, GOAL.rearWidth, 12),
+    frameMat
+);
+backBottom.rotation.z = Math.PI / 2;
+backBottom.position.set(0, frameRadius, -netDepth);
+game.net.add(backBottom);
 
 function createNettingTexture() {
     const canvas = document.createElement('canvas');
@@ -335,12 +361,110 @@ function createNettingTexture() {
     return tex;
 }
 const nettingMat = new THREE.MeshBasicMaterial({ map: createNettingTexture(), transparent: true, side: THREE.DoubleSide, opacity: 0.7 });
-const backNet = new THREE.Mesh(new THREE.PlaneGeometry(netWidth, netHeight), nettingMat); backNet.position.set(0, netHeight/2, -netDepth);
-const sideNetGeo = new THREE.PlaneGeometry(netDepth, netHeight);
-const leftNet = new THREE.Mesh(sideNetGeo, nettingMat); leftNet.rotation.y = Math.PI/2; leftNet.position.set(-netWidth/2, netHeight/2, -netDepth/2);
-const rightNet = new THREE.Mesh(sideNetGeo, nettingMat); rightNet.rotation.y = -Math.PI/2; rightNet.position.set(netWidth/2, netHeight/2, -netDepth/2);
-const topNet = new THREE.Mesh(new THREE.PlaneGeometry(netWidth, netDepth), nettingMat); topNet.rotation.x = Math.PI/2; topNet.position.set(0, netHeight, -netDepth/2);
-game.net.add(backNet, leftNet, rightNet, topNet);
+function createNetSurface(rows, columns, getPosition) {
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    for (let row = 0; row <= rows; row++) {
+        for (let column = 0; column <= columns; column++) {
+            const position = getPosition(row / rows, column / columns);
+            positions.push(position.x, position.y, position.z);
+            uvs.push(column / columns, row / rows);
+        }
+    }
+    for (let row = 0; row < rows; row++) {
+        for (let column = 0; column < columns; column++) {
+            const a = row * (columns + 1) + column;
+            const b = a + columns + 1;
+            indices.push(a, b, a + 1, b, b + 1, a + 1);
+        }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    return geometry;
+}
+
+function createNetLines(rows, columns, getPosition, material) {
+    const positions = [];
+    const addLine = (start, end) => positions.push(start.x, start.y, start.z, end.x, end.y, end.z);
+    for (let row = 0; row <= rows; row++) {
+        for (let column = 0; column < columns; column++) {
+            addLine(getPosition(row / rows, column / columns), getPosition(row / rows, (column + 1) / columns));
+        }
+    }
+    for (let column = 0; column <= columns; column++) {
+        for (let row = 0; row < rows; row++) {
+            addLine(getPosition(row / rows, column / columns), getPosition((row + 1) / rows, column / columns));
+        }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    return new THREE.LineSegments(geometry, material);
+}
+
+function netWidthAtDepth(depth) {
+    const cornerProgress = THREE.MathUtils.clamp((depth - (netDepth - GOAL.cornerRadius)) / GOAL.cornerRadius, 0, 1);
+    const roundedCorner = cornerProgress * cornerProgress * (3 - 2 * cornerProgress);
+    return netWidth / 2 - GOAL.cornerRadius * roundedCorner;
+}
+
+function netHeightAtDepth(depth) {
+    return THREE.MathUtils.lerp(netHeight, GOAL.rearHeight, depth / netDepth);
+}
+
+const backNet = new THREE.Mesh(
+    new THREE.PlaneGeometry(GOAL.rearWidth, GOAL.rearHeight),
+    nettingMat
+);
+backNet.position.set(0, GOAL.rearHeight / 2, -netDepth);
+const sideNetGeo = createNetSurface(16, 8, (depthProgress, heightProgress) => {
+    const depth = depthProgress * netDepth;
+    return new THREE.Vector3(
+        netWidthAtDepth(depth),
+        frameRadius + (netHeightAtDepth(depth) - frameRadius) * heightProgress,
+        -depth
+    );
+});
+const leftNet = new THREE.Mesh(sideNetGeo, nettingMat);
+const rightNet = new THREE.Mesh(sideNetGeo, nettingMat);
+leftNet.scale.x = -1;
+const topNet = new THREE.Mesh(
+    createNetSurface(16, 8, (depthProgress, widthProgress) => {
+        const depth = depthProgress * netDepth;
+        const halfWidth = netWidthAtDepth(depth);
+        return new THREE.Vector3(
+            -halfWidth + 2 * halfWidth * widthProgress,
+            netHeightAtDepth(depth),
+            -depth
+        );
+    }),
+    nettingMat
+);
+const netLineMat = new THREE.LineBasicMaterial({ color: 0x9ca3af, transparent: true, opacity: 0.85 });
+const backNetLines = createNetLines(6, 8, (heightProgress, widthProgress) => new THREE.Vector3(
+    -GOAL.rearWidth / 2 + GOAL.rearWidth * widthProgress,
+    frameRadius + (GOAL.rearHeight - frameRadius) * heightProgress,
+    -netDepth - 1
+), netLineMat);
+const topNetLines = createNetLines(8, 8, (depthProgress, widthProgress) => {
+    const depth = depthProgress * netDepth;
+    const halfWidth = netWidthAtDepth(depth);
+    return new THREE.Vector3(-halfWidth + 2 * halfWidth * widthProgress, netHeightAtDepth(depth), -depth);
+}, netLineMat);
+game.net.add(backNet, leftNet, rightNet, topNet, backNetLines, topNetLines);
+for (const side of [-1, 1]) {
+    game.net.add(createNetLines(8, 6, (depthProgress, heightProgress) => {
+        const depth = depthProgress * netDepth;
+        return new THREE.Vector3(
+            side * netWidthAtDepth(depth),
+            frameRadius + (netHeightAtDepth(depth) - frameRadius) * heightProgress,
+            -depth
+        );
+    }, netLineMat));
+}
 game.net.position.set(0, 0, -26000);
 scene.add(game.net);
 

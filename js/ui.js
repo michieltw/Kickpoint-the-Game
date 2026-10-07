@@ -1,7 +1,7 @@
-import { appState, state, game } from './state.js';
-import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js';
-import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js';
-import { camera, renderer } from './scene.js';
+import { appState, state, game } from './state.js?v=goal-net-3';
+import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=goal-net-3';
+import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=goal-net-3';
+import { camera, renderer } from './scene.js?v=goal-net-3';
 
 export function updateUiMode() {
   const splash = document.getElementById('splash-screen');

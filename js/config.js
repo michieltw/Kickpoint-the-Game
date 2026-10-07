@@ -11,7 +11,7 @@ export const DEFAULT_STIFFNESS_CURVE = [
 ];
 
 export const gameSettings = {
-  shotSpeed: 1,
+  shotSpeed: 1.9,
   swipeRange: 1,
   kickpointEffect: 1,
   minSwipeSpeed: 0.3,

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { appState, state, game, swipeData } from './state.js';
-import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js';
-import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine } from './scene.js';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
-import { bindInput } from './input.js';
+import { appState, state, game, swipeData } from './state.js?v=goal-net-3';
+import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=goal-net-3';
+import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=goal-net-3';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=goal-net-3';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=goal-net-3';
+import { bindInput } from './input.js?v=goal-net-3';
 
 const MODEL_URL = 'https://raw.githubusercontent.com/michieltw/GLB-s/main/glb_files_retextured/P28-ST.glb';
 
@@ -118,7 +118,184 @@ function refreshReplayControls() {
 
 window.triggerPuckReset = resetPuck;
 
+let puckResetTimeout = null;
+let goalOverlay = null;
+
+function schedulePuckReset(delay) {
+  if (puckResetTimeout !== null) return;
+  puckResetTimeout = window.setTimeout(() => {
+    puckResetTimeout = null;
+    resetPuck();
+  }, delay);
+}
+
+function finishMissedShot() {
+  if (game.puckState !== 'shot') return;
+  game.puckState = 'missed';
+  game.puckVelocity.set(0, 0, 0);
+  game.replayRecording = false;
+  document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
+  schedulePuckReset(2000);
+}
+
+function closestPointsOnSegments(firstStart, firstEnd, secondStart, secondEnd) {
+  const firstDirection = firstEnd.clone().sub(firstStart);
+  const secondDirection = secondEnd.clone().sub(secondStart);
+  const startOffset = firstStart.clone().sub(secondStart);
+  const firstLengthSq = firstDirection.lengthSq();
+  const secondLengthSq = secondDirection.lengthSq();
+  const directionDot = firstDirection.dot(secondDirection);
+  const firstOffsetDot = firstDirection.dot(startOffset);
+  const secondOffsetDot = secondDirection.dot(startOffset);
+  if (firstLengthSq < 1e-8) {
+    const secondProgress = THREE.MathUtils.clamp(secondOffsetDot / secondLengthSq, 0, 1);
+    return {
+      puckPoint: firstStart.clone(),
+      framePoint: secondStart.clone().addScaledVector(secondDirection, secondProgress)
+    };
+  }
+  const denominator = firstLengthSq * secondLengthSq - directionDot * directionDot;
+  let firstProgress = denominator > 0 ? THREE.MathUtils.clamp(
+    (directionDot * secondOffsetDot - firstOffsetDot * secondLengthSq) / denominator,
+    0,
+    1
+  ) : 0;
+  let secondProgress = (directionDot * firstProgress + secondOffsetDot) / secondLengthSq;
+
+  if (secondProgress < 0) {
+    secondProgress = 0;
+    firstProgress = THREE.MathUtils.clamp(-firstOffsetDot / firstLengthSq, 0, 1);
+  } else if (secondProgress > 1) {
+    secondProgress = 1;
+    firstProgress = THREE.MathUtils.clamp((directionDot - firstOffsetDot) / firstLengthSq, 0, 1);
+  }
+
+  return {
+    puckPoint: firstStart.clone().addScaledVector(firstDirection, firstProgress),
+    framePoint: secondStart.clone().addScaledVector(secondDirection, secondProgress)
+  };
+}
+
+function resolveGoalCollisions(previousPosition) {
+  const netX = game.net.position.x;
+  const netZ = game.net.position.z;
+  const puckRadius = 38;
+  const collisionRadius = puckRadius + GOAL.postRadius;
+  const frameSegments = [
+    [
+      new THREE.Vector3(netX - GOAL.width / 2, 0, netZ),
+      new THREE.Vector3(netX - GOAL.width / 2, GOAL.height, netZ)
+    ],
+    [
+      new THREE.Vector3(netX + GOAL.width / 2, 0, netZ),
+      new THREE.Vector3(netX + GOAL.width / 2, GOAL.height, netZ)
+    ],
+    [
+      new THREE.Vector3(netX - GOAL.width / 2, GOAL.height, netZ),
+      new THREE.Vector3(netX + GOAL.width / 2, GOAL.height, netZ)
+    ]
+  ];
+
+  for (const [frameStart, frameEnd] of frameSegments) {
+    const { puckPoint, framePoint } = closestPointsOnSegments(
+      previousPosition,
+      game.puck.position,
+      frameStart,
+      frameEnd
+    );
+    if (puckPoint.distanceToSquared(framePoint) >= collisionRadius * collisionRadius) continue;
+    const previousFramePoint = closestPointsOnSegments(
+      previousPosition,
+      previousPosition,
+      frameStart,
+      frameEnd
+    ).framePoint;
+    const normal = previousPosition.clone().sub(previousFramePoint);
+    if (normal.lengthSq() < 0.001) normal.copy(game.puckVelocity).negate();
+    if (normal.lengthSq() < 0.001) normal.set(0, 1, 0);
+    normal.normalize();
+    game.puck.position.copy(framePoint).addScaledVector(normal, collisionRadius + 0.5);
+    if (game.puckVelocity.dot(normal) < 0) {
+      game.puckVelocity.reflect(normal).multiplyScalar(0.65);
+    }
+  }
+
+  const rearPlane = netZ - GOAL.depth;
+  const crossedRearNet = previousPosition.z > rearPlane && game.puck.position.z <= rearPlane;
+  const crossedBackIntoNet = previousPosition.z < rearPlane && game.puck.position.z >= rearPlane;
+  const withinRearNet = Math.abs(game.puck.position.x - netX) < GOAL.rearWidth / 2 + puckRadius &&
+    game.puck.position.y > -puckRadius && game.puck.position.y < GOAL.rearHeight + puckRadius;
+  if (withinRearNet && crossedRearNet) {
+    game.puck.position.z = rearPlane + puckRadius + 0.5;
+    if (game.puckVelocity.z < 0) game.puckVelocity.z *= -0.55;
+  } else if (withinRearNet && crossedBackIntoNet) {
+    game.puck.position.z = rearPlane - puckRadius - 0.5;
+    if (game.puckVelocity.z > 0) game.puckVelocity.z *= -0.55;
+  }
+
+  const depth = netZ - game.puck.position.z;
+  if (depth < 0 || depth > GOAL.depth) return;
+
+  const cornerProgress = THREE.MathUtils.clamp(
+    (depth - (GOAL.depth - GOAL.cornerRadius)) / GOAL.cornerRadius,
+    0,
+    1
+  );
+  const roundedCorner = cornerProgress * cornerProgress * (3 - 2 * cornerProgress);
+  const halfWidth = GOAL.width / 2 - GOAL.cornerRadius * roundedCorner;
+  const roofHeight = THREE.MathUtils.lerp(GOAL.height, GOAL.rearHeight, depth / GOAL.depth);
+  const previousDepth = THREE.MathUtils.clamp(netZ - previousPosition.z, 0, GOAL.depth);
+  const previousCornerProgress = THREE.MathUtils.clamp(
+    (previousDepth - (GOAL.depth - GOAL.cornerRadius)) / GOAL.cornerRadius,
+    0,
+    1
+  );
+  const previousRoundedCorner = previousCornerProgress * previousCornerProgress * (3 - 2 * previousCornerProgress);
+  const previousHalfWidth = GOAL.width / 2 - GOAL.cornerRadius * previousRoundedCorner;
+  const previousSideDistance = Math.abs(previousPosition.x - netX) - previousHalfWidth;
+  const currentSideDistance = Math.abs(game.puck.position.x - netX) - halfWidth;
+
+  const crossedSideNet = (previousSideDistance < -puckRadius && currentSideDistance >= -puckRadius) ||
+    (previousSideDistance > puckRadius && currentSideDistance <= puckRadius) ||
+    previousSideDistance * currentSideDistance <= 0;
+  if (crossedSideNet && game.puck.position.y > 20 - puckRadius && game.puck.position.y < roofHeight + puckRadius) {
+    const side = Math.sign(game.puck.position.x - netX) || 1;
+    const cameFromOutside = previousSideDistance > 0;
+    const contactSide = cameFromOutside ? side * (halfWidth + puckRadius + 0.5) : side * (halfWidth - puckRadius - 0.5);
+    game.puck.position.x = netX + contactSide;
+    if ((cameFromOutside && game.puckVelocity.x * side < 0) ||
+        (!cameFromOutside && game.puckVelocity.x * side > 0)) {
+      game.puckVelocity.x *= -0.55;
+    }
+  }
+
+  const roofGap = game.puck.position.y - roofHeight;
+  const previousRoofHeight = THREE.MathUtils.lerp(GOAL.height, GOAL.rearHeight, previousDepth / GOAL.depth);
+  const previousRoofGap = previousPosition.y - previousRoofHeight;
+  const crossedRoofNet = (previousRoofGap < -puckRadius && roofGap >= -puckRadius) ||
+    (previousRoofGap > puckRadius && roofGap <= puckRadius) ||
+    previousRoofGap * roofGap <= 0;
+  if (crossedRoofNet && Math.abs(game.puck.position.x - netX) < halfWidth + puckRadius) {
+    const cameFromAbove = previousRoofGap > 0;
+    game.puck.position.y = roofHeight + (cameFromAbove ? puckRadius + 0.5 : -puckRadius - 0.5);
+    const roofNormal = new THREE.Vector3(0, 1, -((GOAL.height - GOAL.rearHeight) / GOAL.depth)).normalize();
+    if ((cameFromAbove && game.puckVelocity.dot(roofNormal) < 0) ||
+        (!cameFromAbove && game.puckVelocity.dot(roofNormal) > 0)) {
+      game.puckVelocity.reflect(roofNormal).multiplyScalar(0.55);
+    }
+  }
+}
+
 function resetPuck() {
+  if (puckResetTimeout !== null) {
+    window.clearTimeout(puckResetTimeout);
+    puckResetTimeout = null;
+  }
+  if (goalOverlay) {
+    goalOverlay.remove();
+    goalOverlay = null;
+  }
+
   if (game.mode === 'randomSpawn') {
       // Offensive zone: from roughly blue line (z=-10000) to below the circles (z=-20000)
       // Avoid edges: limit width to roughly +/- 6000
@@ -177,12 +354,11 @@ function resetPuck() {
       aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
   }
 
-  if (state.isPlaying) {
-     state.isPlaying = false;
-     document.getElementById('btnPlay').textContent = '▶ Play';
-     state.timeline = 0;
-     updatePhysics();
-  }
+  state.isPlaying = false;
+  state.timeline = 0;
+  playDirection = 1;
+  document.getElementById('btnPlay').textContent = '▶ Play';
+  updatePhysics();
 }
 
 // Bind replay buttons
@@ -252,11 +428,11 @@ function spawnTargets() {
         });
     }
 
-    // Goal net dimensions roughly: width=1830, height=1220
+    // Target practice places targets within the goal opening.
     const netX = game.net.position.x;
     const netZ = game.net.position.z;
-    const netWidth = 1830;
-    const netHeight = 1220;
+    const netWidth = GOAL.width;
+    const netHeight = GOAL.height;
 
     const offsets = [
         { x: -netWidth/2 + targetRadius - 30, y: netHeight - targetRadius + 30 }, // Top Left
@@ -336,7 +512,13 @@ function animate() {
     let next = state.timeline + stepRate * playDirection;
     if (next >= 1200) {
       next = 1200;
-      playDirection = -1;
+      if (game.puckState === 'shot' || game.puckState === 'goal' || game.puckState === 'missed') {
+        state.isPlaying = false;
+        playDirection = 1;
+        document.getElementById('btnPlay').textContent = '▶ Play';
+      } else {
+        playDirection = -1;
+      }
     } else if (next <= 0) {
       next = 0;
       playDirection = 1;
@@ -475,6 +657,7 @@ function animate() {
 
   // Puck Physics
   if (game.puckState === 'shot' || game.puckState === 'goal') {
+    const previousPuckPosition = game.puck.position.clone();
     if (game.puckState === 'goal') game.puckVelocity.y -= 3800 * delta;
     if (game.puckState === 'shot') {
       game.shotElapsed += delta;
@@ -522,6 +705,7 @@ function animate() {
     }
 
     if (game.puckState === 'shot') {
+       resolveGoalCollisions(previousPuckPosition);
        const netX = game.net.position.x;
        const netZ = game.net.position.z;
 
@@ -546,39 +730,48 @@ function animate() {
            }
        }
 
-       if (game.puck.position.z < netZ && game.puck.position.z > netZ - 1000) {
-         if (Math.abs(game.puck.position.x - netX) < (1830 / 2) && game.puck.position.y < 1220) {
+       const crossedGoalLine = previousPuckPosition.z >= netZ && game.puck.position.z < netZ;
+       const crossingProgress = crossedGoalLine
+         ? (previousPuckPosition.z - netZ) / (previousPuckPosition.z - game.puck.position.z)
+         : 0;
+       const crossingX = THREE.MathUtils.lerp(previousPuckPosition.x, game.puck.position.x, crossingProgress);
+       const crossingY = THREE.MathUtils.lerp(previousPuckPosition.y, game.puck.position.y, crossingProgress);
+       if (crossedGoalLine &&
+           Math.abs(crossingX - netX) < GOAL.width / 2 - GOAL.postRadius - 38 &&
+           crossingY > 12.5 &&
+           crossingY < GOAL.height - GOAL.postRadius - 38) {
             game.puckState = 'goal';
             game.score++;
             updateGameScore();
-            const goalEl = document.createElement('div');
-            goalEl.textContent = 'GOAL!';
-            goalEl.style.position = 'absolute';
-            goalEl.style.top = '50%';
-            goalEl.style.left = '50%';
-            goalEl.style.transform = 'translate(-50%, -50%)';
-            goalEl.style.fontSize = '80px';
-            goalEl.style.color = '#ff0000';
-            goalEl.style.fontWeight = 'bold';
-            goalEl.style.textShadow = '0 0 20px rgba(255,0,0,0.8)';
-            goalEl.style.pointerEvents = 'none';
-            goalEl.style.zIndex = '50';
-            document.body.appendChild(goalEl);
+            goalOverlay = document.createElement('div');
+            goalOverlay.textContent = 'GOAL!';
+            goalOverlay.style.position = 'absolute';
+            goalOverlay.style.top = '50%';
+            goalOverlay.style.left = '50%';
+            goalOverlay.style.transform = 'translate(-50%, -50%)';
+            goalOverlay.style.fontSize = '80px';
+            goalOverlay.style.color = '#ff0000';
+            goalOverlay.style.fontWeight = 'bold';
+            goalOverlay.style.textShadow = '0 0 20px rgba(255,0,0,0.8)';
+            goalOverlay.style.pointerEvents = 'none';
+            goalOverlay.style.zIndex = '50';
+            document.body.appendChild(goalOverlay);
 
             game.puckVelocity.multiplyScalar(0.1);
             game.replayFrames.push(captureReplayFrame());
             game.replayRecording = false;
             document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
 
-            setTimeout(() => { goalEl.remove(); resetPuck(); }, 2000);
-         }
+            schedulePuckReset(2000);
        }
-       if (game.puck.position.z < -30500 || Math.abs(game.puck.position.x) > 13000) {
-          resetPuck();
-       } else if (game.puckVelocity.lengthSq() < 1000 && game.puck.position.z < -20600) {
-          resetPuck();
-       } else if (game.shotElapsed > 8) {
-          resetPuck();
+       if (game.puckState === 'shot' && (
+         game.puck.position.z < netZ - 1000 ||
+         game.puck.position.z < -30500 ||
+         Math.abs(game.puck.position.x) > 13000 ||
+         (game.puckVelocity.lengthSq() < 1000 && game.puck.position.z < -20600) ||
+         game.shotElapsed > 8
+       )) {
+          finishMissedShot();
        }
     }
   }
