@@ -416,5 +416,6 @@ export let stickParams = {
     ghostStickMesh: null,
     stickRestY: 0,
     originalPositions: null,
-    vertexRows: null
+    vertexRows: null,
+    initialGroupPosition: null // We will store the exactly aligned initial group position here
 };

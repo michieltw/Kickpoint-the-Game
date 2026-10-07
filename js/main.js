@@ -71,16 +71,23 @@ function resetPuck() {
       game.puck.position.set(randomX, 12.5, randomZ);
 
       // Also update stick position to follow the puck in randomSpawn mode
-      if (stickParams.stickGroup) {
-          stickParams.stickGroup.position.set(randomX - 95, stickParams.stickRestY || 0, randomZ - 380);
+      if (stickParams.stickGroup && stickParams.initialGroupPosition) {
+          // Puck's default start is 95, 12.5, -20120. Calculate delta to new puck pos:
+          const deltaX = randomX - 95;
+          const deltaZ = randomZ - (-20120);
+          stickParams.stickGroup.position.set(
+              stickParams.initialGroupPosition.x + deltaX,
+              stickParams.stickRestY,
+              stickParams.initialGroupPosition.z + deltaZ
+          );
       }
       // Update camera and controls to follow the random spawn
       camera.position.set(randomX, 1000, randomZ + 2420);
       controls.target.set(randomX, 600, randomZ - 580);
   } else {
       game.puck.position.set(95, 12.5, -20120);
-      if (stickParams.stickGroup && stickParams.stickRestY !== undefined) {
-          stickParams.stickGroup.position.set(0, stickParams.stickRestY, -20500);
+      if (stickParams.stickGroup && stickParams.initialGroupPosition) {
+          stickParams.stickGroup.position.copy(stickParams.initialGroupPosition);
       }
       camera.position.set(0, 1000, -17700);
       controls.target.set(0, 600, -20700);
@@ -666,6 +673,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const initialStickBox = new THREE.Box3().setFromObject(stickParams.stickGroup, true);
       stickParams.stickGroup.position.y -= initialStickBox.min.y;
       stickParams.stickRestY = stickParams.stickGroup.position.y;
+
+      // Store the exactly aligned start position
+      stickParams.initialGroupPosition = stickParams.stickGroup.position.clone();
 
       appState.mode = 'menu';
       updateUiMode();
