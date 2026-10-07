@@ -21,11 +21,7 @@ export function getGoalAim(clientX, clientY, pathErrorX = 0) {
   const point = raycaster.ray.intersectPlane(goalPlane, hit)
     ? hit
     : new THREE.Vector3(fallbackX, fallbackY, game.net.position.z);
-  return new THREE.Vector3(
-    THREE.MathUtils.clamp(point.x, -netWidth / 2 - 500, netWidth / 2 + 500),
-    THREE.MathUtils.clamp(point.y, 25, netHeight + 400),
-    game.net.position.z
-  );
+  return new THREE.Vector3(point.x, point.y, game.net.position.z);
 }
 
 export function bindInput(controls, syncUiFromState) {
@@ -102,12 +98,12 @@ export function bindInput(controls, syncUiFromState) {
         const signedPathError = Math.sign(maxPathErrorX) * effectivePathError;
         swipeData.accuracy = signedPathError / window.innerWidth;
         game.shotAim = getGoalAim(swipeData.endX, swipeData.endY);
-        const netWidth = 1830;
-        game.shotDeviationX = THREE.MathUtils.clamp(
-          (signedPathError / window.innerWidth) * netWidth * 0.75 * gameSettings.deviationPenalty,
-          -netWidth * 0.35,
-          netWidth * 0.35
+        const inaccurateAim = getGoalAim(
+          swipeData.endX,
+          swipeData.endY,
+          signedPathError * gameSettings.deviationPenalty
         );
+        game.shotDeviationX = inaccurateAim.x - game.shotAim.x;
         const stiffnessDynamics = getStiffnessDynamics();
         game.contactTime = Math.max(540, Math.min(660, 600 * stiffnessDynamics.timingScale));
         game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;

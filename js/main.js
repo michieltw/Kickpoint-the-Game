@@ -16,6 +16,62 @@ let lastTime = performance.now();
 let replayPaused = false;
 let replayDirection = 1;
 
+function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier) {
+  const gravity = 9810;
+  const delta = target.clone().sub(start);
+  // Find the flight time at the requested speed that compensates for gravity.
+  const getVelocityAtTime = (time) => new THREE.Vector3(
+    delta.x / (speedMultiplier * time),
+    delta.y / (speedMultiplier * time) + gravity * time / (2 * speedMultiplier),
+    delta.z / (speedMultiplier * time)
+  );
+  const getSpeedError = (time) => getVelocityAtTime(time).length() - speed;
+  const minTime = 0.02;
+  const maxTime = 4;
+  const samples = 256;
+  let bestTime = minTime;
+  let bestError = Math.abs(getSpeedError(minTime));
+  let previousTime = minTime;
+  let previousError = getSpeedError(previousTime);
+  let bracket = null;
+
+  for (let i = 1; i <= samples; i++) {
+    const time = minTime + (maxTime - minTime) * i / samples;
+    const error = getSpeedError(time);
+    if (Math.abs(error) < bestError) {
+      bestTime = time;
+      bestError = Math.abs(error);
+    }
+    if (previousError * error <= 0) {
+      bracket = [previousTime, time];
+      break;
+    }
+    previousTime = time;
+    previousError = error;
+  }
+
+  if (bracket) {
+    let [low, high] = bracket;
+    let lowError = getSpeedError(low);
+    for (let i = 0; i < 32; i++) {
+      const middle = (low + high) / 2;
+      const middleError = getSpeedError(middle);
+      if (lowError * middleError <= 0) {
+        high = middle;
+      } else {
+        low = middle;
+        lowError = middleError;
+      }
+    }
+    bestTime = (low + high) / 2;
+  }
+
+  return {
+    velocity: getVelocityAtTime(bestTime),
+    flightTime: bestTime
+  };
+}
+
 function updateGameScore() {
   document.getElementById('score-val').textContent = game.score;
   document.getElementById('shots-val').textContent = game.shots;
@@ -368,14 +424,9 @@ function animate() {
 
       if (bladeHasStartedSlowing || releaseSafetyLimitReached || rollOffBlade) {
         const target = game.shotAim || new THREE.Vector3(0, 300, game.net.position.z);
-        const aimDeltaX = target.x - game.puck.position.x;
-        if (game.shotDeviationX * aimDeltaX < 0) {
-          game.shotDeviationX = -Math.sign(aimDeltaX) * Math.min(Math.abs(game.shotDeviationX), Math.abs(aimDeltaX) * 0.5);
-        }
         const flightTarget = target.clone();
         flightTarget.x += game.shotDeviationX;
-        flightTarget.z = game.net.position.z - 50;
-        const shotDirection = flightTarget.clone().sub(game.puck.position).normalize();
+        flightTarget.z = game.net.position.z - 1;
         const stiffnessDynamics = getStiffnessDynamics();
         const swipePower = swipeData.power ? swipeData.power / 100 : 0.8;
         const whip = state.bladeWhipStrength / 100;
@@ -384,8 +435,13 @@ function animate() {
         const weightPenalty = (StickCustomizerState.weightFactor - 1.0) * 0.15; // heavier = slower
 
         const swipeDrivenSpeed = (5000 + 7000 * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale * (1.0 - weightPenalty);
-        const launchVelocity = shotDirection.multiplyScalar(swipeDrivenSpeed).add(game.bladeVelocity);
-        game.puckVelocity.copy(launchVelocity.multiplyScalar(gameSettings.shotSpeed));
+        const aimAdjustedLaunch = getAimAdjustedLaunchVelocity(
+          game.puck.position,
+          flightTarget,
+          swipeDrivenSpeed,
+          gameSettings.shotSpeed
+        );
+        game.puckVelocity.copy(aimAdjustedLaunch.velocity).multiplyScalar(gameSettings.shotSpeed);
         const speed = game.puckVelocity.length();
 
         // Calculate and show speed in km/h or mph.
@@ -399,7 +455,7 @@ function animate() {
         document.getElementById('speed-overlay').style.display = 'block';
 
         game.flightStart.copy(game.puck.position);
-        game.flightDuration = game.flightStart.distanceTo(flightTarget) / speed;
+        game.flightDuration = aimAdjustedLaunch.flightTime;
 
         game.shotElapsed = 0;
         game.shotWobbleOffset = 0;
@@ -422,8 +478,10 @@ function animate() {
     if (game.puckState === 'goal') game.puckVelocity.y -= 3800 * delta;
     if (game.puckState === 'shot') {
       game.shotElapsed += delta;
+      game.puck.position.x += game.puckVelocity.x * delta;
+      game.puck.position.y += game.puckVelocity.y * delta - 0.5 * 9810 * delta * delta;
+      game.puck.position.z += game.puckVelocity.z * delta;
       game.puckVelocity.y -= 9810 * delta;
-      game.puck.position.addScaledVector(game.puckVelocity, delta);
       const wobbleAmount = THREE.MathUtils.clamp(game.shotWobble / 240, 0, 1);
       const turbulence = Math.sin(game.shotElapsed * 24) * wobbleAmount * 0.12;
       game.puck.rotation.set(turbulence, game.shotElapsed * 8, Math.sin(game.shotElapsed * 19 + 0.8) * wobbleAmount * 0.08);
