@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Hockey Physics Workbench</title>
+  <link rel="stylesheet" href="css/style.css">
+
+  <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <!-- Splash Screen State -->
+  <div id="splash-screen">
+    <div class="splash-title">Hockey Game</div>
+    <div class="splash-loading" id="splash-text">LOADING ENGINE...</div>
+  </div>
+
+  <div id="main-menu" class="hidden glass-panel" style="border: none; box-shadow: none; border-radius: 0;">
+    <div class="menu-title">Hockey Game</div>
+    <button class="menu-btn" id="btnPlayNow">Play Now</button>
+    <button class="menu-btn secondary" id="btnSettings">Settings & Customize</button>
+  </div>
+
+  <section id="game-settings" class="hidden glass-panel" style="border:none; box-shadow:none; border-radius:0;" aria-label="Spelinstellingen">
+    <div class="game-settings-card glass-panel">
+      <h2>Spelinstellingen & Stick Customizer</h2>
+      <p>Configureer de gameplay mechanics en pas je stick aan.</p>
+
+      <!-- Gameplay Settings -->
+      <div class="game-setting-row">
+        <label for="settingShotSpeed">Schotsnelheid <output id="settingShotSpeedValue">100%</output></label>
+        <input id="settingShotSpeed" type="range" min="50" max="180" step="5" value="100">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingSwipeRange">Invloed sleepsnelheid op schot <output id="settingSwipeRangeValue">100%</output></label>
+        <input id="settingSwipeRange" type="range" min="50" max="200" step="5" value="100">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingKickpointEffect">Effect van kickpoint <output id="settingKickpointEffectValue">100%</output></label>
+        <input id="settingKickpointEffect" type="range" min="0" max="200" step="5" value="100">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingMinSwipeSpeed">Minimale sleepsnelheid <output id="settingMinSwipeSpeedValue">0,3 px/ms</output></label>
+        <input id="settingMinSwipeSpeed" type="range" min="0.1" max="1.5" step="0.1" value="0.3">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingPrecisionTolerance">Swipeprecisie-tolerantie <output id="settingPrecisionToleranceValue">12 px</output></label>
+        <input id="settingPrecisionTolerance" type="range" min="0" max="60" step="2" value="12">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingDeviationPenalty">Straf voor afwijking <output id="settingDeviationPenaltyValue">100%</output></label>
+        <input id="settingDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
+      </div>
+
+      <!-- Customizer UI Hook -->
+      <div class="customizer-section">
+        <h3 style="color: #fff; font-size: 14px; margin-bottom: 8px;">Stick Customizer</h3>
+
+        <div class="game-setting-row" style="margin-top:0;">
+            <label>Stick Kleur</label>
+            <select id="custColor" class="customizer-select">
+                <option value="#ffffff">Wit</option>
+                <option value="#000000">Zwart</option>
+                <option value="#ff0000">Rood</option>
+                <option value="#0000ff">Blauw</option>
+            </select>
+        </div>
+
+        <div class="game-setting-row">
+            <label>Model</label>
+            <select id="custModel" class="customizer-select">
+                <option value="P28-ST">P28-ST</option>
+            </select>
+        </div>
+
+        <label class="customizer-checkbox-label"><input type="checkbox" id="custShaftGrip"> Shaft Grip</label>
+        <label class="customizer-checkbox-label"><input type="checkbox" id="custBladeGrip"> Blade Grip</label>
+        <label class="customizer-checkbox-label"><input type="checkbox" id="custStickTape"> Stick Tape</label>
+
+        <div class="game-setting-row" style="margin-top: 12px;">
+            <label for="custFlex">Flex Waarde <output id="custFlexValue">90</output></label>
+            <input id="custFlex" type="range" min="40" max="120" step="5" value="90">
+        </div>
+
+        <div class="game-setting-row">
+            <label>Kickpoint Preset</label>
+            <select id="custKickpoint" class="customizer-select">
+                <option value="low">Low Kick</option>
+                <option value="hybrid">Hybrid Kick</option>
+                <option value="mid">Mid Kick</option>
+            </select>
+        </div>
+
+        <div class="game-setting-row">
+            <label for="custThickness">Shaft Wanddikte (mm) - <span style="font-weight:normal; color:#aaa;">Bepaalt gewicht</span> <output id="custThicknessValue">2.0</output></label>
+            <input id="custThickness" type="range" min="1.0" max="4.0" step="0.1" value="2.0">
+        </div>
+      </div>
+
+      <div class="game-settings-actions">
+        <button class="menu-btn" id="btnSettingsPlay" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Terug naar spel</button>
+        <button class="menu-btn secondary" id="btnPhysicsSettings" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Physics Simulator</button>
+        <button class="menu-btn secondary" id="btnGameSettingsBack" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Hoofdmenu</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="canvas-container"></div>
+
+  <div id="game-ui">
+    <div class="top-bar">
+      <div class="badge-card glass-panel">
+        <h1><span>🏒</span> Hockey Game</h1>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn-action glass-panel" id="btnMenu" title="Hoofdmenu">☰ Menu</button>
+        <button class="btn-action glass-panel" id="btnInstantReplay" title="Speel het laatste schot opnieuw" disabled>⟲ Replay</button>
+        <button class="btn-action glass-panel" id="btnResetAll" title="Herstel standaardwaarden">↺ Reset</button>
+      </div>
+    </div>
+
+    <div id="score-overlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #fff; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: flex; gap: 40px; pointer-events: none;">
+      <div>Score: <span id="score-val">0</span></div>
+      <div>Shots: <span id="shots-val">0</span></div>
+    </div>
+
+    <div id="replay-controls" class="glass-panel" aria-label="Replay bediening">
+      <div class="replay-toolbar">
+        <button id="replayRewind" title="Terugspoelen">◀◀ Terug</button>
+        <button id="replayStepBack" title="Eén frame terug">◀ Frame</button>
+        <button id="replayPlayPause">❚❚ Pauze</button>
+        <button id="replayStepForward" title="Eén frame vooruit">Frame ▶</button>
+        <label class="replay-toggle"><input id="ghostStickToggle" type="checkbox" checked> Ghost stick</label>
+        <label class="replay-toggle"><input id="ghostPuckToggle" type="checkbox" checked> Ghost puck</label>
+        <label for="replaySpeed" class="replay-toggle">Snelheid</label>
+        <select id="replaySpeed" aria-label="Replay snelheid">
+          <option value="0.25">0,25×</option><option value="0.5">0,5×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option>
+        </select>
+        <input id="replayTimeline" type="range" min="0" max="0" step="0.1" value="0" aria-label="Handmatige replaypositie">
+        <span id="replayFrameLabel">0 / 0</span>
+      </div>
+    </div>
+
+    <!-- Swipe Zone Element -->
+    <div id="swipeZone" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 25vh; z-index: 5; touch-action: none; background: linear-gradient(to top, rgba(255,255,255,0.05), transparent); border-top: 1px dashed rgba(255,255,255,0.2); pointer-events: auto; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px; font-weight: bold; color: rgba(255,255,255,0.5); font-size: 14px;">
+      Start Swipe Hier
+    </div>
+  </div>
+
+  <!-- Floating Workbench Controls Panel -->
+  <div class="workbench-panel collapsed glass-panel" style="display: none;" id="workbenchPanel">
+    <div class="panel-header">
+      <h2>⚙ Physics Simulator</h2>
+      <div>
+        <button id="btnSettingsBack" style="background: none; border: 1px solid #fff; color: #fff; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; margin-right: 8px;">Back</button>
+        <span id="collapseIcon" style="font-size: 11px; color: #aaa;">▼ Inklappen</span>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <!-- Shaft force controls -->
+      <div class="control-group">
+        <div class="group-title">
+          <span>1. Schacht &amp; Fulcrum Geometrie</span>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Onderhandschoen Positie</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slBottomGlovePos" min="10" max="90" step="1" class="param-slider" />
+            <input type="number" id="numBottomGlovePos" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Onderhand Duwkracht</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slBottomGloveAmp" min="-100" max="100" step="1" class="param-slider" />
+            <input type="number" id="numBottomGloveAmp" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Bovenhand Trekkracht</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slTopHandAmp" min="-100" max="100" step="1" class="param-slider" />
+            <input type="number" id="numTopHandAmp" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Maximale Buigingshoek</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slMaxBend" min="5" max="60" step="1" class="param-slider" />
+            <input type="number" id="numMaxBend" class="param-num" />
+            <span class="param-unit">°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Lokaal stijfheidsprofiel -->
+      <div class="control-group">
+        <div class="group-title">
+          <span>2. Stiffness Profile</span>
+        </div>
+        <div class="param-header"><span>Afgeleid kickpoint:</span><strong id="kickpointReadout"></strong></div>
+        <div class="param-header"><span>Gemiddelde flex:</span><strong id="flexReadout"></strong></div>
+        <canvas id="stiffnessCurve" class="stiffness-editor"></canvas>
+        <button id="btnResetStiffness" class="btn-jump" style="width: 100%;">Reset Profile</button>
+      </div>
+
+      <!-- 3. Fulcrum & Release Dynamiek -->
+      <div class="control-group">
+        <div class="group-title">
+          <span>3. Release Dynamiek</span>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header"><span>Tophand Pull Start</span></div>
+          <div class="param-inputs">
+            <input type="range" id="slTopPullStart" min="600" max="850" step="10" class="param-slider" />
+            <input type="number" id="numTopPullStart" class="param-num" />
+            <span class="param-unit">ms</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header"><span>Tophand Neerwaarts</span></div>
+          <div class="param-inputs">
+            <input type="range" id="slTopPullDown" min="0" max="200" step="5" class="param-slider" />
+            <input type="number" id="numTopPullDown" class="param-num" />
+            <span class="param-unit">mm</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header"><span>Follow-Through Hoek</span></div>
+          <div class="param-inputs">
+            <input type="range" id="slFollowAngle" min="0" max="50" step="1" class="param-slider" />
+            <input type="number" id="numFollowAngle" class="param-num" />
+            <span class="param-unit">°</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header"><span>Blad Zwiepkracht</span></div>
+          <div class="param-inputs">
+            <input type="range" id="slBladeWhip" min="0" max="200" step="5" class="param-slider" />
+            <input type="number" id="numBladeWhip" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Tijdlijn & Simulatie -->
+      <div class="control-group">
+        <div class="group-title">
+          <span>4. Tijdlijn</span>
+          <span id="lblTimeline">600 ms</span>
+        </div>
+
+        <button id="btnHoldMax" class="btn-toggle active">✓ Vasthouden (600 ms)</button>
+
+        <div class="param-inputs" style="margin-top: 4px;">
+          <input type="range" id="slTimeline" min="0" max="1200" step="5" value="600" class="param-slider" />
+          <button id="btnPlay" class="btn-play">▶ Play</button>
+        </div>
+
+        <div class="quick-jumps">
+          <button class="btn-jump" data-time="0">0</button>
+          <button class="btn-jump" data-time="450">450</button>
+          <button class="btn-jump active" data-time="600">600</button>
+          <button class="btn-jump" data-time="750">750</button>
+          <button class="btn-jump" data-time="1000">1000</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
