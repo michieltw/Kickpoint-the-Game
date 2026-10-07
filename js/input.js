@@ -30,8 +30,18 @@ export function getGoalAim(clientX, clientY, pathErrorX = 0) {
 
 export function bindInput(controls, syncUiFromState) {
   const swipeZone = document.getElementById('swipeZone');
+  const aimCanvas = document.getElementById('aimTracerCanvas');
+  const aimCtx = aimCanvas.getContext('2d');
+
+  function resizeAimCanvas() {
+      aimCanvas.width = window.innerWidth;
+      aimCanvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resizeAimCanvas);
+  resizeAimCanvas();
 
   swipeZone.addEventListener('pointerdown', (e) => {
+    aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
     if (game.puckState !== 'idle' || state.isPlaying) return;
     swipeData.isSwiping = true;
     swipeData.startY = e.clientY;
@@ -101,6 +111,38 @@ export function bindInput(controls, syncUiFromState) {
         const stiffnessDynamics = getStiffnessDynamics();
         game.contactTime = Math.max(540, Math.min(660, 600 * stiffnessDynamics.timingScale));
         game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;
+
+        // Draw Aim Tracer if enabled
+        if(gameSettings.showAimTracer && swipeData.path.length > 1) {
+            aimCanvas.style.display = 'block';
+            aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
+
+            // Draw ideal straight line
+            aimCtx.beginPath();
+            aimCtx.moveTo(swipeData.startX, swipeData.startY);
+            aimCtx.lineTo(swipeData.endX, swipeData.endY);
+            aimCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            aimCtx.lineWidth = 4;
+            aimCtx.setLineDash([10, 10]);
+            aimCtx.stroke();
+
+            // Draw actual path
+            aimCtx.beginPath();
+            aimCtx.moveTo(swipeData.path[0].x, swipeData.path[0].y);
+            for(let i=1; i<swipeData.path.length; i++) {
+                aimCtx.lineTo(swipeData.path[i].x, swipeData.path[i].y);
+            }
+            aimCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+            aimCtx.lineWidth = 6;
+            aimCtx.setLineDash([]);
+            aimCtx.stroke();
+
+            // Draw accuracy text
+            const accuracyScore = Math.max(0, 100 - Math.abs(swipeData.accuracy) * 1000).toFixed(1);
+            aimCtx.font = "bold 24px monospace";
+            aimCtx.fillStyle = '#38bdf8';
+            aimCtx.fillText(`Acc: ${accuracyScore}%`, swipeData.endX + 20, swipeData.endY);
+        }
 
         swipeData.triggered = true;
         state.timeline = 0;

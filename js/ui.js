@@ -280,6 +280,18 @@ export function initUiBindings(updatePhysics) {
     });
 
     // Game settings bindings
+    document.getElementById('settingSpeedUnit').addEventListener('change', (e) => {
+        gameSettings.speedUnit = e.target.value;
+        document.getElementById('speed-unit-lbl').textContent = e.target.value === 'kmh' ? 'km/h' : 'mp/h';
+    });
+    document.getElementById('settingShowShotTracer').addEventListener('change', (e) => {
+        gameSettings.showShotTracer = e.target.checked;
+    });
+    document.getElementById('settingShowAimTracer').addEventListener('change', (e) => {
+        gameSettings.showAimTracer = e.target.checked;
+        if(!e.target.checked) document.getElementById('aimTracerCanvas').style.display = 'none';
+    });
+
     const settingBindings = [
         ['settingShotSpeed', 'settingShotSpeedValue', 'shotSpeed', value => `${value}%`, value => value / 100],
         ['settingSwipeRange', 'settingSwipeRangeValue', 'swipeRange', value => `${value}%`, value => value / 100],

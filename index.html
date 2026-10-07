@@ -20,14 +20,12 @@
 
   <!-- Splash Screen State -->
   <div id="splash-screen">
-    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo" alt="Blackout Hockey">
-    <div class="splash-title">Hockey Game</div>
+    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo" alt="Blackout Hockey">
     <div class="splash-loading" id="splash-text">LOADING ENGINE...</div>
   </div>
 
   <div id="main-menu" class="hidden glass-panel" style="border: none; box-shadow: none; border-radius: 0;">
-    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo" alt="Blackout Hockey">
-    <div class="menu-title" style="margin-top: 20px;">Hockey Game</div>
+    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo" alt="Blackout Hockey">
     <button class="menu-btn" id="btnPlayNow">Free Play</button>
     <button class="menu-btn" id="btnTargetPractice" style="background:#eab308; color:#000;">Target Practice</button>
     <button class="menu-btn secondary" id="btnSettings">Settings</button>
@@ -36,7 +34,7 @@
 
   <section id="game-settings" class="hidden glass-panel" style="border:none; box-shadow:none; border-radius:0;" aria-label="Spelinstellingen">
     <div class="game-settings-card glass-panel" style="position:relative;">
-      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo-small" alt="Blackout Hockey">
+      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Spelinstellingen</h2>
       <p>Configureer de gameplay mechanics.</p>
 
@@ -66,6 +64,21 @@
         <input id="settingDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
       </div>
 
+      <div class="customizer-section" style="margin-top: 10px; padding-top: 10px;">
+          <h3 style="color: #111; font-size: 14px; margin-bottom: 8px;">Display Options</h3>
+
+          <div class="game-setting-row">
+              <label>Snelheidsweergave (Speed Unit)</label>
+              <select id="settingSpeedUnit" class="customizer-select">
+                  <option value="kmh">km/h</option>
+                  <option value="mph">mp/h</option>
+              </select>
+          </div>
+
+          <label class="customizer-checkbox-label"><input type="checkbox" id="settingShowShotTracer" checked> Toon Shot Tracer (3D Lijn)</label>
+          <label class="customizer-checkbox-label"><input type="checkbox" id="settingShowAimTracer" checked> Toon Aim Tracer & Accuracy (2D Swipe)</label>
+      </div>
+
       <div class="game-settings-actions">
         <button class="menu-btn" id="btnSettingsPlay" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Terug naar spel</button>
         <button class="menu-btn secondary" id="btnPhysicsSettings" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Physics Simulator</button>
@@ -77,7 +90,7 @@
   <!-- Separate Customizer Menu -->
   <section id="stick-customizer" class="hidden glass-panel" style="position:absolute; inset:0; z-index: 45; border:none; box-shadow:none; border-radius:0; align-items: center; justify-content: center; padding: 20px; display: none;">
     <div class="game-settings-card glass-panel" style="position:relative;">
-      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Gemini_Generated_Image_h25yh9h25yh9h25y.png?v=1769770145" class="menu-logo-small" alt="Blackout Hockey">
+      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Stick Customizer</h2>
       <p>Personaliseer je stick visueel en fysiek.</p>
 
@@ -131,12 +144,10 @@
 
   <div id="canvas-container"></div>
 
+  <canvas id="aimTracerCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:4; display:none;"></canvas>
+
   <div id="game-ui">
     <div class="top-bar">
-      <div class="badge-card glass-panel">
-        <h1><span>🏒</span> Hockey Game</h1>
-      </div>
-
       <div class="top-actions">
         <button class="btn-action glass-panel" id="btnMenu" title="Hoofdmenu">☰ Menu</button>
         <button class="btn-action glass-panel" id="btnInstantReplay" title="Speel het laatste schot opnieuw" disabled>⟲ Replay</button>
@@ -147,6 +158,11 @@
     <div id="score-overlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #fff; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: flex; gap: 40px; pointer-events: none;">
       <div>Score: <span id="score-val">0</span></div>
       <div>Shots: <span id="shots-val">0</span></div>
+    </div>
+
+    <!-- Speed Counter overlay -->
+    <div id="speed-overlay" style="position: absolute; top: 25px; right: 30px; font-family: monospace; font-size: 42px; font-weight: 900; color: #ff0000; z-index: 10; text-shadow: 0 0 10px rgba(255,0,0,0.8); pointer-events: none; display: none;">
+      <span id="speed-val">0</span> <span id="speed-unit-lbl" style="font-size:18px;">km/h</span>
     </div>
 
     <!-- Target Mode HUD -->
