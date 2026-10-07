@@ -1,0 +1,2904 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>HockeystickPhysics_V2 - Standalone Physics Workbench & 3D Flex Simulatie</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #020617;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: #f8fafc;
+      touch-action: none;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      cursor: grab;
+      z-index: 1;
+    }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .badge-card {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 8px 16px;
+      border-radius: 14px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+      pointer-events: auto;
+    }
+    .badge-card h1 {
+      font-size: 14px;
+      font-weight: 900;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-card p {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+    .top-actions {
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    .btn-action {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #e2e8f0;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      backdrop-filter: blur(10px);
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .btn-action:hover {
+      background: rgba(30, 41, 59, 0.95);
+      color: #38bdf8;
+      border-color: #38bdf8;
+    }
+    .btn-action:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* Live Ticker Bar */
+    .ticker-bar {
+      position: absolute;
+      top: 68px;
+      left: 16px;
+      right: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      pointer-events: none;
+      z-index: 20;
+    }
+    .ticker-item {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(30, 41, 59, 0.9);
+      border-radius: 12px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      pointer-events: auto;
+    }
+    .ticker-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+    }
+    .ticker-value {
+      font-size: 12px;
+      font-family: monospace;
+      font-weight: 900;
+      color: #38bdf8;
+    }
+
+    /* Floating Workbench Control Panel */
+    .workbench-panel {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      width: 440px;
+      max-width: calc(100vw - 32px);
+      max-height: calc(100vh - 160px);
+      background: rgba(15, 23, 42, 0.94);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 18px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(20px);
+      z-index: 25;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .workbench-panel.collapsed {
+      transform: translateY(calc(100% - 46px));
+    }
+    .panel-header {
+      padding: 10px 16px;
+      background: rgba(2, 6, 23, 0.7);
+      border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .panel-header h2 {
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .panel-body {
+      padding: 14px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .panel-body::-webkit-scrollbar {
+      width: 6px;
+    }
+    .panel-body::-webkit-scrollbar-thumb {
+      background: rgba(56, 189, 248, 0.3);
+      border-radius: 3px;
+    }
+
+    /* Control Groups */
+    .control-group {
+      background: rgba(2, 6, 23, 0.6);
+      border: 1px solid rgba(30, 41, 59, 0.8);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .group-title {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .group-title.amber {
+      color: #f59e0b;
+    }
+    .group-title.sky {
+      color: #38bdf8;
+    }
+
+    /* Param Row */
+    .param-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .param-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      color: #cbd5e1;
+    }
+    .param-inputs {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .param-slider {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: #1e293b;
+      outline: none;
+      cursor: pointer;
+      accent-color: #38bdf8;
+    }
+    .param-slider.amber {
+      accent-color: #f59e0b;
+    }
+    .param-num {
+      width: 64px;
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 11px;
+      font-family: monospace;
+      font-weight: 700;
+      color: #38bdf8;
+      text-align: right;
+      outline: none;
+    }
+    .param-num:focus {
+      border-color: #38bdf8;
+    }
+    .param-unit {
+      font-size: 10px;
+      color: #64748b;
+      min-width: 24px;
+    }
+
+    /* Buttons */
+    .btn-toggle {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+    .btn-toggle.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+    }
+    .btn-play {
+      background: #0284c7;
+      border: none;
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+      transition: all 0.15s ease;
+    }
+    .btn-play:hover {
+      background: #0369a1;
+    }
+
+    .stiffness-editor {
+      width: 100%;
+      height: 180px;
+      display: block;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #020617;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    .stiffness-help {
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+
+    /* Quick jump buttons */
+    .quick-jumps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .btn-jump {
+      background: #020617;
+      border: 1px solid #1e293b;
+      color: #94a3b8;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.1s ease;
+    }
+    .btn-jump:hover {
+      background: #1e293b;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+    .btn-jump.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: #38bdf8;
+      color: #38bdf8;
+    }
+
+    /* Main Menu */
+    #main-menu {
+      position: absolute;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.95);
+      backdrop-filter: blur(10px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      transition: opacity 0.3s ease;
+    }
+    #main-menu.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .menu-title {
+      font-size: 48px;
+      font-weight: 900;
+      color: #f8fafc;
+      text-shadow: 0 4px 16px rgba(56, 189, 248, 0.4);
+      margin-bottom: 40px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .menu-btn {
+      background: linear-gradient(135deg, #0284c7, #0369a1);
+      border: 1px solid #38bdf8;
+      color: #fff;
+      padding: 16px 48px;
+      border-radius: 12px;
+      font-size: 20px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(2, 132, 199, 0.4);
+      transition: transform 0.2s, box-shadow 0.2s;
+      width: 250px;
+      text-align: center;
+    }
+    .menu-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 32px rgba(2, 132, 199, 0.6);
+    }
+    .menu-btn.secondary {
+      background: rgba(30, 41, 59, 0.8);
+      border-color: #475569;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .menu-btn.secondary:hover {
+      background: rgba(51, 65, 85, 0.9);
+      border-color: #94a3b8;
+    }
+
+    #game-ui {
+      display: none;
+    }
+    #game-ui.visible {
+      display: block;
+    }
+
+    /* Gameplay settings menu */
+    #game-settings {
+      position: absolute;
+      inset: 0;
+      z-index: 45;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(2, 6, 23, 0.94);
+      backdrop-filter: blur(10px);
+    }
+    #game-settings.visible { display: flex; }
+    .game-settings-card {
+      width: min(540px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      padding: 24px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.96);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+    }
+    .game-settings-card h2 {
+      margin-bottom: 6px;
+      color: #38bdf8;
+      font-size: 20px;
+    }
+    .game-settings-card > p {
+      margin-bottom: 18px;
+      color: #94a3b8;
+      font-size: 12px;
+    }
+    .game-setting-row { margin: 14px 0; }
+    .game-setting-row label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+      color: #cbd5e1;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .game-setting-row output {
+      color: #38bdf8;
+      font-family: monospace;
+    }
+    .game-setting-row input { width: 100%; accent-color: #38bdf8; }
+    .game-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+
+    /* Replay controls */
+    #replay-controls {
+      position: absolute;
+      top: 112px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 35;
+      display: none;
+      width: min(760px, calc(100vw - 32px));
+      padding: 10px 12px;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 14px;
+      background: rgba(15, 23, 42, 0.94);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(14px);
+    }
+    #replay-controls.visible { display: block; }
+    .replay-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+    .replay-toolbar button, .replay-toolbar select {
+      border: 1px solid #334155;
+      border-radius: 7px;
+      background: #020617;
+      color: #e2e8f0;
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .replay-toolbar button:hover, .replay-toolbar select:hover { border-color: #38bdf8; }
+    .replay-toggle { display: flex; align-items: center; gap: 4px; color: #cbd5e1; font-size: 11px; }
+    .replay-toggle input { accent-color: #38bdf8; }
+    #replayTimeline { flex: 1 1 180px; min-width: 140px; accent-color: #38bdf8; }
+    #replayFrameLabel { min-width: 72px; color: #38bdf8; font: 11px monospace; text-align: right; }
+
+    /* Loading overlay */
+    #loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: #020617;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      z-index: 100;
+      transition: opacity 0.4s ease;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+
+  <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.160.0",
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div style="font-weight: 800; font-size: 13px; letter-spacing: 0.05em; color: #f8fafc;">3D MODEL &amp; PHYSICS WORKBENCH LADEN...</div>
+    <div style="font-size: 11px; color: #64748b;">Euler-Bernoulli Schachtflexie &amp; Fulcrum Release</div>
+  </div>
+
+  <div id="main-menu">
+    <div class="menu-title">Hockey Game</div>
+    <button class="menu-btn" id="btnPlayNow">Play Now</button>
+    <button class="menu-btn secondary" id="btnSettings">Settings</button>
+  </div>
+
+  <section id="game-settings" aria-label="Spelinstellingen">
+    <div class="game-settings-card">
+      <h2>Spelinstellingen</h2>
+      <p>De sliders regelen de basis-schotsnelheid, hoeveel sleepsnelheid die verandert, en hoe kickpoint en swipeprecisie doorwerken.</p>
+      <div class="game-setting-row">
+        <label for="settingShotSpeed">Schotsnelheid <output id="settingShotSpeedValue">100%</output></label>
+        <input id="settingShotSpeed" type="range" min="50" max="180" step="5" value="100">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingSwipeRange">Invloed sleepsnelheid op schot <output id="settingSwipeRangeValue">100%</output></label>
+        <input id="settingSwipeRange" type="range" min="50" max="200" step="5" value="100">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingKickpointEffect">Effect van kickpoint <output id="settingKickpointEffectValue">100%</output></label>
+        <input id="settingKickpointEffect" type="range" min="0" max="200" step="5" value="100">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingMinSwipeSpeed">Minimale sleepsnelheid <output id="settingMinSwipeSpeedValue">0,3 px/ms</output></label>
+        <input id="settingMinSwipeSpeed" type="range" min="0.1" max="1.5" step="0.1" value="0.3">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingPrecisionTolerance">Swipeprecisie-tolerantie <output id="settingPrecisionToleranceValue">12 px</output></label>
+        <input id="settingPrecisionTolerance" type="range" min="0" max="60" step="2" value="12">
+      </div>
+      <div class="game-setting-row">
+        <label for="settingDeviationPenalty">Straf voor afwijking <output id="settingDeviationPenaltyValue">100%</output></label>
+        <input id="settingDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
+      </div>
+      <div class="game-settings-actions">
+        <button class="menu-btn" id="btnSettingsPlay" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Terug naar spel</button>
+        <button class="menu-btn secondary" id="btnPhysicsSettings" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Stick &amp; physics</button>
+        <button class="menu-btn secondary" id="btnGameSettingsBack" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Hoofdmenu</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="canvas-container"></div>
+
+  <div id="game-ui">
+    <div class="top-bar">
+      <div class="badge-card">
+        <h1>
+          <span>🏒</span> Hockey Game
+        </h1>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn-action" id="btnMenu" title="Hoofdmenu">
+          ☰ Menu
+        </button>
+        <button class="btn-action" id="btnInstantReplay" title="Speel het laatste schot opnieuw" disabled>
+          ⟲ Replay
+        </button>
+        <button class="btn-action" id="btnResetAll" title="Herstel standaardwaarden">
+          ↺ Reset
+        </button>
+      </div>
+    </div>
+
+    <div id="score-overlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #fff; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: flex; gap: 40px; pointer-events: none;">
+      <div>Score: <span id="score-val">0</span></div>
+      <div>Shots: <span id="shots-val">0</span></div>
+    </div>
+
+    <div id="replay-controls" aria-label="Replay bediening">
+      <div class="replay-toolbar">
+        <button id="replayRewind" title="Terugspoelen">◀◀ Terug</button>
+        <button id="replayStepBack" title="Eén frame terug">◀ Frame</button>
+        <button id="replayPlayPause">❚❚ Pauze</button>
+        <button id="replayStepForward" title="Eén frame vooruit">Frame ▶</button>
+        <label class="replay-toggle"><input id="ghostStickToggle" type="checkbox" checked> Ghost stick</label>
+        <label class="replay-toggle"><input id="ghostPuckToggle" type="checkbox" checked> Ghost puck</label>
+        <label for="replaySpeed" class="replay-toggle">Snelheid</label>
+        <select id="replaySpeed" aria-label="Replay snelheid">
+          <option value="0.25">0,25×</option><option value="0.5">0,5×</option>
+          <option value="1" selected>1×</option><option value="2">2×</option>
+        </select>
+        <input id="replayTimeline" type="range" min="0" max="0" step="0.1" value="0" aria-label="Handmatige replaypositie">
+        <span id="replayFrameLabel">0 / 0</span>
+      </div>
+    </div>
+
+
+
+    <!-- Swipe Zone Element -->
+    <div id="swipeZone" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 25vh; z-index: 5; touch-action: none; background: linear-gradient(to top, rgba(56,189,248,0.1), transparent); border-top: 1px dashed rgba(56,189,248,0.3); pointer-events: auto; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px; font-weight: bold; color: rgba(56,189,248,0.5); font-size: 14px;">
+      Start Swipe Hier
+    </div>
+  </div>
+
+  <!-- Floating Workbench Controls Panel -->
+  <div class="workbench-panel collapsed" style="display: none;" id="workbenchPanel">
+    <div class="panel-header" id="panelHeader">
+      <h2>⚙ Physics Experiment Parameters</h2>
+      <div>
+        <button id="btnSettingsBack" style="background: none; border: 1px solid #38bdf8; color: #38bdf8; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; margin-right: 8px;">Back to Menu</button>
+        <span id="collapseIcon" style="font-size: 11px; color: #94a3b8;">▼ Inklappen</span>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <!-- Shaft force controls -->
+      <div class="control-group">
+        <div class="group-title sky">
+          <span>1. Schacht &amp; Fulcrum Geometrie</span>
+          <span>1400 mm</span>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Onderhandschoen Positie (Fulcrum)</span>
+            <span style="color: #f59e0b;">🟡 Amber Ring</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slBottomGlovePos" min="10" max="90" step="1" class="param-slider amber" />
+            <input type="number" id="numBottomGlovePos" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Onderhand Duwkracht</span>
+            <span>Amplitude</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slBottomGloveAmp" min="-100" max="100" step="1" class="param-slider amber" />
+            <input type="number" id="numBottomGloveAmp" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Bovenhand Trekkracht</span>
+            <span style="color: #38bdf8;">🔵 Handvat</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slTopHandAmp" min="-100" max="100" step="1" class="param-slider" />
+            <input type="number" id="numTopHandAmp" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Maximale Buigingshoek</span>
+            <span>Piek</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slMaxBend" min="5" max="60" step="1" class="param-slider" />
+            <input type="number" id="numMaxBend" class="param-num" />
+            <span class="param-unit">°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Lokaal stijfheidsprofiel -->
+      <div class="control-group">
+        <div class="group-title sky">
+          <span>2. Stiffness Profile</span>
+          <span>50–125</span>
+        </div>
+        <div class="param-header"><span>Afgeleid kickpoint</span><strong id="kickpointReadout" class="ticker-value">Mid Kick</strong></div>
+        <div class="param-header"><span>Gemiddelde schachtstijfheid</span><strong id="flexReadout" class="ticker-value">Flex 90</strong></div>
+        <canvas id="stiffnessCurve" class="stiffness-editor" aria-label="Bewerkbare stijfheidscurve: verticale as is stickpositie, horizontale as is stijfheid"></canvas>
+        <div class="param-header">
+          <span>50 (buigzaam)</span>
+          <span>125 (stijf)</span>
+        </div>
+        <p class="stiffness-help">Y-as: positie op de stick (blad onder, handvat boven). X-as: stijfheid. Het kickpoint wordt afgeleid uit zones die minstens 4 punten zachter zijn dan het gemiddelde; twee losse zones geven Hybrid Kick. Flex is de gemiddelde schachtstijfheid, afgerond op stappen van 5. Een lager kickpoint versnelt de opbouw en snap-back; een hoger kickpoint vertraagt ze licht en verhoogt de piekkracht. Klik om een punt toe te voegen of sleep punten om de lokale weerstand aan te passen.</p>
+        <button id="btnResetStiffness" class="btn-jump">Stijfheidsprofiel herstellen</button>
+      </div>
+
+      <!-- 3. Fulcrum & Release Dynamiek -->
+      <div class="control-group">
+        <div class="group-title amber">
+          <span>2. Fulcrum &amp; Release Dynamiek (vanaf 600 ms)</span>
+          <span>⚡ Release</span>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Startmoment Tophand Neerwaarts</span>
+            <span>Vanaf dit tijdstip</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slTopPullStart" min="600" max="850" step="10" class="param-slider amber" />
+            <input type="number" id="numTopPullStart" class="param-num" />
+            <span class="param-unit">ms</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Tophand Neerwaarts Trekken</span>
+            <span>▼ Omlaag</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slTopPullDown" min="0" max="200" step="5" class="param-slider" />
+            <input type="number" id="numTopPullDown" class="param-num" />
+            <span class="param-unit">mm</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Follow-Through Draaihoek</span>
+            <span>Hefboom</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slFollowAngle" min="0" max="50" step="1" class="param-slider amber" />
+            <input type="number" id="numFollowAngle" class="param-num" />
+            <span class="param-unit">°</span>
+          </div>
+        </div>
+
+        <div class="param-row">
+          <div class="param-header">
+            <span>Blad Zwiep &amp; Lift Sterkte</span>
+            <span>Vrijgave</span>
+          </div>
+          <div class="param-inputs">
+            <input type="range" id="slBladeWhip" min="0" max="200" step="5" class="param-slider" />
+            <input type="number" id="numBladeWhip" class="param-num" />
+            <span class="param-unit">%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Tijdlijn & Simulatie -->
+      <div class="control-group">
+        <div class="group-title sky">
+          <span>4. Tijdlijn &amp; Afspelen</span>
+          <span id="lblTimeline">600 ms</span>
+        </div>
+
+        <button id="btnHoldMax" class="btn-toggle active">
+          ✓ Maximale Buiging Vasthouden (600 ms)
+        </button>
+
+        <div class="param-inputs" style="margin-top: 4px;">
+          <input type="range" id="slTimeline" min="0" max="1200" step="5" value="600" class="param-slider" />
+          <button id="btnPlay" class="btn-play">▶ Speel</button>
+        </div>
+
+        <div class="quick-jumps">
+          <button class="btn-jump" data-time="0">0 ms (Start)</button>
+          <button class="btn-jump" data-time="450">450 ms (Opbouw)</button>
+          <button class="btn-jump active" data-time="600">600 ms (Piek &amp; Release)</button>
+          <button class="btn-jump" data-time="750">750 ms (Zwiep)</button>
+          <button class="btn-jump" data-time="1000">1000 ms (Follow-through)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const MODEL_URL = 'https://raw.githubusercontent.com/michieltw/GLB-s/main/glb_files_retextured/P28-ST.glb';
+
+    // Injected active experiment config
+    const DEFAULT_STIFFNESS_CURVE = [
+      { y: 0, x: 0.5 },
+      { y: 0.33, x: 0.5 },
+      { y: 0.66, x: 0.5 },
+      { y: 1, x: 0.5 }
+    ];
+    const gameSettings = {
+      shotSpeed: 1,
+      swipeRange: 1,
+      kickpointEffect: 1,
+      minSwipeSpeed: 0.3,
+      precisionTolerance: 12,
+      deviationPenalty: 1
+    };
+    const appState = { mode: 'menu' }; // 'menu', 'game', 'gameSettings', 'settings'
+    const state = {"bottomGlovePos":50,"bottomGloveAmp":100,"bottomGloveTimeframe":250,"topHandAmp":100,"topHandTimeframe":250,"maxBendAngle":45,"topHandPullStartMs":600,"topHandPullDownMm":100,"followThroughAngle":50,"bladeWhipStrength":100,"timeline":600,"isPlaying":false,"holdMaxBend":false,"bendAxis":"forwards","anchorMode":"bow","stiffnessCurve":DEFAULT_STIFFNESS_CURVE.map(point => ({ ...point }))};
+
+    function updateUiMode() {
+      const menu = document.getElementById('main-menu');
+      const gameUi = document.getElementById('game-ui');
+      const settings = document.getElementById('workbenchPanel');
+      const gameSettingsMenu = document.getElementById('game-settings');
+      const btnPlayNow = document.getElementById('btnPlayNow');
+
+      if (appState.mode === 'menu') {
+        menu.classList.remove('hidden');
+        gameUi.classList.remove('visible');
+        settings.style.display = 'none';
+        gameSettingsMenu.classList.remove('visible');
+        btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Play Now';
+      } else if (appState.mode === 'game') {
+        menu.classList.add('hidden');
+        gameUi.classList.add('visible');
+        settings.style.display = 'none';
+        gameSettingsMenu.classList.remove('visible');
+      } else if (appState.mode === 'gameSettings') {
+        menu.classList.add('hidden');
+        gameUi.classList.remove('visible');
+        settings.style.display = 'none';
+        gameSettingsMenu.classList.add('visible');
+      } else if (appState.mode === 'settings') {
+        menu.classList.add('hidden');
+        gameUi.classList.remove('visible');
+        gameSettingsMenu.classList.remove('visible');
+        settings.style.display = 'flex';
+        settings.classList.remove('collapsed');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('btnPlayNow').addEventListener('click', () => {
+          appState.mode = 'game';
+          updateUiMode();
+        });
+        document.getElementById('btnSettings').addEventListener('click', () => {
+          appState.mode = 'gameSettings';
+          updateUiMode();
+        });
+        document.getElementById('btnSettingsPlay').addEventListener('click', () => {
+          appState.mode = 'game';
+          updateUiMode();
+        });
+        document.getElementById('btnPhysicsSettings').addEventListener('click', () => {
+          appState.mode = 'settings';
+          updateUiMode();
+        });
+        document.getElementById('btnGameSettingsBack').addEventListener('click', () => {
+          appState.mode = 'menu';
+          updateUiMode();
+        });
+        document.getElementById('btnMenu').addEventListener('click', () => {
+          appState.mode = 'menu';
+          updateUiMode();
+        });
+        document.getElementById('btnSettingsBack').addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent panel collapse
+          appState.mode = 'gameSettings';
+          updateUiMode();
+        });
+
+        const settingBindings = [
+          ['settingShotSpeed', 'settingShotSpeedValue', 'shotSpeed', value => `${value}%`, value => value / 100],
+          ['settingSwipeRange', 'settingSwipeRangeValue', 'swipeRange', value => `${value}%`, value => value / 100],
+          ['settingKickpointEffect', 'settingKickpointEffectValue', 'kickpointEffect', value => `${value}%`, value => value / 100],
+          ['settingMinSwipeSpeed', 'settingMinSwipeSpeedValue', 'minSwipeSpeed', value => `${Number(value).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} px/ms`, value => Number(value)],
+          ['settingPrecisionTolerance', 'settingPrecisionToleranceValue', 'precisionTolerance', value => `${value} px`, value => Number(value)],
+          ['settingDeviationPenalty', 'settingDeviationPenaltyValue', 'deviationPenalty', value => `${value}%`, value => value / 100]
+        ];
+        settingBindings.forEach(([inputId, outputId, key, format, parse]) => {
+          const input = document.getElementById(inputId);
+          const output = document.getElementById(outputId);
+          input.addEventListener('input', () => {
+            gameSettings[key] = parse(input.value);
+            output.textContent = format(input.value);
+            if (key === 'kickpointEffect') cachedStiffnessDynamics = null;
+            updatePhysics();
+          });
+        });
+        updateUiMode();
+    });
+
+    // Constants
+    const L_total = 1400;
+    const Z_center = 23;
+    const X_center = -100;
+    const SEGMENTS = 140;
+
+    // Three.js Scene Setup
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene(); window.scene = scene; window.THREE = THREE;
+    scene.background = new THREE.Color('#020617');
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 10, 40000);
+    camera.position.set(0, 1000, -17700);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.target.set(0, 600, -20700);
+    controls.enableRotate = true;
+    controls.enablePan = true;
+    controls.enableZoom = true;
+
+    // Lights
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.9);
+    scene.add(ambLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.4);
+    dirLight1.position.set(500, 1500, 1000);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0x38bdf8, 0.8);
+    dirLight2.position.set(-600, -200, -800);
+    scene.add(dirLight2);
+
+    // Game Entities
+    const game = {
+      score: 0,
+      shots: 0,
+      puck: null,
+      puckVelocity: new THREE.Vector3(0, 0, 0),
+      net: null,
+      ice: null,
+      puckState: 'idle', // idle, attached, shot, goal
+      shotAim: null,
+      contactTime: 0,
+      releaseTime: 0,
+      shotElapsed: 0,
+      shotWobble: 0,
+      shotWobbleOffset: 0,
+      shotDeviationX: 0,
+      flightStart: new THREE.Vector3(),
+      flightDuration: 0,
+      bladeTipSpeed: 0,
+      lastBladeTipPosition: null,
+      bladeVelocity: new THREE.Vector3(),
+      bladeForwardSpeed: 0,
+      peakBladeForwardSpeed: 0,
+      bladeDecelerationFrames: 0,
+      lastBladeCenterPosition: null,
+      replayFrames: [],
+      replayRecording: false,
+      replayPlayback: null,
+      bladeHeelIndex: -1,
+      bladeTipIndex: -1,
+      bladeContactProgress: 0,
+      bladeContactOffset: new THREE.Vector3(),
+      bladeContactAxis: new THREE.Vector3(1, 0, 0)
+    };
+
+    // Ice
+    function createIceTexture() {
+      const canvas = document.createElement('canvas');
+      const scale = 2048 / 26000;
+      canvas.width = 2048;
+      canvas.height = Math.round(30000 * scale);
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const toX = (x) => (x + 13000) * scale;
+      const toY = (z) => (30000 + z) * scale; // Note: texture maps from top to bottom
+      const r = (radius) => radius * scale;
+
+      // Draw scratches
+      ctx.lineWidth = 2 * scale;
+      for (let i = 0; i < 5000; i++) {
+        ctx.beginPath();
+        const startX = Math.random() * canvas.width;
+        const startY = Math.random() * canvas.height;
+        const length = 50 * scale + Math.random() * 300 * scale;
+        const angle = Math.random() * Math.PI * 2;
+        ctx.moveTo(startX, startY);
+        ctx.lineTo(startX + Math.cos(angle) * length, startY + Math.sin(angle) * length);
+        ctx.strokeStyle = `rgba(210, 220, 230, ${0.1 + Math.random() * 0.15})`;
+        ctx.stroke();
+      }
+
+      // Center Line (z=0)
+      ctx.strokeStyle = '#cf1f2e';
+      ctx.lineWidth = 30 * scale;
+      ctx.beginPath();
+      ctx.moveTo(0, toY(0));
+      ctx.lineTo(canvas.width, toY(0));
+      ctx.stroke();
+
+      // Center faceoff circle
+      ctx.strokeStyle = '#0033a0';
+      ctx.lineWidth = 20 * scale;
+      ctx.beginPath();
+      ctx.arc(toX(0), toY(0), r(4500), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#0033a0';
+      ctx.beginPath();
+      ctx.arc(toX(0), toY(0), r(300), 0, Math.PI * 2);
+      ctx.fill();
+
+      // Blue Line (z=-10500)
+      ctx.strokeStyle = '#0033a0';
+      ctx.lineWidth = 60 * scale;
+      ctx.beginPath();
+      ctx.moveTo(0, toY(-10500));
+      ctx.lineTo(canvas.width, toY(-10500));
+      ctx.stroke();
+
+      // Goal Line (z=-26000)
+      ctx.strokeStyle = '#cf1f2e';
+      ctx.lineWidth = 20 * scale;
+      ctx.beginPath();
+      ctx.moveTo(0, toY(-26000));
+      ctx.lineTo(canvas.width, toY(-26000));
+      ctx.stroke();
+
+      // Faceoff circles
+      ctx.strokeStyle = '#cf1f2e';
+      ctx.lineWidth = 20 * scale;
+      ctx.beginPath(); ctx.arc(toX(-6700), toY(-20500), r(4500), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(toX(6700), toY(-20500), r(4500), 0, Math.PI * 2); ctx.stroke();
+
+      ctx.fillStyle = '#cf1f2e';
+      ctx.beginPath(); ctx.arc(toX(-6700), toY(-20500), r(300), 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(toX(6700), toY(-20500), r(300), 0, Math.PI * 2); ctx.fill();
+
+      // Goal Crease
+      ctx.fillStyle = 'rgba(0, 51, 160, 0.3)';
+      ctx.strokeStyle = '#cf1f2e';
+      ctx.lineWidth = 10 * scale;
+      ctx.beginPath();
+      ctx.arc(toX(0), toY(-26000), r(1800), 0, Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 16;
+      return tex;
+    }
+
+    const rinkWidth = 26000;
+    const rinkDepth = 30000;
+    const iceGeo = new THREE.PlaneGeometry(rinkWidth, rinkDepth);
+    const iceMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: createIceTexture(),
+      roughness: 0.05,
+      metalness: 0.1
+    });
+    game.ice = new THREE.Mesh(iceGeo, iceMat);
+    game.ice.rotation.x = -Math.PI / 2;
+    game.ice.position.y = 0;
+    game.ice.position.z = -15000; // Shift ice back so z=0 is center line, z=-30000 is far end
+    scene.add(game.ice);
+
+    // Puck
+    const puckGeo = new THREE.CylinderGeometry(38, 38, 25, 32);
+    const puckMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+    game.puck = new THREE.Mesh(puckGeo, puckMat);
+    // Position puck near where the blade normally ends up, between the hash marks and slightly further away
+    game.puck.position.set(95, 12.5, -20120);
+    scene.add(game.puck);
+    const ghostPuck = game.puck.clone();
+    ghostPuck.material = game.puck.material.clone();
+    ghostPuck.material.transparent = true;
+    ghostPuck.material.opacity = 0.38;
+    ghostPuck.material.depthWrite = false;
+    ghostPuck.visible = false;
+    scene.add(ghostPuck);
+
+
+    // Projected Arrow
+    function createArrowTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 2048;
+      const ctx = canvas.getContext('2d');
+
+      // Gradient from white (bottom) to transparent (top)
+      const grad = ctx.createLinearGradient(0, 2048, 0, 0);
+      grad.addColorStop(0, 'rgba(56, 189, 248, 0.8)');
+      grad.addColorStop(0.5, 'rgba(56, 189, 248, 0.4)');
+      grad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = grad;
+
+      // Draw arrow shape
+      ctx.beginPath();
+      // Base
+      ctx.moveTo(156, 2048);
+      ctx.lineTo(356, 2048);
+      // Shaft
+      ctx.lineTo(356, 500);
+      // Arrow head right
+      ctx.lineTo(512, 500);
+      // Arrow point
+      ctx.lineTo(256, 0);
+      // Arrow head left
+      ctx.lineTo(0, 500);
+      // Shaft
+      ctx.lineTo(156, 500);
+      ctx.closePath();
+      ctx.fill();
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 16;
+      return tex;
+    }
+
+    const arrowGeo = new THREE.PlaneGeometry(1500, 8000);
+    const arrowMat = new THREE.MeshBasicMaterial({
+      map: createArrowTexture(),
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    });
+    const projectedArrow = new THREE.Mesh(arrowGeo, arrowMat);
+    projectedArrow.rotation.x = -Math.PI / 2;
+    projectedArrow.position.set(0, 5, -22000);
+    scene.add(projectedArrow);
+
+    // --- SETUP BOARDING ---
+    const boardGroup = new THREE.Group();
+
+    // Load Logo Texture for Boards
+    const textureLoader = new THREE.TextureLoader();
+    const logoTex = textureLoader.load('./logo.png');
+    logoTex.wrapS = THREE.RepeatWrapping;
+    logoTex.wrapT = THREE.RepeatWrapping;
+    // Flip texture horizontally to correct mirroring
+    logoTex.repeat.set(-10, 1);
+
+    const boardMat = new THREE.MeshStandardMaterial({ color: 0xffffff, map: logoTex, roughness: 0.2, side: THREE.DoubleSide });
+    const kickPlateMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5, side: THREE.DoubleSide }); // yellow
+    const topRailMat = new THREE.MeshStandardMaterial({ color: 0x0033a0, roughness: 0.3 }); // blue
+    const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, ior: 1.5, side: THREE.DoubleSide });
+
+    const boardHeight = 1100;
+    const glassHeight = 2000;
+    const cornerRadius = 8500;
+
+    // Rink geometry constants
+    const straightWidth = rinkWidth - (2 * cornerRadius); // Width of far straight section
+    const straightDepth = rinkDepth - cornerRadius; // Depth of side straight sections (assuming flat bottom at z=0 for now)
+
+    // Far wall straight section
+    const farWall = new THREE.Group();
+    const farBoard = new THREE.Mesh(new THREE.PlaneGeometry(straightWidth, boardHeight), boardMat);
+    farBoard.position.y = boardHeight/2;
+    const farKick = new THREE.Mesh(new THREE.PlaneGeometry(straightWidth, 200), kickPlateMat);
+    farKick.position.y = 100;
+    farKick.position.z = 5;
+    const farRail = new THREE.Mesh(new THREE.BoxGeometry(straightWidth, 50, 100), topRailMat);
+    farRail.position.y = boardHeight;
+    const farGlass = new THREE.Mesh(new THREE.PlaneGeometry(straightWidth, glassHeight), glassMat);
+    farGlass.position.y = boardHeight + glassHeight/2;
+    farWall.add(farBoard, farKick, farRail, farGlass);
+    farWall.position.z = -rinkDepth;
+    boardGroup.add(farWall);
+
+    // Left wall straight section
+    const leftWall = new THREE.Group();
+    const sideWallGeo = new THREE.PlaneGeometry(straightDepth, boardHeight);
+    const sideKickGeo = new THREE.PlaneGeometry(straightDepth, 200);
+    const sideGlassGeo = new THREE.PlaneGeometry(straightDepth, glassHeight);
+    const sideRailGeo = new THREE.BoxGeometry(straightDepth, 50, 100);
+
+    const leftBoard = new THREE.Mesh(sideWallGeo, boardMat);
+    leftBoard.position.y = boardHeight/2;
+    const leftKick = new THREE.Mesh(sideKickGeo, kickPlateMat);
+    leftKick.position.y = 100;
+    leftKick.position.z = 5;
+    const leftRail = new THREE.Mesh(sideRailGeo, topRailMat);
+    leftRail.position.y = boardHeight;
+    const leftGlass = new THREE.Mesh(sideGlassGeo, glassMat);
+    leftGlass.position.y = boardHeight + glassHeight/2;
+    leftWall.add(leftBoard, leftKick, leftRail, leftGlass);
+    leftWall.rotation.y = Math.PI/2;
+    leftWall.position.x = -rinkWidth/2;
+    leftWall.position.z = -straightDepth/2;
+    boardGroup.add(leftWall);
+
+    // Right wall straight section
+    const rightWall = new THREE.Group();
+    const rightBoard = new THREE.Mesh(sideWallGeo, boardMat);
+    rightBoard.position.y = boardHeight/2;
+    const rightKick = new THREE.Mesh(sideKickGeo, kickPlateMat);
+    rightKick.position.y = 100;
+    rightKick.position.z = -5; // Point towards center
+    const rightRail = new THREE.Mesh(sideRailGeo, topRailMat);
+    rightRail.position.y = boardHeight;
+    const rightGlass = new THREE.Mesh(sideGlassGeo, glassMat);
+    rightGlass.position.y = boardHeight + glassHeight/2;
+    rightWall.add(rightBoard, rightKick, rightRail, rightGlass);
+    rightWall.rotation.y = -Math.PI/2;
+    rightWall.position.x = rinkWidth/2;
+    rightWall.position.z = -straightDepth/2;
+    boardGroup.add(rightWall);
+
+    // Corners
+    // Top Left Corner (Far Left)
+    const cornerGeo = new THREE.CylinderGeometry(cornerRadius, cornerRadius, boardHeight, 32, 1, true, Math.PI, Math.PI/2);
+    const cornerKickGeo = new THREE.CylinderGeometry(cornerRadius - 5, cornerRadius - 5, 200, 32, 1, true, Math.PI, Math.PI/2);
+    const cornerGlassGeo = new THREE.CylinderGeometry(cornerRadius, cornerRadius, glassHeight, 32, 1, true, Math.PI, Math.PI/2);
+    // Rail uses Torus for curved edge
+    const cornerRailGeo = new THREE.TorusGeometry(cornerRadius, 25, 8, 32, Math.PI/2);
+
+    const tlCorner = new THREE.Group();
+    const tlBoard = new THREE.Mesh(cornerGeo, boardMat);
+    tlBoard.position.y = boardHeight/2;
+    const tlKick = new THREE.Mesh(cornerKickGeo, kickPlateMat);
+    tlKick.position.y = 100;
+    const tlGlass = new THREE.Mesh(cornerGlassGeo, glassMat);
+    tlGlass.position.y = boardHeight + glassHeight/2;
+    const tlRail = new THREE.Mesh(cornerRailGeo, topRailMat);
+    tlRail.rotation.x = -Math.PI/2;
+    tlRail.rotation.z = Math.PI;
+    tlRail.position.y = boardHeight;
+
+    tlCorner.add(tlBoard, tlKick, tlGlass, tlRail);
+    tlCorner.position.x = -rinkWidth/2 + cornerRadius;
+    tlCorner.position.z = -rinkDepth + cornerRadius;
+    boardGroup.add(tlCorner);
+
+    // Top Right Corner (Far Right)
+    const trCornerGeo = new THREE.CylinderGeometry(cornerRadius, cornerRadius, boardHeight, 32, 1, true, Math.PI/2, Math.PI/2);
+    const trCornerKickGeo = new THREE.CylinderGeometry(cornerRadius - 5, cornerRadius - 5, 200, 32, 1, true, Math.PI/2, Math.PI/2);
+    const trCornerGlassGeo = new THREE.CylinderGeometry(cornerRadius, cornerRadius, glassHeight, 32, 1, true, Math.PI/2, Math.PI/2);
+
+    const trCorner = new THREE.Group();
+    const trBoard = new THREE.Mesh(trCornerGeo, boardMat);
+    trBoard.position.y = boardHeight/2;
+    const trKick = new THREE.Mesh(trCornerKickGeo, kickPlateMat);
+    trKick.position.y = 100;
+    const trGlass = new THREE.Mesh(trCornerGlassGeo, glassMat);
+    trGlass.position.y = boardHeight + glassHeight/2;
+    const trRail = new THREE.Mesh(cornerRailGeo, topRailMat);
+    trRail.rotation.x = -Math.PI/2;
+    trRail.rotation.z = 0;
+    trRail.position.y = boardHeight;
+
+    trCorner.add(trBoard, trKick, trGlass, trRail);
+    trCorner.position.x = rinkWidth/2 - cornerRadius;
+    trCorner.position.z = -rinkDepth + cornerRadius;
+    boardGroup.add(trCorner);
+
+    scene.add(boardGroup);
+
+    // --- SETUP TRIBUNE ---
+    const tribuneGroup = new THREE.Group();
+    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
+    const seatMat1 = new THREE.MeshStandardMaterial({ color: 0x0033a0, roughness: 0.7 });
+    const seatMat2 = new THREE.MeshStandardMaterial({ color: 0xcf1f2e, roughness: 0.7 });
+
+    const stepDepth = 900;
+    const stepHeight = 450;
+    const numRows = 12;
+    const startY = boardHeight + 200;
+    const startX = rinkWidth / 2 + 500;
+    const zOffset = -straightDepth / 2;
+
+    // Left Tribune
+    for (let i = 0; i < numRows; i++) {
+      // Concrete step
+      const step = new THREE.Mesh(new THREE.BoxGeometry(stepDepth, stepHeight, straightDepth), concreteMat);
+      step.position.set(-startX - (i * stepDepth), startY + (i * stepHeight), zOffset);
+      tribuneGroup.add(step);
+
+      // Continuous bench seat
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(400, 100, straightDepth - 200), i % 2 === 0 ? seatMat1 : seatMat2);
+      bench.position.set(-startX - (i * stepDepth) + 150, startY + (i * stepHeight) + stepHeight/2 + 50, zOffset);
+      tribuneGroup.add(bench);
+    }
+
+    // Right Tribune
+    for (let i = 0; i < numRows; i++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(stepDepth, stepHeight, straightDepth), concreteMat);
+      step.position.set(startX + (i * stepDepth), startY + (i * stepHeight), zOffset);
+      tribuneGroup.add(step);
+
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(400, 100, straightDepth - 200), i % 2 === 0 ? seatMat1 : seatMat2);
+      bench.position.set(startX + (i * stepDepth) - 150, startY + (i * stepHeight) + stepHeight/2 + 50, zOffset);
+      tribuneGroup.add(bench);
+    }
+
+    // Far end Tribune
+    for (let i = 0; i < numRows; i++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(straightWidth, stepHeight, stepDepth), concreteMat);
+      step.position.set(0, startY + (i * stepHeight), -rinkDepth - 500 - (i * stepDepth));
+      tribuneGroup.add(step);
+
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(straightWidth - 200, 100, 400), i % 2 === 0 ? seatMat1 : seatMat2);
+      bench.position.set(0, startY + (i * stepHeight) + stepHeight/2 + 50, -rinkDepth - 500 - (i * stepDepth) - 150);
+      tribuneGroup.add(bench);
+    }
+
+    scene.add(tribuneGroup);
+
+    // Net
+    const netWidth = 1830;
+    const netHeight = 1220;
+    const netDepth = 1000;
+    game.net = new THREE.Group();
+
+    // Posts
+    const postMat = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.3 });
+    const postGeo = new THREE.CylinderGeometry(30, 30, netHeight);
+
+    const leftPost = new THREE.Mesh(postGeo, postMat);
+    leftPost.position.set(-netWidth/2, netHeight/2, 0);
+    game.net.add(leftPost);
+
+    const rightPost = new THREE.Mesh(postGeo, postMat);
+    rightPost.position.set(netWidth/2, netHeight/2, 0);
+    game.net.add(rightPost);
+
+    const crossbarGeo = new THREE.CylinderGeometry(30, 30, netWidth);
+    const crossbar = new THREE.Mesh(crossbarGeo, postMat);
+    crossbar.rotation.z = Math.PI / 2;
+    crossbar.position.set(0, netHeight, 0);
+    game.net.add(crossbar);
+
+    // Bottom and back framing
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+    const bottomGeo = new THREE.CylinderGeometry(20, 20, netDepth);
+    const leftBottom = new THREE.Mesh(bottomGeo, frameMat);
+    leftBottom.rotation.x = Math.PI / 2;
+    leftBottom.position.set(-netWidth/2, 20, -netDepth/2);
+    game.net.add(leftBottom);
+    const rightBottom = new THREE.Mesh(bottomGeo, frameMat);
+    rightBottom.rotation.x = Math.PI / 2;
+    rightBottom.position.set(netWidth/2, 20, -netDepth/2);
+    game.net.add(rightBottom);
+    const backBottomGeo = new THREE.CylinderGeometry(20, 20, netWidth);
+    const backBottom = new THREE.Mesh(backBottomGeo, frameMat);
+    backBottom.rotation.z = Math.PI / 2;
+    backBottom.position.set(0, 20, -netDepth);
+    game.net.add(backBottom);
+
+    // Netting Material
+    function createNettingTexture() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 128;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 4;
+        for(let i=0; i<=128; i+=16) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(10, 6);
+        return tex;
+    }
+    const nettingMat = new THREE.MeshBasicMaterial({
+        map: createNettingTexture(),
+        transparent: true,
+        side: THREE.DoubleSide,
+        opacity: 0.7
+    });
+
+    // Netting planes
+    const backNet = new THREE.Mesh(new THREE.PlaneGeometry(netWidth, netHeight), nettingMat);
+    backNet.position.set(0, netHeight/2, -netDepth);
+    game.net.add(backNet);
+
+    const sideNetGeo = new THREE.PlaneGeometry(netDepth, netHeight);
+    const leftNet = new THREE.Mesh(sideNetGeo, nettingMat);
+    leftNet.rotation.y = Math.PI / 2;
+    leftNet.position.set(-netWidth/2, netHeight/2, -netDepth/2);
+    game.net.add(leftNet);
+
+    const rightNet = new THREE.Mesh(sideNetGeo, nettingMat);
+    rightNet.rotation.y = -Math.PI / 2;
+    rightNet.position.set(netWidth/2, netHeight/2, -netDepth/2);
+    game.net.add(rightNet);
+
+    const topNet = new THREE.Mesh(new THREE.PlaneGeometry(netWidth, netDepth), nettingMat);
+    topNet.rotation.x = Math.PI / 2;
+    topNet.position.set(0, netHeight, -netDepth/2);
+    game.net.add(topNet);
+
+    // Net position - back on the ice goal line
+    game.net.position.set(0, 0, -26000);
+    scene.add(game.net);
+
+    // Swipe Mechanics
+    let swipeData = {
+       isSwiping: false,
+       startY: 0,
+       startX: 0,
+       startTime: 0,
+       puckHitY: 0,
+       puckHitTime: 0,
+       endY: 0,
+       endX: 0,
+       endTime: 0,
+       power: 0, // speed
+       accuracy: 0, // swipe-path error
+       path: [],
+       triggered: false
+    };
+
+    const swipeZone = document.getElementById('swipeZone');
+
+    swipeZone.addEventListener('pointerdown', (e) => {
+       if (game.puckState !== 'idle' || state.isPlaying) return;
+       swipeData.isSwiping = true;
+       swipeData.startY = e.clientY;
+       swipeData.startX = e.clientX;
+       swipeData.startTime = performance.now();
+       swipeData.triggered = false;
+       swipeData.puckHitTime = 0;
+       swipeData.path = [{ x: e.clientX, y: e.clientY }];
+
+       // Disable OrbitControls during swipe so camera doesn't move while shooting
+       controls.enabled = false;
+       e.stopPropagation();
+    });
+
+    window.addEventListener('pointermove', (e) => {
+       if (!swipeData.isSwiping) return;
+       swipeData.path.push({ x: e.clientX, y: e.clientY });
+       // Estimate when the swipe crosses the puck's screen position.
+       const puckScreenY = window.innerHeight * 0.75;
+       if (swipeData.startY > puckScreenY && e.clientY <= puckScreenY && swipeData.puckHitTime === 0) {
+           swipeData.puckHitY = e.clientY;
+           swipeData.puckHitTime = performance.now();
+       }
+    });
+
+    function getGoalAim(clientX, clientY, pathErrorX = 0) {
+       const aimX = clientX + pathErrorX * 1.5;
+       const ndc = new THREE.Vector2(
+         (aimX / window.innerWidth) * 2 - 1,
+         -(clientY / window.innerHeight) * 2 + 1
+       );
+       const raycaster = new THREE.Raycaster();
+       raycaster.setFromCamera(ndc, camera);
+       const goalPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -game.net.position.z);
+       const hit = new THREE.Vector3();
+       const fallbackX = ((aimX / window.innerWidth) - 0.5) * netWidth;
+       const fallbackY = (1 - clientY / window.innerHeight) * netHeight;
+       const point = raycaster.ray.intersectPlane(goalPlane, hit)
+         ? hit
+         : new THREE.Vector3(fallbackX, fallbackY, game.net.position.z);
+       return new THREE.Vector3(
+         THREE.MathUtils.clamp(point.x, -netWidth / 2 - 500, netWidth / 2 + 500),
+         THREE.MathUtils.clamp(point.y, 25, netHeight + 400),
+         game.net.position.z
+       );
+    }
+
+    window.addEventListener('pointerup', (e) => {
+       if (!swipeData.isSwiping) {
+           controls.enabled = true; // ensure controls re-enable
+           return;
+       }
+       swipeData.isSwiping = false;
+       controls.enabled = true; // re-enable camera controls after swipe
+       swipeData.endY = e.clientY;
+       swipeData.endX = e.clientX;
+       swipeData.endTime = performance.now();
+
+       // Calculate swipe metrics if they swiped up (negative Y)
+       if (swipeData.startY - swipeData.endY > 100) {
+           // Calculate power based on first half (start to puck)
+           let timeToPuck = swipeData.puckHitTime > 0 ? (swipeData.puckHitTime - swipeData.startTime) : (swipeData.endTime - swipeData.startTime) / 2;
+           if (timeToPuck < 50) timeToPuck = 50; // Cap
+
+           // Distance to puck
+           let distToPuck = swipeData.puckHitY > 0 ? (swipeData.startY - swipeData.puckHitY) : (swipeData.startY - swipeData.endY) / 2;
+
+           // Speed = distance / time. Give a normal fast swipe enough range to load the shaft fully.
+           const speed = distToPuck / timeToPuck;
+           if (speed < gameSettings.minSwipeSpeed) return;
+           swipeData.power = Math.max(20, Math.min(100, speed * 52 * gameSettings.swipeRange));
+
+           // The swipe endpoint sets the aim; sideways bow in the path adds a small accuracy error.
+           let maxPathErrorX = 0;
+           let maxPathErrorMagnitude = 0;
+           const swipeHeight = swipeData.startY - swipeData.endY;
+           for (const point of swipeData.path) {
+             const progress = swipeHeight ? Math.max(0, Math.min(1,
+               (swipeData.startY - point.y) / swipeHeight)) : 0;
+             const expectedX = swipeData.startX +
+               (swipeData.endX - swipeData.startX) * progress;
+             const errorX = point.x - expectedX;
+             if (Math.abs(errorX) > maxPathErrorMagnitude) {
+               maxPathErrorMagnitude = Math.abs(errorX);
+               maxPathErrorX = errorX;
+             }
+           }
+           const effectivePathError = Math.max(0, maxPathErrorMagnitude - gameSettings.precisionTolerance);
+           const signedPathError = Math.sign(maxPathErrorX) * effectivePathError;
+           swipeData.accuracy = signedPathError / window.innerWidth;
+           game.shotAim = getGoalAim(swipeData.endX, swipeData.endY);
+           game.shotDeviationX = THREE.MathUtils.clamp(
+             (signedPathError / window.innerWidth) * netWidth * 0.75 * gameSettings.deviationPenalty,
+             -netWidth * 0.35,
+             netWidth * 0.35
+           );
+           const stiffnessDynamics = getStiffnessDynamics();
+           game.contactTime = Math.max(540, Math.min(660, 600 * stiffnessDynamics.timingScale));
+           // Keep the puck on the loaded blade through the start of the snap, then release just before it straightens.
+           game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;
+
+           // Keep the same stick-force settings used by playback in Settings.
+           // Swipe speed modifies the puck launch, not the stick's animation profile.
+
+           // Start a fresh stick cycle; the swipe endpoint is retained as the shot aim.
+           swipeData.triggered = true;
+           state.timeline = 0;
+           playDirection = 1;
+           state.isPlaying = true;
+           state.holdMaxBend = false;
+           game.replayFrames = [];
+           game.replayRecording = true;
+           syncUiFromState();
+       }
+    });
+    container.addEventListener('pointercancel', () => swipeData.isSwiping = false);
+
+    // Physical markers (Fulcrum = amber, top hand = sky blue)
+    function createMarker(colorHex) {
+      const geom = new THREE.TorusGeometry(26, 4, 16, 32);
+      const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+      const mesh = new THREE.Mesh(geom, mat);
+      scene.add(mesh);
+      return mesh;
+    }
+    const bgMarker = createMarker(0xf59e0b); // Amber
+    const thMarker = createMarker(0x38bdf8); // Sky blue
+
+    let stickMesh = null;
+    let stickGroup = null;
+    let ghostStickGroup = null;
+    let ghostStickMesh = null;
+    let stickRestY = 0;
+    let originalPositions = null;
+    let vertexRows = null;
+    let sortedStiffnessCurve = [...state.stiffnessCurve].sort((a, b) => a.y - b.y);
+    let cachedStiffnessDynamics = null;
+    let playDirection = 1;
+    let lastTime = performance.now();
+
+    function refreshStiffnessCurveCache() {
+      sortedStiffnessCurve = [...state.stiffnessCurve].sort((a, b) => a.y - b.y);
+      cachedStiffnessDynamics = null;
+    }
+
+    function getStiffnessAt(position) {
+      const y = Math.max(0, Math.min(1, position));
+      const points = sortedStiffnessCurve;
+      if (y <= points[0].y) return 50 + points[0].x * 75;
+      for (let i = 1; i < points.length; i++) {
+        if (y <= points[i].y) {
+          const span = points[i].y - points[i - 1].y;
+          const t = span > 0 ? (y - points[i - 1].y) / span : 0;
+          const x = points[i - 1].x + (points[i].x - points[i - 1].x) * t;
+          return 50 + x * 75;
+        }
+      }
+      return 50 + points[points.length - 1].x * 75;
+    }
+
+    function getStiffnessDynamics() {
+      if (cachedStiffnessDynamics) return cachedStiffnessDynamics;
+      const points = sortedStiffnessCurve;
+      const average = points.slice(1).reduce((sum, point, i) =>
+        sum + (point.y - points[i].y) * (50 + 75 * (points[i].x + point.x) / 2), 0
+      );
+      const sampleCount = 100;
+      const threshold = average - 4;
+      const softZoneCenters = [];
+      let zoneStart = -1;
+
+      for (let i = 0; i <= sampleCount; i++) {
+        const isSoft = getStiffnessAt(i / sampleCount) < threshold;
+        if (isSoft && zoneStart < 0) zoneStart = i;
+        if ((!isSoft || i === sampleCount) && zoneStart >= 0) {
+          const zoneEnd = isSoft && i === sampleCount ? i : i - 1;
+          if (zoneEnd - zoneStart >= 6) {
+            softZoneCenters.push((zoneStart + zoneEnd) / (2 * sampleCount));
+          }
+          zoneStart = -1;
+        }
+      }
+
+      const kickPosition = softZoneCenters.length
+        ? softZoneCenters.reduce((sum, position) => sum + position, 0) / softZoneCenters.length
+        : 0.5;
+      const stiffnessBias = ((average - 87.5) / 37.5) * 0.08;
+      const kickPositionBias = (kickPosition - 0.5) * 0.12 * gameSettings.kickpointEffect;
+      const timingScale = Math.max(0.84, Math.min(1.16, 1 + stiffnessBias + kickPositionBias));
+
+      // Update power scale logic per request: higher kickpoint (lower kickPosition y, higher kickPositionBias) = more power, but slower release.
+      // A faster release (timingScale < 1) produces less shot power.
+      const powerScale = Math.max(0.7, Math.min(1.5, 1 + ((average - 87.5) / 37.5) * 0.08 + kickPositionBias * 2.0));
+
+      cachedStiffnessDynamics = { average, timingScale, powerScale };
+      return cachedStiffnessDynamics;
+    }
+
+    // Discrete Arc-Length Parameterization (discrete booglengte-parametrisatie)
+    // Strictly conserves neutral axis arc length ds = L_total / (SEGMENTS - 1)
+    // Evaluates both initial forehand bend and opposite whip counter-flex
+    function computeBeamProfile(currentBendDeg, bgPercent, isReleased, leverAngleDeg, topPullDownMm, followProgress, peakBendDeg) {
+      const ds = L_total / (SEGMENTS - 1);
+      const s_bg = Math.max(0.12 * L_total, Math.min(0.88 * L_total, (bgPercent / 100) * L_total));
+      const kappa = new Float64Array(SEGMENTS);
+      let referenceCurvature = 0;
+
+      for (let i = 0; i < SEGMENTS; i++) {
+        const s = i * ds;
+        const u = s / L_total;
+        let M = (s <= s_bg) ? Math.sin((Math.PI / 2) * (s / s_bg)) : Math.cos((Math.PI / 2) * ((s - s_bg) / (L_total - s_bg)));
+        const handleStiff = 1.5 * Math.pow(Math.max(0, (u - 0.88) / 0.12), 2);
+        const hoselStiff = 0.8 * Math.pow(Math.max(0, (0.08 - u) / 0.08), 2);
+        const baseEI = 1.0 + handleStiff + hoselStiff;
+        const localStiffness = getStiffnessAt(u);
+        const EI = baseEI * (localStiffness / 87.5);
+        const k = M / EI;
+        kappa[i] = k;
+        referenceCurvature += (M / baseEI) * ds;
+      }
+
+      // Supports both positive (initial forehand bend) and negative (opposite whip bend)
+      const targetRad = (currentBendDeg * Math.PI) / 180;
+      // Calibrate against the original shaft so profile-wide stiffness changes
+      // alter total flex, while the default 87.5 profile preserves the baseline.
+      const scale = referenceCurvature !== 0 ? targetRad / referenceCurvature : 0;
+      for (let i = 0; i < SEGMENTS; i++) kappa[i] *= scale;
+
+      // Tangent slope integrated strictly along discrete arc length ds
+      const rawTheta = new Float64Array(SEGMENTS);
+      rawTheta[0] = 0;
+      for (let i = 1; i < SEGMENTS; i++) {
+        rawTheta[i] = rawTheta[i - 1] + 0.5 * (kappa[i - 1] + kappa[i]) * ds;
+      }
+
+      // Exact discrete arc-length root finding for bow anchor theta0
+      let th = 0;
+      for (let iter = 0; iter < 10; iter++) {
+        let zEnd = 0;
+        let dz_dth = 0;
+        for (let i = 1; i < SEGMENTS; i++) {
+          const thMid = 0.5 * (rawTheta[i - 1] + rawTheta[i]) + th;
+          zEnd += Math.sin(thMid) * ds;
+          dz_dth += Math.cos(thMid) * ds;
+        }
+        if (Math.abs(zEnd) < 1e-7) break;
+        th -= zEnd / (dz_dth || 1);
+      }
+      const theta0 = th;
+
+      const cumulativeAngle = new Float32Array(SEGMENTS);
+      const cumulativeZ = new Float32Array(SEGMENTS);
+      const cumulativeY = new Float32Array(SEGMENTS);
+
+      if (isReleased) {
+        // Discrete Arc-Length Parameterization during Release & Whip (t > 600 ms)
+        // Neutral axis length is strictly conserved: (dz)^2 + (dy)^2 == (ds)^2.
+        // Fulcrum hand at s_bg acts as spatial pivot.
+        // The top hand moves in the OPPOSITE direction (+Z, backward towards player),
+        // which lever-pivots around the bottom hand to give the blade an even stronger forward whip (-Z)!
+        const i_bg = Math.round(s_bg / ds);
+        const peakBend = peakBendDeg || 35;
+        const peakScale = currentBendDeg !== 0 ? peakBend / currentBendDeg : 0;
+        const peakRawTheta = new Float64Array(SEGMENTS);
+        for (let i = 1; i < SEGMENTS; i++) {
+          peakRawTheta[i] = rawTheta[i] * peakScale;
+        }
+        let peakTh = 0;
+        for (let iter = 0; iter < 10; iter++) {
+          let zEnd = 0;
+          let dz_dth = 0;
+          for (let i = 1; i < SEGMENTS; i++) {
+            const thMid = 0.5 * (peakRawTheta[i - 1] + peakRawTheta[i]) + peakTh;
+            zEnd += Math.sin(thMid) * ds;
+            dz_dth += Math.cos(thMid) * ds;
+          }
+          if (Math.abs(zEnd) < 1e-7) break;
+          peakTh -= zEnd / (dz_dth || 1);
+        }
+        let refZ_bg = 0;
+        let refY_bg = 0;
+        for (let i = 1; i <= i_bg; i++) {
+          const thMid = 0.5 * (peakRawTheta[i - 1] + peakRawTheta[i]) + peakTh;
+          refZ_bg += Math.sin(thMid) * ds;
+          refY_bg += Math.cos(thMid) * ds;
+        }
+
+        // Gradually remove curvature above the fulcrum while rotating the whole
+        // shaft forward, so the blade supplies the extra rotation instead of a
+        // permanently bowed upper section.
+        const progress = Math.max(0, Math.min(1, followProgress || 0));
+        const upperCurvature = 1 - progress;
+        const maxSwingAngle = (78 * Math.PI) / 180;
+        const peakTopAngle = peakRawTheta[SEGMENTS - 1] + peakTh;
+        const requestedTopAngle = peakTopAngle + (leverAngleDeg * Math.PI / 180) * progress;
+        let minRelativeAngle = Infinity;
+        let maxRelativeAngle = -Infinity;
+
+        for (let i = 0; i < SEGMENTS; i++) {
+          const relativeAngle = rawTheta[i] - rawTheta[i_bg];
+          const adjustedRelative = i > i_bg ? relativeAngle * upperCurvature : relativeAngle;
+          minRelativeAngle = Math.min(minRelativeAngle, adjustedRelative);
+          maxRelativeAngle = Math.max(maxRelativeAngle, adjustedRelative);
+        }
+
+        const minFulcrumAngle = -maxSwingAngle - minRelativeAngle;
+        const maxFulcrumAngle = maxSwingAngle - maxRelativeAngle;
+        const topRelativeAngle = (rawTheta[SEGMENTS - 1] - rawTheta[i_bg]) * upperCurvature;
+        const minTopAngle = minFulcrumAngle + topRelativeAngle;
+        const maxTopAngle = maxFulcrumAngle + topRelativeAngle;
+        const targetTopAngle = Math.max(
+          minTopAngle,
+          Math.min(maxTopAngle, Math.max(peakTopAngle, requestedTopAngle))
+        );
+        const th_bg = targetTopAngle - topRelativeAngle;
+
+        // Preserve the lower-shaft flex, but progressively straighten the span
+        // from fulcrum to top hand. At full release all upper tangents are equal.
+        for (let i = 0; i < SEGMENTS; i++) {
+          const relativeAngle = rawTheta[i] - rawTheta[i_bg];
+          cumulativeAngle[i] = th_bg + (i > i_bg ? relativeAngle * upperCurvature : relativeAngle);
+        }
+
+
+      // Fulcrum anchor position with player downward follow-through pull
+      const fulcrumZ = refZ_bg;
+      const fulcrumY = refY_bg - (topPullDownMm || 0) * progress * 0.3;
+
+      const absZ = new Float64Array(SEGMENTS);
+      const absY = new Float64Array(SEGMENTS);
+      absZ[i_bg] = fulcrumZ;
+      absY[i_bg] = fulcrumY;
+
+      // Upward integration along discrete arc length from fulcrum to butt end:
+      for (let i = i_bg + 1; i < SEGMENTS; i++) {
+        const thMid = 0.5 * (cumulativeAngle[i - 1] + cumulativeAngle[i]);
+        absZ[i] = absZ[i - 1] + Math.sin(thMid) * ds;
+        absY[i] = absY[i - 1] + Math.cos(thMid) * ds;
+      }
+
+      // Downward integration along discrete arc length from fulcrum to hosel & blade:
+      for (let i = i_bg - 1; i >= 0; i--) {
+        const thMid = 0.5 * (cumulativeAngle[i] + cumulativeAngle[i + 1]);
+        absZ[i] = absZ[i + 1] - Math.sin(thMid) * ds;
+        absY[i] = absY[i + 1] - Math.cos(thMid) * ds;
+      }
+
+      for (let i = 0; i < SEGMENTS; i++) {
+        cumulativeZ[i] = absZ[i];
+        cumulativeY[i] = absY[i] - i * ds; // exact arc-shortening delta from arc length
+      }
+    } else {
+      // Initial Bending Phase (0 to 600 ms on ice):
+      for (let i = 0; i < SEGMENTS; i++) {
+        cumulativeAngle[i] = rawTheta[i] + theta0;
+      }
+      cumulativeZ[0] = 0;
+      let curY = 0;
+      cumulativeY[0] = 0;
+
+      for (let i = 1; i < SEGMENTS; i++) {
+        const s = i * ds;
+        const thMid = 0.5 * (cumulativeAngle[i - 1] + cumulativeAngle[i]);
+        const dz = Math.sin(thMid) * ds;
+        const dyStep = Math.cos(thMid) * ds;
+        cumulativeZ[i] = cumulativeZ[i - 1] + dz;
+        curY += dyStep;
+        cumulativeY[i] = curY - s; // exact arc-shortening delta from arc length
+      }
+    }
+
+      return {
+        cumulativeAngle,
+        cumulativeZ,
+        cumulativeY,
+        thetaHosel: cumulativeAngle[0],
+        deltaZHosel: cumulativeZ[0],
+        deltaYHosel: cumulativeY[0]
+      };
+    }
+
+    function sampleDeformation(origY, profile) {
+      const u = Math.max(0, Math.min(1, origY / L_total));
+      const segs = profile.cumulativeZ.length;
+      const idx = u * (segs - 1);
+      const i0 = Math.floor(idx);
+      const i1 = Math.min(segs - 1, i0 + 1);
+      const frac = idx - i0;
+
+      const dz = profile.cumulativeZ[i0] + (profile.cumulativeZ[i1] - profile.cumulativeZ[i0]) * frac;
+      const dy = profile.cumulativeY[i0] + (profile.cumulativeY[i1] - profile.cumulativeY[i0]) * frac;
+      const theta = profile.cumulativeAngle[i0] + (profile.cumulativeAngle[i1] - profile.cumulativeAngle[i0]) * frac;
+
+      return { dz, dy, theta };
+    }
+
+    // Evaluation & Mesh Update
+    function updatePhysics() {
+      const t = state.timeline;
+      const stiffnessDynamics = getStiffnessDynamics();
+      const loadTimeScale = stiffnessDynamics.timingScale;
+      const recoveryTimeScale = stiffnessDynamics.timingScale;
+      const tPeak = Math.max(540, Math.min(660, 600 * loadTimeScale));
+      const bgAmpMag = Math.abs(state.bottomGloveAmp) / 100;
+      const thAmpMag = Math.abs(state.topHandAmp) / 100;
+      const bgWindow = Math.max(20, Math.abs(state.bottomGloveTimeframe) * loadTimeScale);
+      const thWindow = Math.max(20, Math.abs(state.topHandTimeframe) * loadTimeScale);
+
+      let bgPulse = 0;
+      let thPulse = 0;
+      if (state.holdMaxBend) {
+        bgPulse = 1.0;
+        thPulse = 1.0;
+      } else if (t <= tPeak) {
+        const dtBg = Math.abs(t - tPeak);
+        if (dtBg <= bgWindow / 2) {
+          bgPulse = Math.sin(((t - (tPeak - bgWindow / 2)) / bgWindow) * Math.PI);
+        }
+        const dtTh = Math.abs(t - tPeak);
+        if (dtTh <= thWindow / 2) {
+          thPulse = Math.sin(((t - (tPeak - thWindow / 2)) / thWindow) * Math.PI);
+        }
+      }
+
+      const fBottom = bgAmpMag * bgPulse;
+      const fTop = thAmpMag * thPulse;
+      const netForceFactor = (fBottom + fTop) / 1.6;
+      const peakBendDeg = state.maxBendAngle * ((bgAmpMag + thAmpMag) / 1.6) * stiffnessDynamics.powerScale;
+
+      let isReleased = false;
+      let currentBendDeg = 0;
+      let leverAngleDeg = 0;
+      let topPullDownMm = 0;
+      let pullProgress = 0;
+
+      if (state.holdMaxBend || t <= tPeak) {
+        currentBendDeg = netForceFactor * state.maxBendAngle * stiffnessDynamics.powerScale;
+        isReleased = false;
+      } else {
+        isReleased = true;
+        const releaseDuration = (1000 - 600) * recoveryTimeScale;
+        const tau = Math.max(0, Math.min(1, (t - tPeak) / releaseDuration));
+
+        // Dynamic whip recoil oscillation: snaps through 0° into opposite bend (buiging de andere kant op als gevolg van de whip)
+        // Both initial bend and opposite whip bend are evaluated strictly through discrete arc-length parameterization
+        const decay = Math.exp(-2.2 * tau);
+        const whipScale = (state.bladeWhipStrength ?? 100) / 100;
+        const whipPhase = 2.2 * Math.PI * tau;
+        // Cancel the decay's initial slope so the release starts without a velocity drop at 600 ms.
+        const osc = Math.cos(whipPhase) + (1 / Math.PI) * Math.sin(whipPhase) +
+          (whipScale - 1) * Math.sin(whipPhase) ** 2;
+        const window = Math.cos((Math.PI / 2) * Math.pow(tau, 1.3));
+        currentBendDeg = peakBendDeg * decay * osc * window;
+
+        const baseFollowAngle = state.followThroughAngle ?? 28;
+        const topScale = Math.max(0.2, thAmpMag / 0.8);
+        const configuredPullStart = state.topHandPullStartMs ?? 600;
+        const pullStartMs = tPeak + (configuredPullStart - 600);
+        const pullDuration = Math.max(1, (850 - configuredPullStart) * recoveryTimeScale);
+        const pullTau = Math.max(0, Math.min(1, (t - pullStartMs) / pullDuration));
+        // Cosine easing gives the top hand a gradual start and a smooth stop.
+        pullProgress = 0.5 * (1 - Math.cos(pullTau * Math.PI));
+
+        // The adjustable pull timing drives both the top-hand lever and its downward travel.
+        leverAngleDeg = baseFollowAngle * topScale;
+        topPullDownMm = (state.topHandPullDownMm ?? 100) * topScale;
+      }
+
+      let profile = computeBeamProfile(
+        currentBendDeg,
+        state.bottomGlovePos,
+        isReleased,
+        leverAngleDeg,
+        topPullDownMm,
+        pullProgress,
+        peakBendDeg
+      );
+
+      // Blend the bow-anchored pose into the fulcrum release pose over 60 ms.
+      if (isReleased && t < tPeak + 60) {
+        const releaseBlend = Math.max(0, Math.min(1, (t - tPeak) / 60));
+        const blend = releaseBlend * releaseBlend * (3 - 2 * releaseBlend);
+        const initialProfile = computeBeamProfile(
+          currentBendDeg,
+          state.bottomGlovePos,
+          false,
+          0,
+          0,
+          0,
+          peakBendDeg
+        );
+
+        for (let i = 0; i < profile.cumulativeAngle.length; i++) {
+          profile.cumulativeAngle[i] = initialProfile.cumulativeAngle[i] +
+            (profile.cumulativeAngle[i] - initialProfile.cumulativeAngle[i]) * blend;
+          profile.cumulativeZ[i] = initialProfile.cumulativeZ[i] +
+            (profile.cumulativeZ[i] - initialProfile.cumulativeZ[i]) * blend;
+          profile.cumulativeY[i] = initialProfile.cumulativeY[i] +
+            (profile.cumulativeY[i] - initialProfile.cumulativeY[i]) * blend;
+        }
+        profile.thetaHosel = profile.cumulativeAngle[0];
+        profile.deltaZHosel = profile.cumulativeZ[0];
+        profile.deltaYHosel = profile.cumulativeY[0];
+      }
+
+      // Update Mesh Vertices
+      if (stickMesh && originalPositions) {
+        const pos = stickMesh.geometry.attributes.position.array;
+        const orig = originalPositions;
+        const cosHosel = Math.cos(profile.thetaHosel);
+        const sinHosel = Math.sin(profile.thetaHosel);
+
+        // Vertices sharing the same shaft height also share the same deformation.
+        // Evaluate interpolation and trigonometry once per height instead of once per vertex.
+        for (const row of vertexRows) {
+          const origY = row.y;
+          if (origY >= 0) {
+            const deform = sampleDeformation(origY, profile);
+            const cosT = Math.cos(deform.theta);
+            const sinT = Math.sin(deform.theta);
+            for (const i of row.indices) {
+              const relX = orig[i] - X_center;
+              const relZ = orig[i + 2] - Z_center;
+              pos[i] = X_center + relX;
+              pos[i + 1] = origY + deform.dy - relZ * sinT;
+              pos[i + 2] = Z_center + deform.dz + relZ * cosT;
+            }
+          } else {
+            for (const i of row.indices) {
+              const relX = orig[i] - X_center;
+              const relZ = orig[i + 2] - Z_center;
+              pos[i] = X_center + relX;
+              pos[i + 1] = profile.deltaYHosel + origY * cosHosel - relZ * sinHosel;
+              pos[i + 2] = Z_center + profile.deltaZHosel + origY * sinHosel + relZ * cosHosel;
+            }
+          }
+        }
+        stickMesh.geometry.attributes.position.needsUpdate = true;
+        stickMesh.geometry.computeVertexNormals();
+        stickMesh.geometry.computeBoundingBox();
+        stickMesh.geometry.computeBoundingSphere();
+
+        // Keep the deformed blade from passing below the ice, then return to rest height.
+        stickGroup.position.y = stickRestY;
+        stickGroup.updateMatrixWorld(true);
+        const deformedBox = new THREE.Box3().setFromObject(stickGroup, true);
+        const floorLift = Math.max(0, -deformedBox.min.y);
+        stickGroup.position.y += floorLift;
+
+        // Update Markers
+        const y_bg = (state.bottomGlovePos / 100) * L_total;
+        const d_bg = sampleDeformation(y_bg, profile);
+        bgMarker.position.set(X_center, y_bg + d_bg.dy + floorLift, Z_center + d_bg.dz);
+        bgMarker.rotation.set(-d_bg.theta, 0, 0);
+
+        const y_th = L_total;
+        const d_th = sampleDeformation(y_th, profile);
+        thMarker.position.set(X_center, y_th + d_th.dy + floorLift, Z_center + d_th.dz);
+        thMarker.rotation.set(-d_th.theta, 0, 0);
+      }
+
+    }
+
+    function initializeBladePath() {
+      if (!stickMesh || !originalPositions) return;
+      const puckStart = new THREE.Vector3(95, 12.5, -20120);
+      const position = stickMesh.geometry.attributes.position.array;
+      let nearestDistance = Infinity;
+      let heelIndex = -1;
+      const bladeIndices = [];
+
+      for (let i = 0; i < originalPositions.length; i += 3) {
+        if (originalPositions[i + 1] >= 0) continue;
+        bladeIndices.push(i);
+        const worldPoint = stickMesh.localToWorld(
+          new THREE.Vector3(position[i], position[i + 1], position[i + 2])
+        );
+        const distance = worldPoint.distanceToSquared(puckStart);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          heelIndex = i;
+        }
+      }
+
+      if (heelIndex < 0) return;
+      const heel = stickMesh.localToWorld(
+        new THREE.Vector3(position[heelIndex], position[heelIndex + 1], position[heelIndex + 2])
+      );
+      let farthestDistance = -1;
+      let tipIndex = heelIndex;
+      for (const i of bladeIndices) {
+        const point = stickMesh.localToWorld(
+          new THREE.Vector3(position[i], position[i + 1], position[i + 2])
+        );
+        const distance = point.distanceToSquared(heel);
+        if (distance > farthestDistance) {
+          farthestDistance = distance;
+          tipIndex = i;
+        }
+      }
+      game.bladeHeelIndex = heelIndex;
+      game.bladeTipIndex = tipIndex;
+    }
+
+    function getBladePoint(vertexIndex) {
+      const position = stickMesh.geometry.attributes.position.array;
+      return stickMesh.localToWorld(
+        new THREE.Vector3(position[vertexIndex], position[vertexIndex + 1], position[vertexIndex + 2])
+      );
+    }
+
+    function getBladeContactProgress() {
+      if (game.bladeHeelIndex < 0 || game.bladeTipIndex < 0) return null;
+      const heel = getBladePoint(game.bladeHeelIndex);
+      const tip = getBladePoint(game.bladeTipIndex);
+      const bladeAxis = tip.clone().sub(heel);
+      const lengthSq = bladeAxis.lengthSq();
+      if (lengthSq === 0) return null;
+
+      const progress = THREE.MathUtils.clamp(
+        game.puck.position.clone().sub(heel).dot(bladeAxis) / lengthSq,
+        0,
+        1
+      );
+      const closestPoint = heel.addScaledVector(bladeAxis, progress);
+      const contactDistance = 250; // Increased to ensure the blade reliably catches the puck even during fast animation steps
+      return closestPoint.distanceToSquared(game.puck.position) <= contactDistance ** 2
+        ? progress
+        : null;
+    }
+
+    // Connect UI Elements
+    function syncUiFromState() {
+      function sync(idSlider, idNum, val) {
+        const sl = document.getElementById(idSlider);
+        const num = document.getElementById(idNum);
+        if (sl) sl.value = val;
+        if (num) num.value = val;
+      }
+      sync('slBottomGlovePos', 'numBottomGlovePos', state.bottomGlovePos);
+      sync('slBottomGloveAmp', 'numBottomGloveAmp', state.bottomGloveAmp);
+      sync('slTopHandAmp', 'numTopHandAmp', state.topHandAmp);
+      sync('slMaxBend', 'numMaxBend', state.maxBendAngle);
+      sync('slTopPullStart', 'numTopPullStart', state.topHandPullStartMs ?? 500);
+      sync('slTopPullDown', 'numTopPullDown', state.topHandPullDownMm ?? 85);
+      sync('slFollowAngle', 'numFollowAngle', state.followThroughAngle ?? 50);
+      sync('slBladeWhip', 'numBladeWhip', state.bladeWhipStrength ?? 100);
+
+      const slTimeline = document.getElementById('slTimeline');
+      const lblTimeline = document.getElementById('lblTimeline');
+      if (slTimeline) slTimeline.value = state.timeline;
+      if (lblTimeline) lblTimeline.textContent = state.timeline + ' ms';
+
+      const btnHold = document.getElementById('btnHoldMax');
+      if (btnHold) {
+        if (state.holdMaxBend) {
+          btnHold.classList.add('active');
+          btnHold.textContent = '✓ Maximale Buiging Vasthouden (600 ms)';
+        } else {
+          btnHold.classList.remove('active');
+          btnHold.textContent = 'Dynamische Schotcyclus';
+        }
+      }
+
+      document.querySelectorAll('.btn-jump').forEach(btn => {
+        const t = parseInt(btn.getAttribute('data-time'));
+        if (t === state.timeline && !state.holdMaxBend) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+    }
+
+    function bindTwoWay(idSlider, idNum, key) {
+      const sl = document.getElementById(idSlider);
+      const num = document.getElementById(idNum);
+      if (sl && num) {
+        sl.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          state[key] = val;
+          num.value = val;
+          updatePhysics();
+        });
+        num.addEventListener('input', (e) => {
+          const val = parseFloat(e.target.value);
+          if (!isNaN(val)) {
+            state[key] = val;
+            sl.value = val;
+            updatePhysics();
+          }
+        });
+      }
+    }
+
+    bindTwoWay('slBottomGlovePos', 'numBottomGlovePos', 'bottomGlovePos');
+    bindTwoWay('slBottomGloveAmp', 'numBottomGloveAmp', 'bottomGloveAmp');
+    bindTwoWay('slTopHandAmp', 'numTopHandAmp', 'topHandAmp');
+    bindTwoWay('slMaxBend', 'numMaxBend', 'maxBendAngle');
+    bindTwoWay('slTopPullStart', 'numTopPullStart', 'topHandPullStartMs');
+    bindTwoWay('slTopPullDown', 'numTopPullDown', 'topHandPullDownMm');
+    bindTwoWay('slFollowAngle', 'numFollowAngle', 'followThroughAngle');
+    bindTwoWay('slBladeWhip', 'numBladeWhip', 'bladeWhipStrength');
+
+    const stiffnessCanvas = document.getElementById('stiffnessCurve');
+    const stiffnessCtx = stiffnessCanvas.getContext('2d');
+    const stiffnessPlot = { left: 42, right: 12, top: 14, bottom: 24 };
+    let draggedStiffnessPoint = -1;
+
+    function analyzeStiffnessProfile() {
+      const points = sortedStiffnessCurve;
+      const sampleCount = 100;
+      const samples = Array.from({ length: sampleCount + 1 }, (_, i) =>
+        getStiffnessAt(i / sampleCount)
+      );
+      const average = points.slice(1).reduce((sum, point, i) =>
+        sum + (point.y - points[i].y) * (50 + 75 * (points[i].x + point.x) / 2), 0
+      );
+      const softThreshold = average - 4;
+      const softZones = [];
+      let zoneStart = -1;
+
+      for (let i = 0; i <= sampleCount; i++) {
+        const isSoft = samples[i] < softThreshold;
+        if (isSoft && zoneStart < 0) zoneStart = i;
+        if ((!isSoft || i === sampleCount) && zoneStart >= 0) {
+          const zoneEnd = isSoft && i === sampleCount ? i : i - 1;
+          if (zoneEnd - zoneStart >= 6) {
+            softZones.push((zoneStart + zoneEnd) / (2 * sampleCount));
+          }
+          zoneStart = -1;
+        }
+      }
+
+      const labels = [
+        'Ultra-Low Kick', 'Low-Kick', 'Mid-Low Kick',
+        'Mid Kick', 'Amplified Mid Kick', 'High Kick'
+      ];
+      const kickpoint = softZones.length >= 2
+        ? 'Hybrid Kick'
+        : labels[Math.min(5, Math.floor((softZones[0] ?? 0.5) * 6))];
+      const flexValue = Math.round(average / 5) * 5;
+
+      const kickpointReadout = document.getElementById('kickpointReadout');
+      const flexReadout = document.getElementById('flexReadout');
+      if (kickpointReadout) kickpointReadout.textContent = kickpoint;
+      if (flexReadout) flexReadout.textContent = `Flex ${flexValue}`;
+    }
+
+    function drawStiffnessCurve() {
+      const rect = stiffnessCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      stiffnessCanvas.width = Math.round(rect.width * dpr);
+      stiffnessCanvas.height = Math.round(rect.height * dpr);
+      stiffnessCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = rect.width;
+      const height = rect.height;
+      const plotWidth = width - stiffnessPlot.left - stiffnessPlot.right;
+      const plotHeight = height - stiffnessPlot.top - stiffnessPlot.bottom;
+      const px = x => stiffnessPlot.left + x * plotWidth;
+      const py = y => stiffnessPlot.top + (1 - y) * plotHeight;
+
+      stiffnessCtx.clearRect(0, 0, width, height);
+      stiffnessCtx.font = '10px sans-serif';
+      stiffnessCtx.textBaseline = 'middle';
+      stiffnessCtx.lineWidth = 1;
+      stiffnessCtx.strokeStyle = 'rgba(148,163,184,0.2)';
+      stiffnessCtx.fillStyle = '#94a3b8';
+      for (let i = 0; i <= 3; i++) {
+        const x = i / 3;
+        const y = i / 3;
+        const gx = px(x);
+        const gy = py(y);
+        stiffnessCtx.beginPath();
+        stiffnessCtx.moveTo(gx, stiffnessPlot.top);
+        stiffnessCtx.lineTo(gx, height - stiffnessPlot.bottom);
+        stiffnessCtx.stroke();
+        stiffnessCtx.beginPath();
+        stiffnessCtx.moveTo(stiffnessPlot.left, gy);
+        stiffnessCtx.lineTo(width - stiffnessPlot.right, gy);
+        stiffnessCtx.stroke();
+        stiffnessCtx.fillText(String(Math.round(50 + x * 75)), gx - 10, height - 10);
+        stiffnessCtx.fillText(y.toFixed(2), 3, gy);
+      }
+      stiffnessCtx.strokeStyle = '#38bdf8';
+      stiffnessCtx.lineWidth = 2;
+      stiffnessCtx.beginPath();
+      sortedStiffnessCurve.forEach((point, index) => {
+        const x = px(point.x);
+        const y = py(point.y);
+        if (index === 0) stiffnessCtx.moveTo(x, y);
+        else stiffnessCtx.lineTo(x, y);
+      });
+      stiffnessCtx.stroke();
+      state.stiffnessCurve.forEach(point => {
+        stiffnessCtx.beginPath();
+        stiffnessCtx.arc(px(point.x), py(point.y), 5, 0, Math.PI * 2);
+        stiffnessCtx.fillStyle = '#f8fafc';
+        stiffnessCtx.fill();
+        stiffnessCtx.strokeStyle = '#38bdf8';
+        stiffnessCtx.lineWidth = 2;
+        stiffnessCtx.stroke();
+      });
+      analyzeStiffnessProfile();
+    }
+
+    function stiffnessPointFromEvent(event) {
+      const rect = stiffnessCanvas.getBoundingClientRect();
+      const plotWidth = rect.width - stiffnessPlot.left - stiffnessPlot.right;
+      const plotHeight = rect.height - stiffnessPlot.top - stiffnessPlot.bottom;
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - rect.left - stiffnessPlot.left) / plotWidth)),
+        y: Math.max(0, Math.min(1, 1 - (event.clientY - rect.top - stiffnessPlot.top) / plotHeight)),
+        px: event.clientX - rect.left,
+        py: event.clientY - rect.top
+      };
+    }
+
+    stiffnessCanvas.addEventListener('pointerdown', event => {
+      const point = stiffnessPointFromEvent(event);
+      const rect = stiffnessCanvas.getBoundingClientRect();
+      const plotWidth = rect.width - stiffnessPlot.left - stiffnessPlot.right;
+      const plotHeight = rect.height - stiffnessPlot.top - stiffnessPlot.bottom;
+      draggedStiffnessPoint = state.stiffnessCurve.findIndex(item =>
+        Math.hypot((item.x - point.x) * plotWidth, (item.y - point.y) * plotHeight) < 14
+      );
+      if (draggedStiffnessPoint < 0) {
+        if (point.px < stiffnessPlot.left || point.px > rect.width - stiffnessPlot.right ||
+            point.py < stiffnessPlot.top || point.py > rect.height - stiffnessPlot.bottom) return;
+        state.stiffnessCurve.push({ x: point.x, y: point.y });
+        state.stiffnessCurve.sort((a, b) => a.y - b.y);
+        refreshStiffnessCurveCache();
+        draggedStiffnessPoint = state.stiffnessCurve.findIndex(item => item.x === point.x && item.y === point.y);
+      }
+      stiffnessCanvas.setPointerCapture(event.pointerId);
+      drawStiffnessCurve();
+      updatePhysics();
+    });
+
+    stiffnessCanvas.addEventListener('pointermove', event => {
+      if (draggedStiffnessPoint < 0) return;
+      const point = stiffnessPointFromEvent(event);
+      const item = state.stiffnessCurve[draggedStiffnessPoint];
+      item.x = point.x;
+      const epsilon = 0.005;
+      item.y = draggedStiffnessPoint === 0 ? 0 :
+        draggedStiffnessPoint === state.stiffnessCurve.length - 1 ? 1 :
+        Math.max(state.stiffnessCurve[draggedStiffnessPoint - 1].y + epsilon,
+          Math.min(state.stiffnessCurve[draggedStiffnessPoint + 1].y - epsilon, point.y));
+      state.stiffnessCurve.sort((a, b) => a.y - b.y);
+      refreshStiffnessCurveCache();
+      draggedStiffnessPoint = state.stiffnessCurve.indexOf(item);
+      drawStiffnessCurve();
+      updatePhysics();
+    });
+
+    function endStiffnessDrag() {
+      draggedStiffnessPoint = -1;
+    }
+    stiffnessCanvas.addEventListener('pointerup', endStiffnessDrag);
+    stiffnessCanvas.addEventListener('pointercancel', endStiffnessDrag);
+    document.getElementById('btnResetStiffness').addEventListener('click', () => {
+      state.stiffnessCurve = DEFAULT_STIFFNESS_CURVE.map(point => ({ ...point }));
+      refreshStiffnessCurveCache();
+      drawStiffnessCurve();
+      updatePhysics();
+    });
+    drawStiffnessCurve();
+    window.addEventListener('resize', drawStiffnessCurve);
+
+    const slTimeline = document.getElementById('slTimeline');
+    if (slTimeline) {
+      slTimeline.addEventListener('input', (e) => {
+        state.timeline = parseInt(e.target.value);
+        state.holdMaxBend = false;
+        syncUiFromState();
+        updatePhysics();
+      });
+    }
+
+    const btnHoldMax = document.getElementById('btnHoldMax');
+    if (btnHoldMax) {
+      btnHoldMax.addEventListener('click', () => {
+        state.holdMaxBend = !state.holdMaxBend;
+        if (state.holdMaxBend) state.timeline = 600;
+        syncUiFromState();
+        updatePhysics();
+      });
+    }
+
+    const btnPlay = document.getElementById('btnPlay');
+    if (btnPlay) {
+      btnPlay.addEventListener('click', () => {
+        state.isPlaying = !state.isPlaying;
+        state.holdMaxBend = false;
+        btnPlay.textContent = state.isPlaying ? '❚❚ Pauze' : '▶ Speel';
+        syncUiFromState();
+      });
+    }
+
+    document.querySelectorAll('.btn-jump').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.timeline = parseInt(btn.getAttribute('data-time'));
+        state.holdMaxBend = false;
+        syncUiFromState();
+        updatePhysics();
+      });
+    });
+
+    const btnResetAll = document.getElementById('btnResetAll');
+    if (btnResetAll) {
+      btnResetAll.addEventListener('click', () => {
+        Object.assign(state, {"bottomGlovePos":50,"bottomGloveAmp":100,"bottomGloveTimeframe":250,"topHandAmp":100,"topHandTimeframe":250,"maxBendAngle":40,"topHandPullStartMs":600,"topHandPullDownMm":130,"followThroughAngle":35,"bladeWhipStrength":100,"timeline":500,"isPlaying":false,"holdMaxBend":true,"bendAxis":"forwards","anchorMode":"bow"});
+        state.stiffnessCurve = DEFAULT_STIFFNESS_CURVE.map(point => ({ ...point }));
+        refreshStiffnessCurveCache();
+        drawStiffnessCurve();
+        syncUiFromState();
+        updatePhysics();
+      });
+    }
+
+    const panelHeader = document.getElementById('panelHeader');
+    const panel = document.getElementById('workbenchPanel');
+    const collapseIcon = document.getElementById('collapseIcon');
+    if (panelHeader && panel) {
+      panelHeader.addEventListener('click', () => {
+        panel.classList.toggle('collapsed');
+        collapseIcon.textContent = panel.classList.contains('collapsed') ? '▲ Uitklappen' : '▼ Inklappen';
+      });
+    }
+
+    // Load Model
+    const loader = new GLTFLoader();
+    loader.load(
+      MODEL_URL,
+      (gltf) => {
+        const root = gltf.scene;
+        root.traverse((child) => {
+          if (child.isMesh && !stickMesh) {
+            stickMesh = child;
+          }
+        });
+
+        if (stickMesh) {
+          const geom = stickMesh.geometry;
+          geom.computeVertexNormals();
+          originalPositions = new Float32Array(geom.attributes.position.array);
+          const rowsByHeight = new Map();
+          for (let i = 0; i < originalPositions.length; i += 3) {
+            const y = originalPositions[i + 1];
+            let row = rowsByHeight.get(y);
+            if (!row) {
+              row = { y, indices: [] };
+              rowsByHeight.set(y, row);
+            }
+            row.indices.push(i);
+          }
+          vertexRows = Array.from(rowsByHeight.values());
+
+          stickMesh.material = new THREE.MeshStandardMaterial({
+            roughness: 0.5,
+            metalness: 0.25,
+            side: THREE.DoubleSide
+          });
+        }
+
+        stickGroup = new THREE.Group();
+        stickGroup.rotation.y = 0.22;
+        stickGroup.rotation.z = 0.40 + (20 * Math.PI / 180); // Tilt to the right so bottom blade sits flat on ice, + 20 extra degrees
+        stickGroup.position.set(0, 0, -20500);   // Place the stick at ice level between the hash marks
+
+        // Rotate clockwise from above while keeping the top-hand point fixed.
+        const topHandLocal = new THREE.Vector3(X_center, L_total, Z_center);
+        const topHandWorld = topHandLocal.clone().applyQuaternion(stickGroup.quaternion).add(stickGroup.position);
+        stickGroup.rotation.y -= THREE.MathUtils.degToRad(25);
+        const rotatedTopHand = topHandLocal.clone().applyQuaternion(stickGroup.quaternion);
+        stickGroup.position.x = topHandWorld.x - rotatedTopHand.x;
+        stickGroup.position.z = topHandWorld.z - rotatedTopHand.z;
+
+        stickGroup.add(root);
+        scene.add(stickGroup);
+        ghostStickGroup = stickGroup.clone(true);
+        ghostStickGroup.visible = false;
+        ghostStickGroup.traverse(child => {
+          if (child.isMesh) {
+            child.geometry = child.geometry.clone();
+            child.material = child.material.clone();
+            child.material.transparent = true;
+            child.material.opacity = 0.32;
+            child.material.depthWrite = false;
+            if (!ghostStickMesh) ghostStickMesh = child;
+          }
+        });
+        scene.add(ghostStickGroup);
+        stickGroup.updateMatrixWorld(true);
+        const initialStickBox = new THREE.Box3().setFromObject(stickGroup, true);
+        stickGroup.position.y -= initialStickBox.min.y;
+        stickRestY = stickGroup.position.y;
+
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 400);
+        }
+
+        syncUiFromState();
+        updatePhysics();
+        initializeBladePath();
+      },
+      undefined,
+      (err) => {
+        console.error('Model load error:', err);
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+          overlay.innerHTML = '<div style="color: #ef4444; font-weight: 800;">Fout bij laden van 3D model. Controleer internetverbinding.</div>';
+        }
+      }
+    );
+
+    function updateGameScore() {
+      document.getElementById('score-val').textContent = game.score;
+      document.getElementById('shots-val').textContent = game.shots;
+      if (game.shots > 0 && projectedArrow.visible) {
+        projectedArrow.visible = false;
+      }
+    }
+
+    function captureReplayFrame() {
+      const frame = { position: game.puck.position.clone(), rotation: game.puck.rotation.clone() };
+      if (stickMesh && stickGroup) {
+        frame.stickPositions = new Float32Array(stickMesh.geometry.attributes.position.array);
+        frame.stickGroupPosition = stickGroup.position.clone();
+        frame.stickGroupQuaternion = stickGroup.quaternion.clone();
+      }
+      return frame;
+    }
+
+    let replayPaused = false;
+    let replayDirection = 1;
+    const replayControls = document.getElementById('replay-controls');
+    const replayTimeline = document.getElementById('replayTimeline');
+    const replayFrameLabel = document.getElementById('replayFrameLabel');
+    const ghostStickToggle = document.getElementById('ghostStickToggle');
+    const ghostPuckToggle = document.getElementById('ghostPuckToggle');
+
+    function refreshReplayControls() {
+      const active = game.replayPlayback !== null;
+      replayControls.classList.toggle('visible', active);
+      if (!active) {
+        if (ghostStickGroup) ghostStickGroup.visible = false;
+        ghostPuck.visible = false;
+        game.puck.visible = true;
+        if (stickGroup) stickGroup.visible = true;
+        return;
+      }
+      replayTimeline.max = Math.max(0, game.replayFrames.length - 1);
+      replayTimeline.value = game.replayPlayback;
+      replayFrameLabel.textContent = `${Math.floor(game.replayPlayback)} / ${Math.max(0, game.replayFrames.length - 1)}`;
+      if (ghostStickGroup) ghostStickGroup.visible = ghostStickToggle.checked;
+      if (stickGroup) stickGroup.visible = !ghostStickToggle.checked;
+      ghostPuck.visible = ghostPuckToggle.checked;
+      game.puck.visible = !ghostPuckToggle.checked;
+      document.getElementById('replayPlayPause').textContent = replayPaused ? '▶ Afspelen' : '❚❚ Pauze';
+    }
+
+    function resetPuck() {
+      game.puck.position.set(95, 12.5, -20120);
+      game.puck.rotation.set(0, 0, 0);
+      game.puckVelocity.set(0, 0, 0);
+      game.puckState = 'idle';
+      game.shotAim = null;
+      game.replayRecording = false;
+      game.replayPlayback = null;
+      replayPaused = false;
+      refreshReplayControls();
+      game.bladeTipSpeed = 0;
+      game.bladeContactProgress = 0;
+      game.lastBladeTipPosition = null;
+      game.bladeVelocity.set(0, 0, 0);
+      game.bladeForwardSpeed = 0;
+      game.peakBladeForwardSpeed = 0;
+      game.bladeDecelerationFrames = 0;
+      game.lastBladeCenterPosition = null;
+      document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
+      swipeData.triggered = false;
+
+      // Auto pause if it was playing
+      if (state.isPlaying) {
+         state.isPlaying = false;
+         btnPlay.textContent = '▶ Speel';
+         state.timeline = 0; // Reset stick
+         updatePhysics();
+      }
+    }
+
+    document.getElementById('btnInstantReplay').addEventListener('click', () => {
+      if (game.replayFrames.length < 2 || game.replayRecording) return;
+      game.replayPlayback = 0;
+      replayDirection = 1;
+      replayPaused = false;
+      game.puckState = 'replay';
+      refreshReplayControls();
+    });
+
+    document.getElementById('replayPlayPause').addEventListener('click', () => {
+      if (game.replayPlayback === null) return;
+      replayPaused = !replayPaused;
+      if (!replayPaused && game.replayPlayback >= game.replayFrames.length - 1) {
+        game.replayPlayback = 0;
+        replayDirection = 1;
+      }
+      refreshReplayControls();
+    });
+    document.getElementById('replayRewind').addEventListener('click', () => {
+      if (game.replayPlayback === null) return;
+      replayDirection = -1;
+      replayPaused = false;
+      refreshReplayControls();
+    });
+    document.getElementById('replayStepBack').addEventListener('click', () => {
+      if (game.replayPlayback === null) return;
+      replayPaused = true;
+      replayDirection = -1;
+      game.replayPlayback = Math.max(0, game.replayPlayback - 1);
+      refreshReplayControls();
+    });
+    document.getElementById('replayStepForward').addEventListener('click', () => {
+      if (game.replayPlayback === null) return;
+      replayPaused = true;
+      replayDirection = 1;
+      game.replayPlayback = Math.min(game.replayFrames.length - 1, game.replayPlayback + 1);
+      refreshReplayControls();
+    });
+    replayTimeline.addEventListener('input', () => {
+      if (game.replayPlayback === null) return;
+      replayPaused = true;
+      game.replayPlayback = Number(replayTimeline.value);
+      refreshReplayControls();
+    });
+    ghostStickToggle.addEventListener('change', refreshReplayControls);
+    ghostPuckToggle.addEventListener('change', refreshReplayControls);
+
+    // Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      const now = performance.now();
+      const delta = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      // The stick stays at its ice-aligned rest height; only shaft flex changes its shape.
+      // Do not apply gravity to the parent group or re-align it from the changing flexed bounds.
+
+      if (state.isPlaying && !state.holdMaxBend) {
+        // Use the same timeline playback rate as the Settings animation.
+        const stepRate = 800 * delta;
+        let next = state.timeline + stepRate * playDirection;
+        if (next >= 1200) {
+          next = 1200;
+          playDirection = -1;
+        } else if (next <= 0) {
+          next = 0;
+          playDirection = 1;
+        }
+        state.timeline = Math.round(next);
+        syncUiFromState();
+        updatePhysics();
+
+        // Keep the puck stationary until the blade physically reaches it.
+        let bladeContactProgress = null;
+        if (swipeData.triggered && state.timeline >= game.contactTime - 100) {
+            bladeContactProgress = getBladeContactProgress();
+        }
+
+        if (game.puckState === 'idle' && swipeData.triggered && bladeContactProgress !== null) {
+          game.puckState = 'attached'; // Attach the puck!
+          game.bladeContactProgress = 0; // The puck should always start at the front of the blade (heel side) when caught.
+
+          game.contactTime = state.timeline;
+          const stiffnessDynamics = getStiffnessDynamics();
+          game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;
+
+          const contactHeel = getBladePoint(game.bladeHeelIndex);
+          const contactTip = getBladePoint(game.bladeTipIndex);
+          const contactBladeAxis = contactTip.clone().sub(contactHeel);
+          const contactPoint = contactHeel.clone().addScaledVector(contactBladeAxis, game.bladeContactProgress);
+
+          game.bladeContactAxis.copy(contactBladeAxis.normalize());
+
+          const upVector = new THREE.Vector3(0, 1, 0);
+          let frontNormal = new THREE.Vector3().crossVectors(game.bladeContactAxis, upVector).normalize();
+
+          if (frontNormal.z > 0) {
+              frontNormal.negate();
+          }
+
+          const bladeClearance = 54;
+          game.bladeContactOffset.copy(frontNormal).multiplyScalar(bladeClearance);
+
+          game.bladeVelocity.set(0, 0, 0);
+          game.bladeForwardSpeed = 0;
+          game.peakBladeForwardSpeed = 0;
+          game.bladeDecelerationFrames = 0;
+          game.lastBladeCenterPosition = null;
+          game.shots++;
+          updateGameScore();
+        }
+
+        if (game.puckState === 'attached') {
+          const rollProgress = Math.max(0, Math.min(1,
+            (state.timeline - game.contactTime) / (game.releaseTime - game.contactTime)));
+          if (game.bladeHeelIndex >= 0 && game.bladeTipIndex >= 0) {
+            const heel = getBladePoint(game.bladeHeelIndex);
+            const tip = getBladePoint(game.bladeTipIndex);
+            if (game.lastBladeTipPosition && delta > 0) {
+              const instantTipSpeed = tip.distanceTo(game.lastBladeTipPosition) / delta;
+              game.bladeTipSpeed = THREE.MathUtils.lerp(game.bladeTipSpeed, instantTipSpeed, 0.35);
+            }
+            game.lastBladeTipPosition = tip.clone();
+
+            // Track the blade's forward velocity and detect when it begins to decelerate.
+            const bladeCenter = heel.clone().add(tip).multiplyScalar(0.5);
+            if (game.lastBladeCenterPosition && delta > 0) {
+              const instantBladeVelocity = bladeCenter.clone()
+                .sub(game.lastBladeCenterPosition).multiplyScalar(1 / delta);
+              game.bladeVelocity.lerp(instantBladeVelocity, 0.4);
+              game.bladeForwardSpeed = -game.bladeVelocity.z;
+              if (game.bladeForwardSpeed > game.peakBladeForwardSpeed) {
+                game.peakBladeForwardSpeed = game.bladeForwardSpeed;
+                game.bladeDecelerationFrames = 0;
+              } else if (game.peakBladeForwardSpeed > 300 &&
+                         game.bladeForwardSpeed < game.peakBladeForwardSpeed * 0.92) {
+                game.bladeDecelerationFrames++;
+              } else {
+                game.bladeDecelerationFrames = 0;
+              }
+            }
+            game.lastBladeCenterPosition = bladeCenter;
+
+            // Allow the puck to roll up to and slightly off the end of the blade before flying.
+            // "Op het moment dat de punt van het blad zijn pieksnelheid heeft bereikt dan is de puck precies net voorbij de punt van het blad gerold"
+            const bladeRollProgress = game.bladeContactProgress +
+              (1.05 - game.bladeContactProgress) * rollProgress;
+
+            const currentBladeAxis = tip.clone().sub(heel).normalize();
+            const contactOffset = game.bladeContactOffset.clone().applyQuaternion(
+              new THREE.Quaternion().setFromUnitVectors(game.bladeContactAxis, currentBladeAxis)
+            );
+            game.puck.position.lerpVectors(heel, tip, bladeRollProgress).add(contactOffset);
+            game.puck.position.y = 12.5; // lock to ice level so it doesn't fly up
+            // A modest, steady spin; the puck's path and orientation do not wobble on the blade.
+            game.puck.rotation.set(0, rollProgress * Math.PI * 1.2, 0);
+          }
+
+          const bladeHasStartedSlowing = game.peakBladeForwardSpeed > 300 &&
+            game.bladeDecelerationFrames >= 3;
+          const releaseSafetyLimitReached = state.timeline >= game.contactTime + 420;
+          const rollOffBlade = (game.bladeContactProgress + (1.05 - game.bladeContactProgress) * Math.max(0, Math.min(1, (state.timeline - game.contactTime) / (game.releaseTime - game.contactTime)))) >= 1.0;
+
+          if (bladeHasStartedSlowing || releaseSafetyLimitReached || rollOffBlade) {
+            const target = game.shotAim || new THREE.Vector3(0, 300, game.net.position.z);
+            const aimDeltaX = target.x - game.puck.position.x;
+            if (game.shotDeviationX * aimDeltaX < 0) {
+              game.shotDeviationX = -Math.sign(aimDeltaX) * Math.min(
+                Math.abs(game.shotDeviationX), Math.abs(aimDeltaX) * 0.5
+              );
+            }
+            const flightTarget = target.clone();
+            flightTarget.x += game.shotDeviationX;
+            flightTarget.z = game.net.position.z - 50;
+            const shotDirection = flightTarget.clone().sub(game.puck.position).normalize();
+            const stiffnessDynamics = getStiffnessDynamics();
+            const swipePower = swipeData.power ? swipeData.power / 100 : 0.8;
+            const whip = state.bladeWhipStrength / 100;
+            // The swipe loads the shot, while the moving blade supplies most of the release impulse.
+            const swipeDrivenSpeed = (5000 + 7000 * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale;
+            const launchVelocity = shotDirection.multiplyScalar(swipeDrivenSpeed)
+              .add(game.bladeVelocity);
+            game.puckVelocity.copy(launchVelocity.multiplyScalar(gameSettings.shotSpeed));
+            const speed = game.puckVelocity.length();
+            game.flightStart.copy(game.puck.position);
+            game.flightDuration = game.flightStart.distanceTo(flightTarget) / speed;
+
+            game.shotElapsed = 0;
+            game.shotWobbleOffset = 0;
+            game.shotWobble = THREE.MathUtils.clamp(
+              (1 - swipePower) * 90 + Math.abs(swipeData.accuracy) * 1000,
+              0,
+              240
+            );
+            game.puckState = 'shot';
+            document.getElementById('btnInstantReplay').disabled = true;
+            swipeData.triggered = false;
+          }
+        }
+      }
+
+      // Puck Physics
+      if (game.puckState === 'shot' || game.puckState === 'goal') {
+        // Keep clean shots on a direct line; only settled pucks in the net fall under gravity.
+        if (game.puckState === 'goal') game.puckVelocity.y -= 3800 * delta;
+
+        // Keep the puck center on a straight trajectory; turbulence only tilts it visually.
+        if (game.puckState === 'shot') {
+          game.shotElapsed += delta;
+          game.puckVelocity.y -= 9810 * delta; // Gravity in mm/s² (9.81 m/s²).
+          game.puck.position.addScaledVector(game.puckVelocity, delta);
+          const wobbleAmount = THREE.MathUtils.clamp(game.shotWobble / 240, 0, 1);
+          const turbulence = Math.sin(game.shotElapsed * 24) * wobbleAmount * 0.12;
+          game.puck.rotation.set(
+            turbulence,
+            game.shotElapsed * 8,
+            Math.sin(game.shotElapsed * 19 + 0.8) * wobbleAmount * 0.08
+          );
+        } else {
+          game.puck.position.addScaledVector(game.puckVelocity, delta);
+        }
+
+        // Floor collision
+        if (game.puck.position.y < 12.5) {
+           game.puck.position.y = 12.5;
+           game.puckVelocity.y = -game.puckVelocity.y * 0.3; // bounce
+           game.puckVelocity.x *= 0.98; // friction
+           game.puckVelocity.z *= 0.98;
+        }
+
+        // Boards collision
+        if (Math.abs(game.puck.position.x) > (rinkWidth / 2) - 38) {
+           game.puck.position.x = Math.sign(game.puck.position.x) * ((rinkWidth / 2) - 38);
+           game.puckVelocity.x *= -0.8;
+        }
+        if (game.puck.position.z < -30000 + 38) {
+           game.puck.position.z = -30000 + 38;
+           game.puckVelocity.z *= -0.8;
+        }
+
+        // Check Goal
+        if (game.puckState === 'shot') {
+           const netX = game.net.position.x;
+           const netZ = game.net.position.z;
+
+           // Simple AABB check for net
+           if (game.puck.position.z < netZ && game.puck.position.z > netZ - 1000) {
+             if (Math.abs(game.puck.position.x - netX) < (1830 / 2) && game.puck.position.y < 1220) {
+                game.puckState = 'goal';
+                game.score++;
+                updateGameScore();
+
+                // Show goal text
+                const goalEl = document.createElement('div');
+                goalEl.textContent = 'GOAL!';
+                goalEl.style.position = 'absolute';
+                goalEl.style.top = '50%';
+                goalEl.style.left = '50%';
+                goalEl.style.transform = 'translate(-50%, -50%)';
+                goalEl.style.fontSize = '80px';
+                goalEl.style.color = '#ff0000';
+                goalEl.style.fontWeight = 'bold';
+                goalEl.style.textShadow = '0 0 20px rgba(255,0,0,0.8)';
+                goalEl.style.pointerEvents = 'none';
+                goalEl.style.zIndex = '50';
+                document.body.appendChild(goalEl);
+
+                // Slow puck down in net and finish the replay at the goal.
+                game.puckVelocity.multiplyScalar(0.1);
+                game.replayFrames.push(captureReplayFrame());
+                game.replayRecording = false;
+                document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
+
+                setTimeout(() => {
+                  goalEl.remove();
+                  resetPuck();
+                }, 2000);
+             }
+           }
+
+           // Out of bounds
+           if (game.puck.position.z < -30500 || Math.abs(game.puck.position.x) > 13000) {
+              resetPuck();
+           } else if (game.puckVelocity.lengthSq() < 1000 && game.puck.position.z < -20600) {
+              // Reset if the puck slows down significantly and is away from starting pos
+              resetPuck();
+           } else if (game.shotElapsed > 8) {
+              // End missed or stalled shots so their replay recording becomes available.
+              resetPuck();
+           }
+        }
+      }
+
+      if (game.replayPlayback !== null && game.replayFrames.length > 1) {
+        const frames = game.replayFrames;
+        const framePosition = Math.max(0, Math.min(frames.length - 1, game.replayPlayback));
+        const frameIndex = Math.min(Math.floor(framePosition), frames.length - 2);
+        const blend = framePosition - frameIndex;
+        const from = frames[frameIndex];
+        const to = frames[Math.min(frameIndex + 1, frames.length - 1)];
+        game.puck.position.lerpVectors(from.position, to.position, blend);
+        game.puck.rotation.set(
+          THREE.MathUtils.lerp(from.rotation.x, to.rotation.x, blend),
+          THREE.MathUtils.lerp(from.rotation.y, to.rotation.y, blend),
+          THREE.MathUtils.lerp(from.rotation.z, to.rotation.z, blend)
+        );
+        ghostPuck.position.copy(game.puck.position);
+        ghostPuck.rotation.copy(game.puck.rotation);
+
+        if (ghostStickMesh && from.stickPositions && to.stickPositions) {
+          const positions = ghostStickMesh.geometry.attributes.position.array;
+          for (let i = 0; i < positions.length; i++) {
+            positions[i] = THREE.MathUtils.lerp(from.stickPositions[i], to.stickPositions[i], blend);
+          }
+          ghostStickMesh.geometry.attributes.position.needsUpdate = true;
+          ghostStickMesh.geometry.computeVertexNormals();
+          ghostStickMesh.geometry.computeBoundingSphere();
+          ghostStickGroup.position.lerpVectors(from.stickGroupPosition, to.stickGroupPosition, blend);
+          ghostStickGroup.quaternion.slerpQuaternions(from.stickGroupQuaternion, to.stickGroupQuaternion, blend);
+        }
+        refreshReplayControls();
+        if (!replayPaused) {
+          game.replayPlayback += delta * 60 * Number(document.getElementById('replaySpeed').value) * replayDirection;
+          if (game.replayPlayback >= frames.length - 1) {
+            game.replayPlayback = frames.length - 1;
+            replayPaused = true;
+          } else if (game.replayPlayback <= 0 && replayDirection < 0) {
+            game.replayPlayback = 0;
+            replayPaused = true;
+          }
+        }
+      }
+
+      if (game.replayRecording) {
+        if (game.replayFrames.length > 400) {
+            game.replayFrames.shift();
+        }
+        game.replayFrames.push(captureReplayFrame());
+        document.getElementById('btnInstantReplay').disabled = true;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
