@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { gameSettings } from './config.js';
-import { state, game, swipeData } from './state.js';
-import { getStiffnessDynamics } from './physics.js';
-import { camera } from './scene.js'; // game.net is in sceneGame.net technically, or we map it
+import { gameSettings } from './config.js?v=goal-net-3';
+import { state, game, swipeData } from './state.js?v=goal-net-3';
+import { getStiffnessDynamics } from './physics.js?v=goal-net-3';
+import { camera, GOAL } from './scene.js?v=goal-net-3'; // game.net is in sceneGame.net technically, or we map it
 
 export function getGoalAim(clientX, clientY, pathErrorX = 0) {
   const aimX = clientX + pathErrorX * 1.5;
@@ -14,8 +14,8 @@ export function getGoalAim(clientX, clientY, pathErrorX = 0) {
   raycaster.setFromCamera(ndc, camera);
   const goalPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -game.net.position.z);
   const hit = new THREE.Vector3();
-  const netWidth = 1830;
-  const netHeight = 1220;
+  const netWidth = GOAL.width;
+  const netHeight = GOAL.height;
   const fallbackX = ((aimX / window.innerWidth) - 0.5) * netWidth;
   const fallbackY = (1 - clientY / window.innerHeight) * netHeight;
   const point = raycaster.ray.intersectPlane(goalPlane, hit)

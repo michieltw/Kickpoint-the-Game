@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DEFAULT_STIFFNESS_CURVE } from './config.js';
+import { DEFAULT_STIFFNESS_CURVE } from './config.js?v=goal-net-3';
 
 export const appState = { mode: 'splash' }; // 'splash', 'menu', 'game', 'gameSettings', 'settings'
 
@@ -29,7 +29,7 @@ export const game = {
   puckVelocity: new THREE.Vector3(0, 0, 0),
   net: null,
   ice: null,
-  puckState: 'idle', // idle, attached, shot, goal
+  puckState: 'idle', // idle, attached, shot, goal, missed, replay
   shotAim: null,
   contactTime: 0,
   releaseTime: 0,
