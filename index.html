@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=customizer-layout-16">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -88,58 +88,104 @@
     </div>
   </section>
 
-  <!-- Separate Customizer Menu -->
-  <section id="stick-customizer" class="hidden glass-panel" style="position:absolute; inset:0; z-index: 45; border:none; box-shadow:none; border-radius:0; align-items: center; justify-content: center; padding: 20px; display: none;">
-    <div class="game-settings-card glass-panel" style="position:relative;">
-      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo-small" alt="Blackout Hockey">
-      <h2>Stick Customizer</h2>
-      <p>Personaliseer je stick visueel en fysiek.</p>
+  <section id="stick-customizer" aria-label="Stick aanpassen">
+    <div class="customizer-shell">
+      <header class="customizer-header">
+        <div>
+          <span class="customizer-eyebrow">BOUW JE EIGEN STICK</span>
+          <h1>Stick Customizer</h1>
+          <p>Kies een optie om de beschikbare keuzes te bekijken.</p>
+        </div>
+        <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" alt="Blackout Hockey">
+      </header>
 
-      <div class="customizer-section" style="border-top: none; padding-top: 0; margin-top: 0;">
-        <div class="game-setting-row" style="margin-top:0;">
-            <label>Stick Kleur</label>
-            <select id="custColor" class="customizer-select">
-                <option value="#ffffff">Wit</option>
-                <option value="#000000">Zwart</option>
-                <option value="#ff0000">Rood</option>
-                <option value="#0000ff">Blauw</option>
-            </select>
+      <div class="customizer-layout">
+        <div class="customizer-option-column" id="customizer-options-left">
+          <section class="customizer-option" data-select-id="custColor" aria-label="Stick kleur"></section>
+          <section class="customizer-option" data-select-id="custShaftShape" aria-label="Shaft Shape"></section>
+          <section class="customizer-option" data-select-id="custShaftSurface" aria-label="Shaft Surface Grip"></section>
+          <section class="customizer-option" data-select-id="custShaft3dGrip" aria-label="Shaft 3D Grip"></section>
         </div>
 
-        <div class="game-setting-row">
-            <label>Model</label>
-            <select id="custModel" class="customizer-select">
-                <option value="P28-ST">P28-ST</option>
-            </select>
+        <div class="customizer-preview-stage" id="customizer-preview-stage">
+          <div class="customizer-preview-glow"></div>
+          <div class="customizer-preview-placeholder" aria-hidden="true">
+            <span class="preview-stick-blade"></span>
+            <span class="preview-stick-shaft"></span>
+            <span class="preview-stick-grip"></span>
+          </div>
+          <span class="customizer-preview-caption">3D STICK PREVIEW</span>
         </div>
 
-        <label class="customizer-checkbox-label"><input type="checkbox" id="custShaftGrip"> Shaft Grip</label>
-        <label class="customizer-checkbox-label"><input type="checkbox" id="custBladeGrip"> Blade Grip</label>
-        <label class="customizer-checkbox-label"><input type="checkbox" id="custStickTape"> Stick Tape</label>
+        <div class="customizer-option-column" id="customizer-options-right">
+          <section class="customizer-option" data-select-id="custModel" aria-label="Model"></section>
+          <section class="customizer-option" data-select-id="custKickpoint" aria-label="Kickpoint"></section>
+          <section class="customizer-option" data-select-id="custBladeCurve" aria-label="Curves"></section>
+          <section class="customizer-option" data-select-id="custBladeTexture" aria-label="Blade Texture"></section>
+          <section class="customizer-option" data-select-id="custShaftWall" aria-label="Shaft Wand"></section>
+        </div>
+      </div>
 
-        <div class="game-setting-row" style="margin-top: 12px;">
+      <details class="customizer-advanced">
+        <summary>Meer opties</summary>
+        <div class="customizer-advanced-content">
+          <label class="customizer-checkbox-label"><input type="checkbox" id="custShaftGrip"> Shaft Grip</label>
+          <label class="customizer-checkbox-label"><input type="checkbox" id="custBladeGrip"> Blade Grip</label>
+          <label class="customizer-checkbox-label"><input type="checkbox" id="custStickTape"> Stick Tape</label>
+          <div class="game-setting-row">
             <label for="custFlex">Flex Waarde <output id="custFlexValue">90</output></label>
             <input id="custFlex" type="range" min="40" max="120" step="5" value="90">
-        </div>
-
-        <div class="game-setting-row">
-            <label>Kickpoint Preset</label>
-            <select id="custKickpoint" class="customizer-select">
-                <option value="low">Low Kick</option>
-                <option value="hybrid">Hybrid Kick</option>
-                <option value="mid">Mid Kick</option>
-            </select>
-        </div>
-
-        <div class="game-setting-row">
-            <label for="custThickness">Shaft Wanddikte (mm) - <span style="font-weight:normal; color:#555;">Bepaalt gewicht</span> <output id="custThicknessValue">2.0</output></label>
+          </div>
+          <div class="game-setting-row">
+            <label for="custThickness">Shaft Wanddikte (mm) <output id="custThicknessValue">2.0</output></label>
             <input id="custThickness" type="range" min="1.0" max="4.0" step="0.1" value="2.0">
+          </div>
         </div>
+      </details>
+
+      <div id="customizer-native-controls" aria-hidden="true">
+        <select id="custColor" aria-label="Stick kleur">
+          <option value="#ffffff">Wit</option><option value="#000000">Zwart</option>
+          <option value="#ff0000">Rood</option><option value="#0000ff">Blauw</option><option value="#ffff00">Geel</option>
+          <option value="#16a34a">Groen</option><option value="#800080">Paars</option><option value="#4b0082">Donkerpaars</option>
+          <option value="#c0c0c0">Zilver</option><option value="#d4af37">Goud</option><option value="#f97316">Oranje</option>
+          <option value="#7dd3fc">Lichtblauw</option><option value="#808080">Grijs</option><option value="#008080">Teal</option>
+          <option value="#ec4899">Roze</option><option value="#8b0000">Donkerrood</option><option value="#bfc7ce">Chrome</option>
+        </select>
+        <select id="custModel" aria-label="Model"><option value="P28-ST">P28-ST</option></select>
+        <select id="custShaftShape" aria-label="Shaft Shape">
+          <option value="micro-concaaf">Micro Concaaf</option><option value="concaaf">Concaaf</option><option value="pentagon">Vijfhoek</option>
+        </select>
+        <select id="custShaftSurface" aria-label="Shaft Surface Grip">
+          <option value="mat-without-grip">Mat zonder grip</option><option value="mat-with-grip">Mat met grip</option>
+          <option value="gloss-without-grip">Glanzend zonder grip</option><option value="gloss-with-grip">Glanzend met grip</option>
+          <option value="supergloss-with-grip">Superglanzend met grip</option>
+        </select>
+        <select id="custShaft3dGrip" aria-label="Shaft 3D Grip">
+          <option value="fully-covered">Helemaal bedekt met grip</option><option value="candy-cane">Zuurstok patroon grip</option>
+          <option value="herringbone">Vissengraat grip</option><option value="right-angles">Rechte hoeken grip</option>
+          <option value="slanted-angles">Schuine hoeken grip</option><option value="none">Geen 3D grip</option>
+        </select>
+        <select id="custKickpoint" aria-label="Kickpoint Preset">
+          <option value="low">Low Kick</option><option value="hybrid">Hybrid Kick</option><option value="mid">Mid Kick</option>
+        </select>
+        <select id="custBladeCurve" aria-label="Curves">
+          <option value="P92">P92</option><option value="P28">P28</option><option value="P88">P88</option><option value="P90TM">P90TM</option>
+        </select>
+        <select id="custBladeTexture" aria-label="Blade Texture">
+          <option value="3d-texture">3D textuur</option><option value="sanded">Geschuurd</option>
+          <option value="matte-no-texture">Mat zonder textuur</option><option value="gloss-no-texture">Glanzend zonder textuur</option>
+        </select>
+        <select id="custShaftWall" aria-label="Shaft Wand">
+          <option value="ultra-thin">Ultra dun</option><option value="flinter-thin">Flinter dun</option>
+          <option value="very-thin">Zeer dun</option><option value="thin">Dun</option><option value="regular">Regulier</option>
+        </select>
       </div>
 
-      <div class="game-settings-actions">
-        <button class="menu-btn secondary" id="btnCustomizerBack" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Hoofdmenu</button>
-      </div>
+      <footer class="customizer-footer">
+        <span>Je kunt je keuzes later altijd aanpassen.</span>
+        <button class="menu-btn" id="btnCustomizerBack">Verder naar spel</button>
+      </footer>
     </div>
   </section>
 
@@ -338,6 +384,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=goal-net-3"></script>
+  <script type="module" src="js/main.js?v=customizer-layout-17"></script>
 </body>
 </html>

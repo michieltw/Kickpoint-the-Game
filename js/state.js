@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DEFAULT_STIFFNESS_CURVE } from './config.js?v=goal-net-3';
+import { DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-layout-17';
 
 export const appState = { mode: 'splash' }; // 'splash', 'menu', 'game', 'gameSettings', 'settings'
 
@@ -37,6 +37,7 @@ export const game = {
   shotWobble: 0,
   shotWobbleOffset: 0,
   shotDeviationX: 0,
+  shotQuickness: 1,
   flightStart: new THREE.Vector3(),
   flightDuration: 0,
   bladeTipSpeed: 0,

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { gameSettings } from './config.js?v=goal-net-3';
-import { state, game, swipeData } from './state.js?v=goal-net-3';
-import { getStiffnessDynamics } from './physics.js?v=goal-net-3';
-import { camera, GOAL } from './scene.js?v=goal-net-3'; // game.net is in sceneGame.net technically, or we map it
+import { gameSettings, StickCustomizerState } from './config.js?v=customizer-layout-17';
+import { state, game, swipeData } from './state.js?v=customizer-layout-17';
+import { getStiffnessDynamics } from './physics.js?v=customizer-layout-17';
+import { camera, GOAL } from './scene.js?v=customizer-layout-17'; // game.net is in sceneGame.net technically, or we map it
+import { getStickShotModifiers } from './stick-effects.js?v=customizer-layout-17';
 
 export function getGoalAim(clientX, clientY, pathErrorX = 0) {
   const aimX = clientX + pathErrorX * 1.5;
@@ -94,16 +95,24 @@ export function bindInput(controls, syncUiFromState) {
             maxPathErrorX = errorX;
           }
         }
-        const effectivePathError = Math.max(0, maxPathErrorMagnitude - gameSettings.precisionTolerance);
+        const shotModifiers = getStickShotModifiers(StickCustomizerState);
+        game.shotQuickness = shotModifiers.quickness;
+        const effectivePathError = Math.max(
+          0,
+          maxPathErrorMagnitude - gameSettings.precisionTolerance * shotModifiers.accuracy
+        );
         const signedPathError = Math.sign(maxPathErrorX) * effectivePathError;
         swipeData.accuracy = signedPathError / window.innerWidth;
-        game.shotAim = getGoalAim(swipeData.endX, swipeData.endY);
+        const unbiasedAim = getGoalAim(swipeData.endX, swipeData.endY);
         const inaccurateAim = getGoalAim(
           swipeData.endX,
           swipeData.endY,
-          signedPathError * gameSettings.deviationPenalty
+          signedPathError * gameSettings.deviationPenalty / shotModifiers.accuracy
         );
-        game.shotDeviationX = inaccurateAim.x - game.shotAim.x;
+        game.shotAim = unbiasedAim.clone();
+        game.shotAim.x += shotModifiers.shotTendencyX * GOAL.width;
+        game.shotAim.y += shotModifiers.shotTendencyY * GOAL.height;
+        game.shotDeviationX = inaccurateAim.x - unbiasedAim.x;
         const stiffnessDynamics = getStiffnessDynamics();
         game.contactTime = Math.max(540, Math.min(660, 600 * stiffnessDynamics.timingScale));
         game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;

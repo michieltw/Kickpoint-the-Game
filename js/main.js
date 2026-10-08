@@ -1,22 +1,40 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { appState, state, game, swipeData } from './state.js?v=goal-net-3';
-import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=goal-net-3';
-import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=goal-net-3';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=goal-net-3';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=goal-net-3';
-import { bindInput } from './input.js?v=goal-net-3';
+import { appState, state, game, swipeData } from './state.js?v=customizer-layout-17';
+import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=customizer-layout-17';
+import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=customizer-layout-17';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=customizer-layout-17';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-layout-17';
+import { bindInput } from './input.js?v=customizer-layout-17';
+import { getStickShotModifiers } from './stick-effects.js?v=customizer-layout-17';
 
 const MODEL_URL = 'https://raw.githubusercontent.com/michieltw/GLB-s/main/glb_files_retextured/P28-ST.glb';
 
 let playDirection = 1;
 let lastTime = performance.now();
+let customizerPreviewGroup = null;
+let gameplayStickVisibility = null;
+
+function applyStickColor(material, color) {
+  const normalizedColor = color.toLowerCase();
+  const isBlack = normalizedColor === '#000000';
+  const isMetallic = ['#c0c0c0', '#d4af37', '#bfc7ce'].includes(normalizedColor);
+  material.color?.set(color);
+  if (material.emissive) {
+    material.emissive.set(isBlack ? '#3b414a' : '#000000');
+    material.emissiveIntensity = isBlack ? 0.9 : 0;
+  }
+  if ('metalness' in material) {
+    material.metalness = isMetallic ? 0.65 : 0.08;
+    material.roughness = normalizedColor === '#bfc7ce' ? 0.18 : isMetallic ? 0.28 : 0.48;
+  }
+}
 
 // Replay controls
 let replayPaused = false;
 let replayDirection = 1;
 
-function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier) {
+function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bladeVelocity) {
   const gravity = 9810;
   const delta = target.clone().sub(start);
   // Find the flight time at the requested speed that compensates for gravity.
@@ -29,8 +47,6 @@ function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier) {
   const minTime = 0.02;
   const maxTime = 4;
   const samples = 256;
-  let bestTime = minTime;
-  let bestError = Math.abs(getSpeedError(minTime));
   let previousTime = minTime;
   let previousError = getSpeedError(previousTime);
   let bracket = null;
@@ -38,10 +54,6 @@ function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier) {
   for (let i = 1; i <= samples; i++) {
     const time = minTime + (maxTime - minTime) * i / samples;
     const error = getSpeedError(time);
-    if (Math.abs(error) < bestError) {
-      bestTime = time;
-      bestError = Math.abs(error);
-    }
     if (previousError * error <= 0) {
       bracket = [previousTime, time];
       break;
@@ -50,25 +62,31 @@ function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier) {
     previousError = error;
   }
 
-  if (bracket) {
-    let [low, high] = bracket;
-    let lowError = getSpeedError(low);
-    for (let i = 0; i < 32; i++) {
-      const middle = (low + high) / 2;
-      const middleError = getSpeedError(middle);
-      if (lowError * middleError <= 0) {
-        high = middle;
-      } else {
-        low = middle;
-        lowError = middleError;
-      }
-    }
-    bestTime = (low + high) / 2;
+  if (!bracket) {
+    const directVelocity = delta.normalize().multiplyScalar(speed);
+    return {
+      velocity: directVelocity.sub(bladeVelocity),
+      flightTime: Math.max(minTime, start.distanceTo(target) / (speed * speedMultiplier))
+    };
   }
 
+  let [low, high] = bracket;
+  let lowError = getSpeedError(low);
+  for (let i = 0; i < 32; i++) {
+    const middle = (low + high) / 2;
+    const middleError = getSpeedError(middle);
+    if (lowError * middleError <= 0) {
+      high = middle;
+    } else {
+      low = middle;
+      lowError = middleError;
+    }
+  }
+  const flightTime = (low + high) / 2;
+
   return {
-    velocity: getVelocityAtTime(bestTime),
-    flightTime: bestTime
+    velocity: getVelocityAtTime(flightTime).sub(bladeVelocity),
+    flightTime
   };
 }
 
@@ -220,38 +238,52 @@ function resolveGoalCollisions(previousPosition) {
     }
   }
 
-  const rearPlane = netZ - GOAL.depth;
-  const crossedRearNet = previousPosition.z > rearPlane && game.puck.position.z <= rearPlane;
-  const crossedBackIntoNet = previousPosition.z < rearPlane && game.puck.position.z >= rearPlane;
-  const withinRearNet = Math.abs(game.puck.position.x - netX) < GOAL.rearWidth / 2 + puckRadius &&
-    game.puck.position.y > -puckRadius && game.puck.position.y < GOAL.rearHeight + puckRadius;
-  if (withinRearNet && crossedRearNet) {
-    game.puck.position.z = rearPlane + puckRadius + 0.5;
-    if (game.puckVelocity.z < 0) game.puckVelocity.z *= -0.55;
-  } else if (withinRearNet && crossedBackIntoNet) {
-    game.puck.position.z = rearPlane - puckRadius - 0.5;
-    if (game.puckVelocity.z > 0) game.puckVelocity.z *= -0.55;
+  const rearSlope = (GOAL.depth - GOAL.rearTopDepth) / (GOAL.rearHeight - 20);
+  const getBackNetSignedDistance = position => {
+    const heightProgress = THREE.MathUtils.clamp(
+      (position.y - 20) / (GOAL.rearHeight - 20),
+      0,
+      1
+    );
+    const backNetZ = netZ - GOAL.depth + (GOAL.depth - GOAL.rearTopDepth) * heightProgress;
+    return (position.z - backNetZ) / Math.sqrt(1 + rearSlope * rearSlope);
+  };
+  const previousBackNetDistance = getBackNetSignedDistance(previousPosition);
+  const currentBackNetDistance = getBackNetSignedDistance(game.puck.position);
+  const crossedBackNet = (previousBackNetDistance > puckRadius && currentBackNetDistance <= puckRadius) ||
+    (previousBackNetDistance < -puckRadius && currentBackNetDistance >= -puckRadius) ||
+    previousBackNetDistance * currentBackNetDistance <= 0;
+  const withinBackNet = Math.abs(game.puck.position.x - netX) < GOAL.rearWidth / 2 + puckRadius &&
+    game.puck.position.y > 20 - puckRadius && game.puck.position.y < GOAL.rearHeight + puckRadius;
+  if (withinBackNet && crossedBackNet) {
+    const normal = new THREE.Vector3(0, -rearSlope, 1).normalize();
+    const side = previousBackNetDistance >= 0 ? 1 : -1;
+    game.puck.position.addScaledVector(
+      normal,
+      side * (puckRadius + 0.5 - Math.abs(currentBackNetDistance))
+    );
+    if (game.puckVelocity.dot(normal) * side < 0) {
+      game.puckVelocity.reflect(normal).multiplyScalar(0.55);
+    }
   }
 
   const depth = netZ - game.puck.position.z;
   if (depth < 0 || depth > GOAL.depth) return;
 
-  const cornerProgress = THREE.MathUtils.clamp(
-    (depth - (GOAL.depth - GOAL.cornerRadius)) / GOAL.cornerRadius,
-    0,
-    1
-  );
-  const roundedCorner = cornerProgress * cornerProgress * (3 - 2 * cornerProgress);
-  const halfWidth = GOAL.width / 2 - GOAL.cornerRadius * roundedCorner;
-  const roofHeight = THREE.MathUtils.lerp(GOAL.height, GOAL.rearHeight, depth / GOAL.depth);
+  const roofProgress = THREE.MathUtils.clamp(depth / GOAL.rearTopDepth, 0, 1);
+  const halfWidth = THREE.MathUtils.lerp(GOAL.width / 2, GOAL.rearWidth / 2, roofProgress);
+  const roofHeight = THREE.MathUtils.lerp(GOAL.height, GOAL.rearHeight, roofProgress);
   const previousDepth = THREE.MathUtils.clamp(netZ - previousPosition.z, 0, GOAL.depth);
-  const previousCornerProgress = THREE.MathUtils.clamp(
-    (previousDepth - (GOAL.depth - GOAL.cornerRadius)) / GOAL.cornerRadius,
+  const previousRoofProgress = THREE.MathUtils.clamp(
+    previousDepth / GOAL.rearTopDepth,
     0,
     1
   );
-  const previousRoundedCorner = previousCornerProgress * previousCornerProgress * (3 - 2 * previousCornerProgress);
-  const previousHalfWidth = GOAL.width / 2 - GOAL.cornerRadius * previousRoundedCorner;
+  const previousHalfWidth = THREE.MathUtils.lerp(
+    GOAL.width / 2,
+    GOAL.rearWidth / 2,
+    previousRoofProgress
+  );
   const previousSideDistance = Math.abs(previousPosition.x - netX) - previousHalfWidth;
   const currentSideDistance = Math.abs(game.puck.position.x - netX) - halfWidth;
 
@@ -270,12 +302,17 @@ function resolveGoalCollisions(previousPosition) {
   }
 
   const roofGap = game.puck.position.y - roofHeight;
-  const previousRoofHeight = THREE.MathUtils.lerp(GOAL.height, GOAL.rearHeight, previousDepth / GOAL.depth);
+  const previousRoofHeight = THREE.MathUtils.lerp(
+    GOAL.height,
+    GOAL.rearHeight,
+    THREE.MathUtils.clamp(previousDepth / GOAL.rearTopDepth, 0, 1)
+  );
   const previousRoofGap = previousPosition.y - previousRoofHeight;
   const crossedRoofNet = (previousRoofGap < -puckRadius && roofGap >= -puckRadius) ||
     (previousRoofGap > puckRadius && roofGap <= puckRadius) ||
     previousRoofGap * roofGap <= 0;
-  if (crossedRoofNet && Math.abs(game.puck.position.x - netX) < halfWidth + puckRadius) {
+  if (crossedRoofNet && depth <= GOAL.rearTopDepth + puckRadius &&
+      Math.abs(game.puck.position.x - netX) < halfWidth + puckRadius) {
     const cameFromAbove = previousRoofGap > 0;
     game.puck.position.y = roofHeight + (cameFromAbove ? puckRadius + 0.5 : -puckRadius - 0.5);
     const roofNormal = new THREE.Vector3(0, 1, -((GOAL.height - GOAL.rearHeight) / GOAL.depth)).normalize();
@@ -330,6 +367,7 @@ function resetPuck() {
   game.puckVelocity.set(0, 0, 0);
   game.puckState = 'idle';
   game.shotAim = null;
+  game.shotQuickness = 1;
   game.replayRecording = false;
   game.replayPlayback = null;
   replayPaused = false;
@@ -508,7 +546,10 @@ function animate() {
   }
 
   if (state.isPlaying && !state.holdMaxBend) {
-    const stepRate = 800 * delta;
+    const shotQuickness = swipeData.triggered || ['shot', 'goal', 'missed'].includes(game.puckState)
+      ? game.shotQuickness
+      : 1;
+    const stepRate = 800 * delta * shotQuickness;
     let next = state.timeline + stepRate * playDirection;
     if (next >= 1200) {
       next = 1200;
@@ -612,18 +653,18 @@ function animate() {
         const stiffnessDynamics = getStiffnessDynamics();
         const swipePower = swipeData.power ? swipeData.power / 100 : 0.8;
         const whip = state.bladeWhipStrength / 100;
+        const shotModifiers = getStickShotModifiers(StickCustomizerState);
 
-        // Use customizer thickness logic to adjust weight/speed
-        const weightPenalty = (StickCustomizerState.weightFactor - 1.0) * 0.15; // heavier = slower
-
-        const swipeDrivenSpeed = (5000 + 7000 * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale * (1.0 - weightPenalty);
+        const swipeDrivenSpeed = (5000 + 7000 * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale;
         const aimAdjustedLaunch = getAimAdjustedLaunchVelocity(
           game.puck.position,
           flightTarget,
-          swipeDrivenSpeed,
-          gameSettings.shotSpeed
+          swipeDrivenSpeed * shotModifiers.puckSpeed,
+          gameSettings.shotSpeed,
+          game.bladeVelocity
         );
         game.puckVelocity.copy(aimAdjustedLaunch.velocity).multiplyScalar(gameSettings.shotSpeed);
+        game.puckVelocity.addScaledVector(game.bladeVelocity, gameSettings.shotSpeed);
         const speed = game.puckVelocity.length();
 
         // Calculate and show speed in km/h or mph.
@@ -841,6 +882,28 @@ function animate() {
   }
 
   controls.update();
+  const isCustomizerVisible = appState.mode === 'customizer';
+  if (isCustomizerVisible && gameplayStickVisibility === null) {
+    gameplayStickVisibility = {
+      objects: scene.children
+        .filter(object => object !== customizerPreviewGroup && !object.isLight && !object.isCamera)
+        .map(object => ({ object, visible: object.visible }))
+    };
+    gameplayStickVisibility.objects.forEach(({ object }) => { object.visible = false; });
+  } else if (!isCustomizerVisible && gameplayStickVisibility !== null) {
+    gameplayStickVisibility.objects.forEach(({ object, visible }) => { object.visible = visible; });
+    gameplayStickVisibility = null;
+  }
+  if (customizerPreviewGroup) {
+    customizerPreviewGroup.visible = isCustomizerVisible;
+    if (isCustomizerVisible) {
+      camera.updateMatrixWorld();
+      const cameraForward = camera.getWorldDirection(new THREE.Vector3());
+      customizerPreviewGroup.position.copy(camera.position)
+        .addScaledVector(cameraForward, 2400);
+      customizerPreviewGroup.quaternion.copy(camera.quaternion);
+    }
+  }
   renderer.render(scene, camera);
 }
 
@@ -888,7 +951,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Listen to customizer color changes to update mesh in real time
         document.getElementById('custColor').addEventListener('change', (e) => {
-           stickParams.stickMesh.material.color.set(e.target.value);
+           applyStickColor(stickParams.stickMesh.material, e.target.value);
+           customizerPreviewGroup?.traverse(child => {
+             if (!child.isMesh) return;
+             const materials = Array.isArray(child.material) ? child.material : [child.material];
+             materials.forEach(material => applyStickColor(material, e.target.value));
+           });
         });
       }
 
@@ -928,7 +996,96 @@ document.addEventListener('DOMContentLoaded', () => {
       // Store the exactly aligned start position
       stickParams.initialGroupPosition = stickParams.stickGroup.position.clone();
 
-      appState.mode = 'menu';
+      customizerPreviewGroup = new THREE.Group();
+      const previewAmbient = new THREE.AmbientLight(0xffffff, 1.8);
+      customizerPreviewGroup.add(previewAmbient);
+      const addPreviewLight = (color, intensity, position) => {
+        const light = new THREE.DirectionalLight(color, intensity);
+        const target = new THREE.Object3D();
+        light.position.copy(position);
+        customizerPreviewGroup.add(light, target);
+        light.target = target;
+      };
+      addPreviewLight(0xffffff, 4.2, new THREE.Vector3(-650, 900, 800));
+      addPreviewLight(0xb9e7ff, 3.1, new THREE.Vector3(700, 150, 600));
+      addPreviewLight(0xffffff, 3.6, new THREE.Vector3(100, 500, -800));
+      const previewModel = root.clone(true);
+      const sourceGeometry = stickParams.stickMesh.geometry;
+      sourceGeometry.computeBoundingBox();
+      const stickDimensions = sourceGeometry.boundingBox.getSize(new THREE.Vector3());
+      let checkerCellSize = Math.max(
+        Math.min(stickDimensions.x, stickDimensions.z) * 0.375,
+        0.00001
+      );
+      const checkerUniforms = [];
+      previewModel.traverse(child => {
+      if (!child.isMesh) return;
+      child.geometry = child.geometry.clone();
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      const previewMaterials = materials.map(material => {
+        const previewMaterial = material.clone();
+        applyStickColor(previewMaterial, StickCustomizerState.color);
+        previewMaterial.onBeforeCompile = shader => {
+          const checkerCellSizeUniform = { value: checkerCellSize };
+          shader.uniforms.customizerCheckerCellSize = checkerCellSizeUniform;
+          checkerUniforms.push(checkerCellSizeUniform);
+          shader.vertexShader = shader.vertexShader
+            .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;')
+            .replace(
+              '#include <begin_vertex>',
+              '#include <begin_vertex>\nvCustomizerCheckerPosition = (modelMatrix * vec4(position, 1.0)).xyz;\nvCustomizerCheckerNormal = normalize(mat3(modelMatrix) * normal);'
+            );
+          shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;\nuniform float customizerCheckerCellSize;')
+            .replace(
+              '#include <color_fragment>',
+              `#include <color_fragment>
+              vec3 checkerNormal = abs(normalize(vCustomizerCheckerNormal));
+              vec2 checkerCoordinates = checkerNormal.x > checkerNormal.y && checkerNormal.x > checkerNormal.z
+                ? vCustomizerCheckerPosition.yz
+                : checkerNormal.y > checkerNormal.z
+                  ? vCustomizerCheckerPosition.xz
+                  : vCustomizerCheckerPosition.xy;
+              float checkerParity = mod(
+                floor(checkerCoordinates.x / customizerCheckerCellSize)
+                + floor(checkerCoordinates.y / customizerCheckerCellSize),
+                2.0
+              );
+              float stickBrightness = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+              vec3 checkerTone = stickBrightness > 0.5 ? vec3(0.68) : vec3(0.5);
+              diffuseColor.rgb = mix(diffuseColor.rgb, checkerTone, checkerParity * 0.32);`
+            );
+        };
+        previewMaterial.customProgramCacheKey = () => 'customizer-subtle-checker-v1';
+        previewMaterial.depthTest = false;
+        previewMaterial.depthWrite = false;
+        return previewMaterial;
+      });
+      child.material = Array.isArray(child.material) ? previewMaterials : previewMaterials[0];
+      child.renderOrder = 1000;
+      });
+      customizerPreviewGroup.add(previewModel);
+      previewModel.updateMatrixWorld(true);
+      let previewBounds = new THREE.Box3().setFromObject(previewModel);
+      const previewSize = previewBounds.getSize(new THREE.Vector3());
+      if (previewSize.x > previewSize.y && previewSize.x > previewSize.z) {
+      previewModel.rotation.z = -Math.PI / 2;
+      } else if (previewSize.z > previewSize.y && previewSize.z > previewSize.x) {
+      previewModel.rotation.x = Math.PI / 2;
+      }
+      previewModel.updateMatrixWorld(true);
+      previewBounds = new THREE.Box3().setFromObject(previewModel);
+      const previewCenter = previewBounds.getCenter(new THREE.Vector3());
+      const previewHeight = Math.max(...previewBounds.getSize(new THREE.Vector3()).toArray());
+      previewModel.position.sub(previewCenter);
+      previewModel.scale.setScalar(1400 / previewHeight);
+      checkerCellSize *= previewModel.scale.x;
+      checkerUniforms.forEach(uniform => { uniform.value = checkerCellSize; });
+      customizerPreviewGroup.visible = false;
+      scene.add(customizerPreviewGroup);
+      document.getElementById('customizer-preview-stage').classList.add('has-stick-preview');
+
+      appState.mode = 'customizer';
       updateUiMode();
 
       syncUiFromState();

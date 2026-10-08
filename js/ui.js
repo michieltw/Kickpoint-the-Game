@@ -1,7 +1,7 @@
-import { appState, state, game } from './state.js?v=goal-net-3';
-import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=goal-net-3';
-import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=goal-net-3';
-import { camera, renderer } from './scene.js?v=goal-net-3';
+import { appState, state, game } from './state.js?v=customizer-layout-17';
+import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-layout-17';
+import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=customizer-layout-17';
+import { camera, renderer } from './scene.js?v=customizer-layout-17';
 
 export function updateUiMode() {
   const splash = document.getElementById('splash-screen');
@@ -21,7 +21,7 @@ export function updateUiMode() {
     gameUi.classList.remove('visible');
     settings.style.display = 'none';
     gameSettingsMenu.classList.remove('visible');
-    customizerMenu.style.display = 'none';
+    customizerMenu.classList.remove('visible');
     if(targetHud) targetHud.style.display = 'none';
   } else {
     splash.style.opacity = '0';
@@ -32,7 +32,7 @@ export function updateUiMode() {
       gameUi.classList.remove('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.remove('visible');
-      customizerMenu.style.display = 'none';
+      customizerMenu.classList.remove('visible');
       btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Play Now';
       if(targetHud) targetHud.style.display = 'none';
     } else if (appState.mode === 'game') {
@@ -40,7 +40,7 @@ export function updateUiMode() {
       gameUi.classList.add('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.remove('visible');
-      customizerMenu.style.display = 'none';
+      customizerMenu.classList.remove('visible');
       if(targetHud) {
           targetHud.style.display = game.mode === 'targets' ? 'flex' : 'none';
       }
@@ -49,18 +49,18 @@ export function updateUiMode() {
       gameUi.classList.remove('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.add('visible');
-      customizerMenu.style.display = 'none';
+      customizerMenu.classList.remove('visible');
     } else if (appState.mode === 'customizer') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
       settings.style.display = 'none';
       gameSettingsMenu.classList.remove('visible');
-      customizerMenu.style.display = 'flex';
+      customizerMenu.classList.add('visible');
     } else if (appState.mode === 'settings') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
-      customizerMenu.style.display = 'none';
+      customizerMenu.classList.remove('visible');
       settings.style.display = 'flex';
       settings.classList.remove('collapsed');
     }
@@ -177,6 +177,104 @@ export function stiffnessPointFromEvent(event, canvas) {
   };
 }
 
+function initCustomizerSwatches() {
+  document.querySelectorAll('.customizer-option[data-select-id]').forEach(optionCard => {
+    const select = document.getElementById(optionCard.dataset.selectId);
+    if (!select) return;
+
+    const title = optionCard.getAttribute('aria-label');
+    const currentButton = document.createElement('button');
+    currentButton.type = 'button';
+    currentButton.className = 'customizer-option-current';
+    currentButton.setAttribute('aria-expanded', 'false');
+    currentButton.innerHTML = '<span class="customizer-option-image" aria-hidden="true"></span><span class="customizer-option-copy"><span class="customizer-option-title"></span><span class="customizer-option-value"></span></span><span class="customizer-option-chevron" aria-hidden="true">⌄</span>';
+    currentButton.querySelector('.customizer-option-title').textContent = title;
+    optionCard.appendChild(currentButton);
+
+    const swatches = document.createElement('div');
+    swatches.className = 'customizer-swatches';
+    swatches.hidden = true;
+    for (const item of select.options) {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'customizer-swatch';
+      swatch.dataset.value = item.value;
+      swatch.setAttribute('aria-pressed', 'false');
+      const image = document.createElement('span');
+      image.className = 'customizer-swatch-image';
+      image.setAttribute('aria-hidden', 'true');
+      if (select.id === 'custColor') image.style.setProperty('--swatch-color', item.value);
+      const label = document.createElement('span');
+      label.textContent = item.textContent;
+      swatch.append(image, label);
+      swatch.addEventListener('click', () => {
+        select.value = item.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        optionCard.classList.remove('is-open');
+        swatches.hidden = true;
+        currentButton.setAttribute('aria-expanded', 'false');
+      });
+      swatches.appendChild(swatch);
+    }
+    optionCard.appendChild(swatches);
+
+    currentButton.addEventListener('click', () => {
+      const willOpen = !optionCard.classList.contains('is-open');
+      document.querySelectorAll('.customizer-option.is-open').forEach(openCard => {
+        openCard.classList.remove('is-open');
+        openCard.querySelector('.customizer-option-current')?.setAttribute('aria-expanded', 'false');
+        openCard.querySelector('.customizer-swatches').hidden = true;
+      });
+      optionCard.classList.toggle('is-open', willOpen);
+      swatches.hidden = !willOpen;
+      currentButton.setAttribute('aria-expanded', String(willOpen));
+    });
+
+    const syncSelection = () => {
+      const selected = select.selectedOptions[0];
+      currentButton.querySelector('.customizer-option-value').textContent = selected?.textContent ?? '';
+      if (select.id === 'custColor') {
+        currentButton.querySelector('.customizer-option-image').style.setProperty('--swatch-color', select.value);
+        document.getElementById('customizer-preview-stage').style.setProperty('--stick-color', select.value);
+      }
+      for (const swatch of swatches.children) {
+        const active = swatch.dataset.value === select.value;
+        swatch.classList.toggle('selected', active);
+        swatch.setAttribute('aria-pressed', String(active));
+      }
+      currentButton.querySelector('.customizer-option-image').textContent =
+        select.id === 'custColor' ? '' : (selected?.textContent.trim().slice(0, 2).toUpperCase() ?? '＋');
+    };
+    select.addEventListener('change', syncSelection);
+    syncSelection();
+  });
+}
+
+function syncCustomizerControlsFromState() {
+  const selectValues = {
+    custColor: StickCustomizerState.color,
+    custModel: StickCustomizerState.model,
+    custShaftShape: StickCustomizerState.shaftShape,
+    custShaftSurface: StickCustomizerState.shaftSurface,
+    custShaft3dGrip: StickCustomizerState.shaft3dGrip,
+    custKickpoint: StickCustomizerState.kickpoint,
+    custBladeCurve: StickCustomizerState.bladeCurve,
+    custBladeTexture: StickCustomizerState.bladeTexture,
+    custShaftWall: StickCustomizerState.shaftWall
+  };
+  for (const [id, value] of Object.entries(selectValues)) {
+    const select = document.getElementById(id);
+    if (select) select.value = value;
+  }
+  document.getElementById('custShaftGrip').checked = StickCustomizerState.shaftGrip;
+  document.getElementById('custBladeGrip').checked = StickCustomizerState.bladeGrip;
+  document.getElementById('custStickTape').checked = StickCustomizerState.stickTape;
+  document.getElementById('custFlex').value = StickCustomizerState.flex;
+  document.getElementById('custFlexValue').textContent = StickCustomizerState.flex;
+  document.getElementById('custThickness').value = StickCustomizerState.shaftThickness;
+  document.getElementById('custThicknessValue').textContent = Number(StickCustomizerState.shaftThickness).toFixed(1);
+}
+
 export function syncUiFromState() {
   function sync(idSlider, idNum, val) {
     const sl = document.getElementById(idSlider);
@@ -270,8 +368,27 @@ export function initUiBindings(updatePhysics) {
     });
 
     // Customizer Hookings
-    document.getElementById('custColor').addEventListener('change', (e) => StickCustomizerState.color = e.target.value);
+    document.getElementById('custColor').addEventListener('change', (e) => {
+        StickCustomizerState.color = e.target.value;
+        const colorKickpoints = {
+            '#0000ff': 'low',
+            '#ff0000': 'hybrid',
+            '#ffff00': 'mid'
+        };
+        const kickpoint = colorKickpoints[e.target.value.toLowerCase()];
+        if (kickpoint) {
+            StickCustomizerState.kickpoint = kickpoint;
+            const kickpointSelect = document.getElementById('custKickpoint');
+            kickpointSelect.value = kickpoint;
+            kickpointSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
     document.getElementById('custModel').addEventListener('change', (e) => StickCustomizerState.model = e.target.value);
+    document.getElementById('custShaftShape').addEventListener('change', (e) => StickCustomizerState.shaftShape = e.target.value);
+    document.getElementById('custShaftSurface').addEventListener('change', (e) => StickCustomizerState.shaftSurface = e.target.value);
+    document.getElementById('custShaft3dGrip').addEventListener('change', (e) => StickCustomizerState.shaft3dGrip = e.target.value);
+    document.getElementById('custBladeCurve').addEventListener('change', (e) => StickCustomizerState.bladeCurve = e.target.value);
+    document.getElementById('custBladeTexture').addEventListener('change', (e) => StickCustomizerState.bladeTexture = e.target.value);
     document.getElementById('custShaftGrip').addEventListener('change', (e) => StickCustomizerState.shaftGrip = e.target.checked);
     document.getElementById('custBladeGrip').addEventListener('change', (e) => StickCustomizerState.bladeGrip = e.target.checked);
     document.getElementById('custStickTape').addEventListener('change', (e) => StickCustomizerState.stickTape = e.target.checked);
@@ -282,9 +399,32 @@ export function initUiBindings(updatePhysics) {
     });
     document.getElementById('custKickpoint').addEventListener('change', (e) => StickCustomizerState.kickpoint = e.target.value);
 
-    document.getElementById('custThickness').addEventListener('input', (e) => {
-        StickCustomizerState.shaftThickness = parseFloat(e.target.value);
-        document.getElementById('custThicknessValue').textContent = parseFloat(e.target.value).toFixed(1);
+    const shaftWallThicknesses = {
+        'ultra-thin': 1,
+        'flinter-thin': 1.5,
+        'very-thin': 2,
+        thin: 2.5,
+        regular: 3
+    };
+    const thicknessInput = document.getElementById('custThickness');
+    const thicknessValue = document.getElementById('custThicknessValue');
+    const shaftWallSelect = document.getElementById('custShaftWall');
+    shaftWallSelect.addEventListener('change', (e) => {
+        const thickness = shaftWallThicknesses[e.target.value];
+        StickCustomizerState.shaftWall = e.target.value;
+        StickCustomizerState.shaftThickness = thickness;
+        thicknessInput.value = thickness;
+        thicknessValue.textContent = thickness.toFixed(1);
+    });
+    thicknessInput.addEventListener('input', (e) => {
+        const thickness = parseFloat(e.target.value);
+        StickCustomizerState.shaftThickness = thickness;
+        thicknessValue.textContent = thickness.toFixed(1);
+        const nearestWall = Object.entries(shaftWallThicknesses).reduce((nearest, [wall, value]) =>
+            Math.abs(value - thickness) < Math.abs(shaftWallThicknesses[nearest] - thickness) ? wall : nearest,
+        shaftWallSelect.value);
+        StickCustomizerState.shaftWall = nearestWall;
+        shaftWallSelect.value = nearestWall;
     });
 
     // Game settings bindings
@@ -463,4 +603,6 @@ export function initUiBindings(updatePhysics) {
       renderer.setSize(window.innerWidth, window.innerHeight);
       drawStiffnessCurve();
     });
+    syncCustomizerControlsFromState();
+    initCustomizerSwatches();
 }

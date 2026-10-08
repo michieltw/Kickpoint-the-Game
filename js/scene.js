@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { game } from './state.js?v=goal-net-3';
+import { game } from './state.js?v=customizer-layout-17';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export const scene = new THREE.Scene();
@@ -309,6 +309,7 @@ export const GOAL = Object.freeze({
     depth: 1000,
     rearWidth: 1400,
     rearHeight: 900,
+    rearTopDepth: 400,
     cornerRadius: 215,
     postRadius: 30
 });
@@ -350,8 +351,8 @@ function createNettingTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 128; canvas.height = 128;
     const ctx = canvas.getContext('2d');
-    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4;
-    for(let i=0; i<=128; i+=16) {
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 7;
+    for(let i=0; i<=128; i+=12) {
         ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
     }
@@ -411,59 +412,57 @@ function netWidthAtDepth(depth) {
     return netWidth / 2 - GOAL.cornerRadius * roundedCorner;
 }
 
-function netHeightAtDepth(depth) {
-    return THREE.MathUtils.lerp(netHeight, GOAL.rearHeight, depth / netDepth);
+function sideNetPosition(side, depthProgress, heightProgress) {
+    const depth = depthProgress * netDepth;
+    const topX = THREE.MathUtils.lerp(netWidth / 2, GOAL.rearWidth / 2, depthProgress);
+    const topY = THREE.MathUtils.lerp(netHeight, GOAL.rearHeight, depthProgress);
+    const bottomX = netWidthAtDepth(depth);
+    return new THREE.Vector3(
+        side * THREE.MathUtils.lerp(bottomX, topX, heightProgress),
+        THREE.MathUtils.lerp(frameRadius, topY, heightProgress),
+        THREE.MathUtils.lerp(-depth, -GOAL.rearTopDepth * depthProgress, heightProgress)
+    );
+}
+
+function topNetPosition(depthProgress, widthProgress) {
+    const halfWidth = THREE.MathUtils.lerp(netWidth / 2, GOAL.rearWidth / 2, depthProgress);
+    return new THREE.Vector3(
+        -halfWidth + 2 * halfWidth * widthProgress,
+        THREE.MathUtils.lerp(netHeight, GOAL.rearHeight, depthProgress),
+        -GOAL.rearTopDepth * depthProgress
+    );
 }
 
 const backNet = new THREE.Mesh(
-    new THREE.PlaneGeometry(GOAL.rearWidth, GOAL.rearHeight),
+    createNetSurface(8, 8, (heightProgress, widthProgress) => new THREE.Vector3(
+        -GOAL.rearWidth / 2 + GOAL.rearWidth * widthProgress,
+        frameRadius + (GOAL.rearHeight - frameRadius) * heightProgress,
+        THREE.MathUtils.lerp(-netDepth, -GOAL.rearTopDepth, heightProgress)
+    )),
     nettingMat
 );
-backNet.position.set(0, GOAL.rearHeight / 2, -netDepth);
-const sideNetGeo = createNetSurface(16, 8, (depthProgress, heightProgress) => {
-    const depth = depthProgress * netDepth;
-    return new THREE.Vector3(
-        netWidthAtDepth(depth),
-        frameRadius + (netHeightAtDepth(depth) - frameRadius) * heightProgress,
-        -depth
-    );
-});
-const leftNet = new THREE.Mesh(sideNetGeo, nettingMat);
-const rightNet = new THREE.Mesh(sideNetGeo, nettingMat);
-leftNet.scale.x = -1;
-const topNet = new THREE.Mesh(
-    createNetSurface(16, 8, (depthProgress, widthProgress) => {
-        const depth = depthProgress * netDepth;
-        const halfWidth = netWidthAtDepth(depth);
-        return new THREE.Vector3(
-            -halfWidth + 2 * halfWidth * widthProgress,
-            netHeightAtDepth(depth),
-            -depth
-        );
-    }),
+const leftNet = new THREE.Mesh(
+    createNetSurface(20, 12, (depthProgress, heightProgress) =>
+        sideNetPosition(-1, depthProgress, heightProgress)),
     nettingMat
 );
+const rightNet = new THREE.Mesh(
+    createNetSurface(20, 12, (depthProgress, heightProgress) =>
+        sideNetPosition(1, depthProgress, heightProgress)),
+    nettingMat
+);
+const topNet = new THREE.Mesh(createNetSurface(16, 12, topNetPosition), nettingMat);
 const netLineMat = new THREE.LineBasicMaterial({ color: 0x9ca3af, transparent: true, opacity: 0.85 });
 const backNetLines = createNetLines(6, 8, (heightProgress, widthProgress) => new THREE.Vector3(
     -GOAL.rearWidth / 2 + GOAL.rearWidth * widthProgress,
     frameRadius + (GOAL.rearHeight - frameRadius) * heightProgress,
-    -netDepth - 1
+    THREE.MathUtils.lerp(-netDepth, -GOAL.rearTopDepth, heightProgress) - 1
 ), netLineMat);
-const topNetLines = createNetLines(8, 8, (depthProgress, widthProgress) => {
-    const depth = depthProgress * netDepth;
-    const halfWidth = netWidthAtDepth(depth);
-    return new THREE.Vector3(-halfWidth + 2 * halfWidth * widthProgress, netHeightAtDepth(depth), -depth);
-}, netLineMat);
+const topNetLines = createNetLines(8, 8, topNetPosition, netLineMat);
 game.net.add(backNet, leftNet, rightNet, topNet, backNetLines, topNetLines);
 for (const side of [-1, 1]) {
-    game.net.add(createNetLines(8, 6, (depthProgress, heightProgress) => {
-        const depth = depthProgress * netDepth;
-        return new THREE.Vector3(
-            side * netWidthAtDepth(depth),
-            frameRadius + (netHeightAtDepth(depth) - frameRadius) * heightProgress,
-            -depth
-        );
-    }, netLineMat));
+    game.net.add(createNetLines(12, 8, (depthProgress, heightProgress) =>
+        sideNetPosition(side, depthProgress, heightProgress), netLineMat));
 }
 game.net.position.set(0, 0, -26000);
 scene.add(game.net);

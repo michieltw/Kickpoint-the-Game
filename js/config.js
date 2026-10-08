@@ -28,12 +28,13 @@ export const StickCustomizerState = {
   shaftGrip: false,
   bladeGrip: false,
   stickTape: false,
+  shaftShape: 'micro-concaaf',
+  shaftSurface: 'mat-without-grip',
+  shaft3dGrip: 'fully-covered',
+  bladeCurve: 'P28',
+  bladeTexture: '3d-texture',
   flex: 90,
   kickpoint: 'mid',
   shaftThickness: 2.0, // mm
-
-  // Computes relative weight logic for potential physics linking later
-  get weightFactor() {
-    return this.shaftThickness / 2.0;
-  }
+  shaftWall: 'very-thin'
 };
