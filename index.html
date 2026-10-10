@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css?v=customizer-layout-16">
+  <link rel="stylesheet" href="css/style.css?v=customizer-layout-6">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -20,22 +20,61 @@
 
   <!-- Splash Screen State -->
   <div id="splash-screen">
-    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo" alt="Blackout Hockey">
+    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo" alt="Blackout Hockey">
     <div class="splash-loading" id="splash-text">LOADING ENGINE...</div>
   </div>
 
+  <section id="intro-screen" class="flow-screen" aria-label="Video-intro">
+    <video id="intro-video" muted playsinline preload="auto">
+      <source src="https://cdn.shopify.com/videos/c/o/v/40ad7e9985994b2394bfef5306e94368.mp4" type="video/mp4">
+    </video>
+    <div class="intro-controls">
+      <p id="intro-error" role="status" hidden>De video kon niet worden geladen.</p>
+      <button class="menu-btn" id="btnSkipIntro" type="button">Intro overslaan</button>
+    </div>
+  </section>
+
+  <section id="player-profile" class="flow-screen" aria-labelledby="profile-title">
+    <form id="player-profile-form" class="profile-card">
+      <span class="customizer-eyebrow">KLAAR VOOR DE PUCK?</span>
+      <h1 id="profile-title">Maak je spelersprofiel</h1>
+      <p>Je gamertag gebruiken we voor je scores.</p>
+      <label for="player-name">Gamertag</label>
+      <input id="player-name" name="name" type="text" maxlength="24" autocomplete="nickname" placeholder="Bijv. IceRocket" required>
+      <div class="profile-form-row">
+        <div>
+          <label for="player-jersey">Rugnummer <span>(optioneel)</span></label>
+          <input id="player-jersey" name="jerseyNumber" type="number" min="0" max="99" inputmode="numeric" placeholder="00">
+        </div>
+        <div>
+          <label for="player-stick">Je eigen stick <span>(optioneel)</span></label>
+          <input id="player-stick" name="stick" type="text" maxlength="60" placeholder="Merk en model">
+        </div>
+      </div>
+      <fieldset>
+        <legend>Met welke hand speel je?</legend>
+        <label class="hand-choice"><input type="radio" name="handedness" value="left"> Linkshandig</label>
+        <label class="hand-choice"><input type="radio" name="handedness" value="right" checked> Rechtshandig</label>
+      </fieldset>
+      <p id="profile-status" class="profile-status" role="status" hidden></p>
+      <button class="menu-btn profile-submit" type="submit">Verder naar het spel</button>
+    </form>
+  </section>
+
   <div id="main-menu" class="hidden glass-panel" style="border: none; box-shadow: none; border-radius: 0;">
-    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo" alt="Blackout Hockey">
+    <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo" alt="Blackout Hockey">
+    <p id="menu-player-name" class="menu-player-name"></p>
     <button class="menu-btn" id="btnPlayNow">Free Play</button>
     <button class="menu-btn" id="btnTargetPractice" style="background:#eab308; color:#000;">Target Practice</button>
     <button class="menu-btn" id="btnRandomSpawn" style="background:#38bdf8; color:#000;">Random Spawn Mode</button>
     <button class="menu-btn secondary" id="btnSettings">Settings</button>
     <button class="menu-btn secondary" id="btnCustomizer">Customize Stick</button>
+    <button class="menu-btn secondary" id="btnEditProfile">Spelersprofiel aanpassen</button>
   </div>
 
   <section id="game-settings" class="hidden glass-panel" style="border:none; box-shadow:none; border-radius:0;" aria-label="Spelinstellingen">
     <div class="game-settings-card glass-panel" style="position:relative;">
-      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" class="menu-logo-small" alt="Blackout Hockey">
+      <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Spelinstellingen</h2>
       <p>Configureer de gameplay mechanics.</p>
 
@@ -91,59 +130,52 @@
   <section id="stick-customizer" aria-label="Stick aanpassen">
     <div class="customizer-shell">
       <header class="customizer-header">
-        <div>
-          <span class="customizer-eyebrow">BOUW JE EIGEN STICK</span>
-          <h1>Stick Customizer</h1>
-          <p>Kies een optie om de beschikbare keuzes te bekijken.</p>
-        </div>
-        <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612" alt="Blackout Hockey">
+        <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" alt="Blackout Hockey">
       </header>
 
       <div class="customizer-layout">
-        <div class="customizer-option-column" id="customizer-options-left">
-          <section class="customizer-option" data-select-id="custColor" aria-label="Stick kleur"></section>
-          <section class="customizer-option" data-select-id="custShaftShape" aria-label="Shaft Shape"></section>
-          <section class="customizer-option" data-select-id="custShaftSurface" aria-label="Shaft Surface Grip"></section>
-          <section class="customizer-option" data-select-id="custShaft3dGrip" aria-label="Shaft 3D Grip"></section>
-        </div>
-
         <div class="customizer-preview-stage" id="customizer-preview-stage">
-          <div class="customizer-preview-glow"></div>
           <div class="customizer-preview-placeholder" aria-hidden="true">
             <span class="preview-stick-blade"></span>
             <span class="preview-stick-shaft"></span>
             <span class="preview-stick-grip"></span>
           </div>
-          <span class="customizer-preview-caption">3D STICK PREVIEW</span>
+          <button class="customizer-hotspot" type="button" data-hotspot="blade" style="--hotspot-y: 88%;" aria-label="Bladopties" title="Bladopties"></button>
+          <button class="customizer-hotspot" type="button" data-hotspot="kickpoint" style="--hotspot-y: 70%;" aria-label="Kickpoint en flex" title="Kickpoint en flex"></button>
+          <button class="customizer-hotspot" type="button" data-hotspot="grip" style="--hotspot-y: 51%;" aria-label="Gripopties" title="Gripopties"></button>
+          <button class="customizer-hotspot" type="button" data-hotspot="color" style="--hotspot-y: 31%;" aria-label="Stick kleur" title="Stick kleur"></button>
+          <button class="customizer-hotspot" type="button" data-hotspot="shaft-top" style="--hotspot-y: 11%;" aria-label="Shaftvorm en wand" title="Shaftvorm en wand"></button>
+          <section class="customizer-hotspot-panel" id="customizer-hotspot-panel" aria-label="Hotspotopties" hidden>
+            <header>
+              <h2 id="customizer-hotspot-title"></h2>
+              <button type="button" id="customizer-hotspot-close" aria-label="Sluiten">×</button>
+            </header>
+            <div id="customizer-hotspot-options"></div>
+          </section>
         </div>
-
-        <div class="customizer-option-column" id="customizer-options-right">
-          <section class="customizer-option" data-select-id="custModel" aria-label="Model"></section>
-          <section class="customizer-option" data-select-id="custKickpoint" aria-label="Kickpoint"></section>
-          <section class="customizer-option" data-select-id="custBladeCurve" aria-label="Curves"></section>
-          <section class="customizer-option" data-select-id="custBladeTexture" aria-label="Blade Texture"></section>
-          <section class="customizer-option" data-select-id="custShaftWall" aria-label="Shaft Wand"></section>
-        </div>
+        <aside class="customizer-selection-rail" id="customizer-selection-right" aria-label="Gekozen stickopties"></aside>
       </div>
+      <p class="customizer-model-status" id="customizer-model-status" role="status" hidden></p>
 
-      <details class="customizer-advanced">
-        <summary>Meer opties</summary>
-        <div class="customizer-advanced-content">
-          <label class="customizer-checkbox-label"><input type="checkbox" id="custShaftGrip"> Shaft Grip</label>
-          <label class="customizer-checkbox-label"><input type="checkbox" id="custBladeGrip"> Blade Grip</label>
-          <label class="customizer-checkbox-label"><input type="checkbox" id="custStickTape"> Stick Tape</label>
-          <div class="game-setting-row">
-            <label for="custFlex">Flex Waarde <output id="custFlexValue">90</output></label>
-            <input id="custFlex" type="range" min="40" max="120" step="5" value="90">
+      <section class="customizer-swipe-deck" id="customizer-swipe-deck" aria-label="Willekeurige stickopties">
+        <p class="customizer-swipe-hint">Swipe links om over te slaan · swipe rechts om toe te passen</p>
+        <div class="customizer-swipe-card" id="customizer-swipe-card" aria-live="polite">
+          <span class="customizer-swipe-image" id="customizer-swipe-image" aria-hidden="true"></span>
+          <div class="customizer-swipe-copy">
+            <span class="customizer-swipe-category" id="customizer-swipe-category"></span>
+            <strong class="customizer-swipe-value" id="customizer-swipe-value"></strong>
           </div>
-          <div class="game-setting-row">
-            <label for="custThickness">Shaft Wanddikte (mm) <output id="custThicknessValue">2.0</output></label>
-            <input id="custThickness" type="range" min="1.0" max="4.0" step="0.1" value="2.0">
+          <div class="customizer-swipe-actions">
+            <button type="button" id="customizer-swipe-reject" aria-label="Optie overslaan">✕</button>
+            <button type="button" id="customizer-swipe-accept" aria-label="Optie toepassen">✓</button>
           </div>
         </div>
-      </details>
+      </section>
 
       <div id="customizer-native-controls" aria-hidden="true">
+        <select id="custHandedness" aria-label="Handvoorkeur">
+          <option value="right">Rechtshandig</option><option value="left">Linkshandig</option>
+        </select>
         <select id="custColor" aria-label="Stick kleur">
           <option value="#ffffff">Wit</option><option value="#000000">Zwart</option>
           <option value="#ff0000">Rood</option><option value="#0000ff">Blauw</option><option value="#ffff00">Geel</option>
@@ -152,7 +184,13 @@
           <option value="#7dd3fc">Lichtblauw</option><option value="#808080">Grijs</option><option value="#008080">Teal</option>
           <option value="#ec4899">Roze</option><option value="#8b0000">Donkerrood</option><option value="#bfc7ce">Chrome</option>
         </select>
-        <select id="custModel" aria-label="Model"><option value="P28-ST">P28-ST</option></select>
+        <select id="custBladePattern" aria-label="Pattern">
+          <option value="P02">P02</option><option value="P08">P08</option><option value="P14">P14</option>
+          <option value="P28" selected>P28</option><option value="P28JR">P28JR</option><option value="P28M">P28M</option>
+          <option value="P77">P77</option><option value="P88">P88</option><option value="P90TM">P90TM</option>
+          <option value="P91">P91</option><option value="P92">P92</option><option value="P92JR">P92JR</option>
+          <option value="P92M">P92M</option>
+        </select>
         <select id="custShaftShape" aria-label="Shaft Shape">
           <option value="micro-concaaf">Micro Concaaf</option><option value="concaaf">Concaaf</option><option value="pentagon">Vijfhoek</option>
         </select>
@@ -169,9 +207,6 @@
         <select id="custKickpoint" aria-label="Kickpoint Preset">
           <option value="low">Low Kick</option><option value="hybrid">Hybrid Kick</option><option value="mid">Mid Kick</option>
         </select>
-        <select id="custBladeCurve" aria-label="Curves">
-          <option value="P92">P92</option><option value="P28">P28</option><option value="P88">P88</option><option value="P90TM">P90TM</option>
-        </select>
         <select id="custBladeTexture" aria-label="Blade Texture">
           <option value="3d-texture">3D textuur</option><option value="sanded">Geschuurd</option>
           <option value="matte-no-texture">Mat zonder textuur</option><option value="gloss-no-texture">Glanzend zonder textuur</option>
@@ -180,6 +215,8 @@
           <option value="ultra-thin">Ultra dun</option><option value="flinter-thin">Flinter dun</option>
           <option value="very-thin">Zeer dun</option><option value="thin">Dun</option><option value="regular">Regulier</option>
         </select>
+        <input id="custFlex" type="range" min="40" max="120" step="5" value="90">
+        <output id="custFlexValue">90</output>
       </div>
 
       <footer class="customizer-footer">
@@ -384,6 +421,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=customizer-layout-17"></script>
+  <script type="module" src="js/main.js?v=customizer-patterns-1"></script>
 </body>
 </html>

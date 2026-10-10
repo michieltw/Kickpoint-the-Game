@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { game } from './state.js?v=customizer-layout-17';
+import { game } from './state.js?v=customizer-patterns-1';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export const scene = new THREE.Scene();
@@ -182,19 +182,21 @@ const topRailMat = new THREE.MeshStandardMaterial({ color: 0x0033a0, roughness: 
 const glassMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, ior: 1.5, side: THREE.DoubleSide });
 
 const boardHeight = 1100;
+const kickPlateHeight = 200;
+const topRailHeight = 50;
 const glassHeight = 2000;
 const cornerRadius = 8500;
 const straightWidth = rinkWidth - (2 * cornerRadius);
-const straightDepth = rinkDepth - cornerRadius;
+const straightDepth = rinkDepth - (2 * cornerRadius);
 
 // Helpers to build walls
 function createWall(w, h, rotY, px, pz, kDir) {
   const wall = new THREE.Group();
   const b = new THREE.Mesh(new THREE.PlaneGeometry(w, h), boardMat);
   b.position.y = h/2;
-  const k = new THREE.Mesh(new THREE.PlaneGeometry(w, 200), kickPlateMat);
-  k.position.y = 100; k.position.z = kDir * 5;
-  const r = new THREE.Mesh(new THREE.BoxGeometry(w, 50, 100), topRailMat);
+  const k = new THREE.Mesh(new THREE.PlaneGeometry(w, kickPlateHeight), kickPlateMat);
+  k.position.y = kickPlateHeight / 2; k.position.z = kDir * 5;
+  const r = new THREE.Mesh(new THREE.BoxGeometry(w, topRailHeight, 100), topRailMat);
   r.position.y = h;
   const g = new THREE.Mesh(new THREE.PlaneGeometry(w, glassHeight), glassMat);
   g.position.y = h + glassHeight/2;
@@ -205,16 +207,16 @@ function createWall(w, h, rotY, px, pz, kDir) {
 }
 
 boardGroup.add(createWall(straightWidth, boardHeight, 0, 0, -rinkDepth, 1));
-boardGroup.add(createWall(straightDepth, boardHeight, Math.PI/2, -rinkWidth/2, -straightDepth/2, 1));
-boardGroup.add(createWall(straightDepth, boardHeight, -Math.PI/2, rinkWidth/2, -straightDepth/2, -1));
+boardGroup.add(createWall(straightDepth, boardHeight, Math.PI/2, -rinkWidth/2, -rinkDepth/2, 1));
+boardGroup.add(createWall(straightDepth, boardHeight, -Math.PI/2, rinkWidth/2, -rinkDepth/2, -1));
 
-const cornerRailGeo = new THREE.TorusGeometry(cornerRadius, 25, 8, 32, Math.PI/2);
+const cornerRailGeo = new THREE.TorusGeometry(cornerRadius, topRailHeight / 2, 8, 32, Math.PI/2);
 function createCorner(x, z, rY) {
   const corner = new THREE.Group();
   const b = new THREE.Mesh(new THREE.CylinderGeometry(cornerRadius, cornerRadius, boardHeight, 32, 1, true, Math.PI/2, Math.PI/2), boardMat);
   b.position.y = boardHeight/2;
-  const k = new THREE.Mesh(new THREE.CylinderGeometry(cornerRadius-5, cornerRadius-5, 200, 32, 1, true, Math.PI/2, Math.PI/2), kickPlateMat);
-  k.position.y = 100;
+  const k = new THREE.Mesh(new THREE.CylinderGeometry(cornerRadius-5, cornerRadius-5, kickPlateHeight, 32, 1, true, Math.PI/2, Math.PI/2), kickPlateMat);
+  k.position.y = kickPlateHeight / 2;
   const g = new THREE.Mesh(new THREE.CylinderGeometry(cornerRadius, cornerRadius, glassHeight, 32, 1, true, Math.PI/2, Math.PI/2), glassMat);
   g.position.y = boardHeight + glassHeight/2;
   const r = new THREE.Mesh(cornerRailGeo, topRailMat);
@@ -228,7 +230,7 @@ boardGroup.add(createCorner(-rinkWidth/2 + cornerRadius, -rinkDepth + cornerRadi
 boardGroup.add(createCorner(rinkWidth/2 - cornerRadius, -rinkDepth + cornerRadius, 0));
 
 // Add giant non-repeating logo decal to the center of the far boards
-const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/blackonwhitelogo.png?v=1791376612');
+const logoTex = textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014');
 const logoMat = new THREE.MeshBasicMaterial({
     map: logoTex,
     transparent: true,
@@ -238,8 +240,9 @@ const logoMat = new THREE.MeshBasicMaterial({
 const logoHeight = 800;
 const logoWidth = logoHeight * (4617 / 1049);
 const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(logoWidth, logoHeight), logoMat);
+const logoCenterY = (kickPlateHeight + boardHeight - topRailHeight / 2) / 2;
 // Position directly behind the goal, pushed slightly further off the boards to prevent z-fighting
-logoPlane.position.set(0, logoHeight/2 + 150, -rinkDepth + 15);
+logoPlane.position.set(0, logoCenterY, -rinkDepth + 15);
 boardGroup.add(logoPlane);
 
 scene.add(boardGroup);
@@ -247,32 +250,144 @@ scene.add(boardGroup);
 // Tribune
 const tribuneGroup = new THREE.Group();
 const concreteMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.9 });
+const stairMat = new THREE.MeshStandardMaterial({ color: 0x737373, roughness: 0.85 });
 const seatMat1 = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 });
 const seatMat2 = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.7 });
 const stepDepth = 900, stepHeight = 450, numRows = 12;
-const startY = boardHeight + 200, startX = rinkWidth / 2 + 500, zOffset = -straightDepth / 2;
+const startY = boardHeight + 200, startX = rinkWidth / 2 + 500, zOffset = -rinkDepth / 2;
+const stairWidth = 700;
+const zamboniOpeningWidth = 3200;
+
+function createCurvedTierShape(innerRadius, outerRadius, startAngle, endAngle) {
+  const shape = new THREE.Shape();
+  shape.moveTo(outerRadius * Math.cos(startAngle), outerRadius * Math.sin(startAngle));
+  shape.absarc(0, 0, outerRadius, startAngle, endAngle, false);
+  shape.lineTo(innerRadius * Math.cos(endAngle), innerRadius * Math.sin(endAngle));
+  shape.absarc(0, 0, innerRadius, endAngle, startAngle, true);
+  shape.closePath();
+  return shape;
+}
+
+function addCurvedTier(centerX, centerZ, rotation, innerRadius, outerRadius, startAngle, endAngle, baseY, height, material) {
+  if (endAngle <= startAngle) return;
+  const geometry = new THREE.ExtrudeGeometry(
+    createCurvedTierShape(innerRadius, outerRadius, startAngle, endAngle),
+    { depth: height, bevelEnabled: false, curveSegments: 12 }
+  );
+  geometry.rotateX(-Math.PI / 2);
+  const tier = new THREE.Mesh(geometry, material);
+  tier.position.set(centerX, baseY, centerZ);
+  tier.rotation.y = rotation;
+  tribuneGroup.add(tier);
+}
+
+function addStairTread(x, z, width, depth, topY) {
+  const tread = new THREE.Mesh(new THREE.BoxGeometry(width, 60, depth), stairMat);
+  tread.position.set(x, topY + 30, z);
+  tribuneGroup.add(tread);
+}
+
+function addBenchSegments(axis, fixedPosition, centerPosition, length, centerY, aisleCenters, material) {
+  const start = centerPosition - length / 2;
+  const end = centerPosition + length / 2;
+  let cursor = start;
+
+  for (const aisleCenter of aisleCenters) {
+    const aisleStart = Math.max(start, aisleCenter - stairWidth / 2);
+    const aisleEnd = Math.min(end, aisleCenter + stairWidth / 2);
+    if (aisleStart > cursor) {
+      addBenchSegment(axis, fixedPosition, cursor, aisleStart, centerY, material);
+    }
+    cursor = Math.max(cursor, aisleEnd);
+  }
+  if (cursor < end) addBenchSegment(axis, fixedPosition, cursor, end, centerY, material);
+}
+
+function addBenchSegment(axis, fixedPosition, start, end, centerY, material) {
+  if (end <= start) return;
+  const length = end - start;
+  const bench = new THREE.Mesh(
+    axis === 'z' ? new THREE.BoxGeometry(400, 100, length) : new THREE.BoxGeometry(length, 100, 400),
+    material
+  );
+  bench.position.set(
+    axis === 'z' ? fixedPosition : (start + end) / 2,
+    centerY,
+    axis === 'z' ? (start + end) / 2 : fixedPosition
+  );
+  tribuneGroup.add(bench);
+}
 
 for (let i = 0; i < numRows; i++) {
+  const rowY = startY + i * stepHeight;
+  const tierTopY = rowY + stepHeight / 2;
+  const rowOffset = i * stepDepth;
+
   // Left
   let step = new THREE.Mesh(new THREE.BoxGeometry(stepDepth, stepHeight, straightDepth), concreteMat);
-  step.position.set(-startX - (i * stepDepth), startY + (i * stepHeight), zOffset);
-  let bench = new THREE.Mesh(new THREE.BoxGeometry(400, 100, straightDepth - 200), i % 2 === 0 ? seatMat1 : seatMat2);
-  bench.position.set(-startX - (i * stepDepth) + 150, startY + (i * stepHeight) + stepHeight/2 + 50, zOffset);
-  tribuneGroup.add(step, bench);
+  step.position.set(-startX - rowOffset, rowY, zOffset);
+  const seatMaterial = i % 2 === 0 ? seatMat1 : seatMat2;
+  addBenchSegments('z', -startX - rowOffset + 150, zOffset, straightDepth - 200, rowY + stepHeight / 2 + 50, [-20000, -17000, -13000, -10000], seatMaterial);
+  tribuneGroup.add(step);
 
   // Right
   step = new THREE.Mesh(new THREE.BoxGeometry(stepDepth, stepHeight, straightDepth), concreteMat);
-  step.position.set(startX + (i * stepDepth), startY + (i * stepHeight), zOffset);
-  bench = new THREE.Mesh(new THREE.BoxGeometry(400, 100, straightDepth - 200), i % 2 === 0 ? seatMat1 : seatMat2);
-  bench.position.set(startX + (i * stepDepth) - 150, startY + (i * stepHeight) + stepHeight/2 + 50, zOffset);
-  tribuneGroup.add(step, bench);
+  step.position.set(startX + rowOffset, rowY, zOffset);
+  addBenchSegments('z', startX + rowOffset - 150, zOffset, straightDepth - 200, rowY + stepHeight / 2 + 50, [-20000, -17000, -13000, -10000], seatMaterial);
+  tribuneGroup.add(step);
 
-  // Far
+  // Far and near ends
   step = new THREE.Mesh(new THREE.BoxGeometry(straightWidth, stepHeight, stepDepth), concreteMat);
-  step.position.set(0, startY + (i * stepHeight), -rinkDepth - 500 - (i * stepDepth));
-  bench = new THREE.Mesh(new THREE.BoxGeometry(straightWidth - 200, 100, 400), i % 2 === 0 ? seatMat1 : seatMat2);
-  bench.position.set(0, startY + (i * stepHeight) + stepHeight/2 + 50, -rinkDepth - 500 - (i * stepDepth) - 150);
-  tribuneGroup.add(step, bench);
+  step.position.set(0, rowY, -rinkDepth - 500 - rowOffset);
+  addBenchSegments('x', -rinkDepth - 500 - rowOffset - 150, 0, straightWidth - 200, rowY + stepHeight / 2 + 50, [-3000, 0, 3000], seatMaterial);
+  tribuneGroup.add(step);
+  step = new THREE.Mesh(new THREE.BoxGeometry(straightWidth, stepHeight, stepDepth), concreteMat);
+  step.position.set(0, rowY, 500 + rowOffset);
+  addBenchSegments('x', 500 + rowOffset + 150, 0, straightWidth - 200, rowY + stepHeight / 2 + 50, [-3000, 0, 3000], seatMaterial);
+  tribuneGroup.add(step);
+
+  // Contrasting treads make the access routes visible between seating rows.
+  for (const aisleZ of [-20000, -17000, -13000, -10000]) {
+    addStairTread(-startX - rowOffset, aisleZ, stepDepth, stairWidth, tierTopY);
+    addStairTread(startX + rowOffset, aisleZ, stepDepth, stairWidth, tierTopY);
+  }
+  for (const aisleX of [-3000, 0, 3000]) {
+    addStairTread(aisleX, -rinkDepth - 500 - rowOffset, stairWidth, stepDepth, tierTopY);
+    addStairTread(aisleX, 500 + rowOffset, stairWidth, stepDepth, tierTopY);
+  }
+}
+
+const cornerStandPositions = [
+  [-rinkWidth / 2 + cornerRadius, -rinkDepth + cornerRadius, Math.PI / 2, 0, Math.PI / 2, false],
+  [rinkWidth / 2 - cornerRadius, -rinkDepth + cornerRadius, 0, 0, Math.PI / 2, false],
+  [-rinkWidth / 2 + cornerRadius, -cornerRadius, -Math.PI / 2, -Math.PI / 2, 0, false],
+  [rinkWidth / 2 - cornerRadius, -cornerRadius, 0, -Math.PI / 2, 0, true]
+];
+
+for (const [centerX, centerZ, rotation, cornerStart, cornerEnd, hasZamboniOpening] of cornerStandPositions) {
+  for (let i = 0; i < numRows; i++) {
+    const innerRadius = cornerRadius + 500 + i * stepDepth;
+    const outerRadius = innerRadius + stepDepth;
+    const rowY = startY + i * stepHeight;
+    const tierBottomY = rowY - stepHeight / 2;
+    let openingStart = cornerEnd;
+    let openingEnd = cornerEnd;
+    if (hasZamboniOpening) {
+      const halfOpeningAngle = zamboniOpeningWidth / (2 * ((innerRadius + outerRadius) / 2));
+      openingStart = -Math.PI / 4 - halfOpeningAngle;
+      openingEnd = -Math.PI / 4 + halfOpeningAngle;
+    }
+
+    addCurvedTier(centerX, centerZ, rotation, innerRadius, outerRadius, cornerStart, openingStart, tierBottomY, stepHeight, concreteMat);
+    addCurvedTier(centerX, centerZ, rotation, innerRadius, outerRadius, openingEnd, cornerEnd, tierBottomY, stepHeight, concreteMat);
+
+    const seatInnerRadius = innerRadius + 100;
+    const seatOuterRadius = seatInnerRadius + 400;
+    const seatBottomY = rowY + stepHeight / 2;
+    const seatMaterial = i % 2 === 0 ? seatMat1 : seatMat2;
+    addCurvedTier(centerX, centerZ, rotation, seatInnerRadius, seatOuterRadius, cornerStart, openingStart, seatBottomY, 100, seatMaterial);
+    addCurvedTier(centerX, centerZ, rotation, seatInnerRadius, seatOuterRadius, openingEnd, cornerEnd, seatBottomY, 100, seatMaterial);
+  }
 }
 scene.add(tribuneGroup);
 

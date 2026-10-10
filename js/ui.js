@@ -1,10 +1,12 @@
-import { appState, state, game } from './state.js?v=customizer-layout-17';
-import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-layout-17';
-import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=customizer-layout-17';
-import { camera, renderer } from './scene.js?v=customizer-layout-17';
+import { appState, state, game } from './state.js?v=customizer-patterns-1';
+import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-patterns-1';
+import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=customizer-patterns-1';
+import { camera, renderer } from './scene.js?v=customizer-patterns-1';
 
 export function updateUiMode() {
   const splash = document.getElementById('splash-screen');
+  const intro = document.getElementById('intro-screen');
+  const profile = document.getElementById('player-profile');
   const menu = document.getElementById('main-menu');
   const gameUi = document.getElementById('game-ui');
   const settings = document.getElementById('workbenchPanel');
@@ -13,10 +15,16 @@ export function updateUiMode() {
   const btnPlayNow = document.getElementById('btnPlayNow');
 
   const targetHud = document.getElementById('target-hud');
+  const isSplash = appState.mode === 'splash';
+  const isIntro = appState.mode === 'intro';
+  const isProfile = appState.mode === 'profile';
 
-  if (appState.mode === 'splash') {
-    splash.style.opacity = '1';
-    splash.style.pointerEvents = 'auto';
+  splash.style.opacity = isSplash ? '1' : '0';
+  splash.style.pointerEvents = isSplash ? 'auto' : 'none';
+  intro.classList.toggle('visible', isIntro);
+  profile.classList.toggle('visible', isProfile);
+
+  if (isSplash || isIntro || isProfile) {
     menu.classList.add('hidden');
     gameUi.classList.remove('visible');
     settings.style.display = 'none';
@@ -24,9 +32,6 @@ export function updateUiMode() {
     customizerMenu.classList.remove('visible');
     if(targetHud) targetHud.style.display = 'none';
   } else {
-    splash.style.opacity = '0';
-    splash.style.pointerEvents = 'none';
-
     if (appState.mode === 'menu') {
       menu.classList.remove('hidden');
       gameUi.classList.remove('visible');
@@ -177,88 +182,352 @@ export function stiffnessPointFromEvent(event, canvas) {
   };
 }
 
+const customizerOptionImages = {
+  custHandedness: {
+    right: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/RH.png?v=1779129285',
+    left: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/LH.png?v=1779129285'
+  },
+  custShaftShape: {
+    'micro-concaaf': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/V3.png?v=1779130379',
+    concaaf: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/V.png?v=1779130378',
+    pentagon: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Vijfhoekig.png?v=1779130378'
+  },
+  custShaftSurface: {
+    'mat-without-grip': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Matte_Shaft.png?v=1779279912',
+    'mat-with-grip': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Matte_Shaft.png?v=1779279912',
+    'gloss-without-grip': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Glossy_Shaft.png?v=1779279912',
+    'gloss-with-grip': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Glossy_Shaft.png?v=1779279912',
+    'supergloss-with-grip': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Glossy_Grip_Shaft.png?v=1779279913'
+  },
+  custShaft3dGrip: {
+    'fully-covered': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/All_over.png?v=1779227836',
+    'candy-cane': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Candy_Cane.png?v=1779227836',
+    herringbone: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Fishbone.png?v=1779227836',
+    'right-angles': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Recht.png?v=1779227836',
+    'slanted-angles': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Diagonaal.png?v=1779227836',
+    none: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/NoGrip.png?v=1779227836'
+  },
+  custKickpoint: {
+    low: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Lowkplogo.png?v=1790252741',
+    hybrid: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Hybridkplogo.png?v=1790252741',
+    mid: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Midkplogo.png?v=1790253037'
+  },
+  custBladePattern: {
+    P02: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P02.png?v=1779127978',
+    P08: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P08.png?v=1779127978',
+    P14: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P14.png?v=1779127978',
+    P28: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P28.png?v=1779127978',
+    P28JR: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P28.png?v=1779127978',
+    P28M: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P28M.png?v=1779127978',
+    P77: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P77.png?v=1779128098',
+    P88: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P88.png?v=1779127978',
+    P90TM: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P90TM.png?v=1779127978',
+    P91: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P91.png?v=1779127978',
+    P92: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P92.png?v=1779127979',
+    P92JR: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P92.png?v=1779127979',
+    P92M: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/P92M.png?v=1779127978'
+  },
+  custBladeTexture: {
+    '3d-texture': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/3D_Blade_Texture.png?v=1779277364',
+    sanded: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Sanded_Blade_Texture.png?v=1779277363',
+    'matte-no-texture': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Matte_Blade_Texture.png?v=1779277363',
+    'gloss-no-texture': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Glossy_Blade_Texture.png?v=1779277364'
+  },
+  custShaftWall: {
+    'ultra-thin': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Ultra_dun.png?v=1791490931',
+    'flinter-thin': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Flinter_dun.png?v=1791490931',
+    'very-thin': 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Zeer_dun.png?v=1791490931',
+    thin: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Dun.png?v=1791490931',
+    regular: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Regulier.png?v=1791490931'
+  }
+};
+
+function applyCustomOptionImage(element, selectId, value) {
+  const imageUrl = customizerOptionImages[selectId]?.[value];
+  const isColorSelect = selectId === 'custColor';
+  element.style.backgroundImage = isColorSelect || !imageUrl ? 'none' : `url("${imageUrl}")`;
+  element.style.backgroundColor = isColorSelect ? 'var(--swatch-color, #fff)' : '#fff';
+  element.style.backgroundSize = 'contain';
+  element.style.backgroundPosition = 'center';
+  element.style.backgroundRepeat = 'no-repeat';
+  element.style.borderRadius = isColorSelect ? '50%' : '10px';
+  element.style.boxShadow = isColorSelect ? '0 0 0 1px rgba(15, 23, 42, 0.6)' : 'none';
+  element.textContent = isColorSelect ? '' : (imageUrl ? '' : (value || '＋'));
+}
+
+const customizerHotspotGroups = {
+  blade: {
+    title: 'Pattern',
+    selects: ['custBladePattern', 'custHandedness', 'custBladeTexture'],
+    flex: false
+  },
+  kickpoint: {
+    title: 'Kickpoint en flex',
+    selects: ['custKickpoint'],
+    flex: true
+  },
+  grip: {
+    title: 'Shaft grip',
+    selects: ['custShaftSurface', 'custShaft3dGrip'],
+    flex: false
+  },
+  color: {
+    title: 'Stick kleur',
+    selects: ['custColor'],
+    flex: false
+  },
+  'shaft-top': {
+    title: 'Shaftvorm en wand',
+    selects: ['custShaftShape', 'custShaftWall'],
+    flex: false
+  }
+};
+
+const customizerLabels = {
+  custBladePattern: 'Pattern',
+  custHandedness: 'Handvoorkeur',
+  custBladeTexture: 'Blade Texture',
+  custKickpoint: 'Kickpoint',
+  custFlex: 'Flex',
+  custShaftSurface: 'Shaft Surface Grip',
+  custShaft3dGrip: 'Shaft 3D Grip',
+  custColor: 'Stick kleur',
+  custShaftShape: 'Shaft Shape',
+  custShaftWall: 'Shaft Wand'
+};
+
+const customizerSelectionValues = [
+  'custBladePattern',
+  'custHandedness',
+  'custBladeTexture',
+  'custKickpoint',
+  'custFlex',
+  'custShaftSurface',
+  'custShaft3dGrip',
+  'custColor',
+  'custShaftShape',
+  'custShaftWall'
+];
+
 function initCustomizerSwatches() {
-  document.querySelectorAll('.customizer-option[data-select-id]').forEach(optionCard => {
-    const select = document.getElementById(optionCard.dataset.selectId);
-    if (!select) return;
+  const stage = document.getElementById('customizer-preview-stage');
+  const panel = document.getElementById('customizer-hotspot-panel');
+  const panelTitle = document.getElementById('customizer-hotspot-title');
+  const panelOptions = document.getElementById('customizer-hotspot-options');
+  const flexInput = document.getElementById('custFlex');
+  const swipeCard = document.getElementById('customizer-swipe-card');
+  let activeHotspot = '';
+  let currentRandomOption = null;
+  let swipeStartX = null;
+  let swipeInProgress = false;
 
-    const title = optionCard.getAttribute('aria-label');
-    const currentButton = document.createElement('button');
-    currentButton.type = 'button';
-    currentButton.className = 'customizer-option-current';
-    currentButton.setAttribute('aria-expanded', 'false');
-    currentButton.innerHTML = '<span class="customizer-option-image" aria-hidden="true"></span><span class="customizer-option-copy"><span class="customizer-option-title"></span><span class="customizer-option-value"></span></span><span class="customizer-option-chevron" aria-hidden="true">⌄</span>';
-    currentButton.querySelector('.customizer-option-title').textContent = title;
-    optionCard.appendChild(currentButton);
+  function createOptionImage(selectId, value, className) {
+    const image = document.createElement('span');
+    image.className = className;
+    image.setAttribute('aria-hidden', 'true');
+    if (selectId === 'custColor') image.style.setProperty('--swatch-color', value);
+    applyCustomOptionImage(image, selectId, value);
+    return image;
+  }
 
-    const swatches = document.createElement('div');
-    swatches.className = 'customizer-swatches';
-    swatches.hidden = true;
-    for (const item of select.options) {
-      const swatch = document.createElement('button');
-      swatch.type = 'button';
-      swatch.className = 'customizer-swatch';
-      swatch.dataset.value = item.value;
-      swatch.setAttribute('aria-pressed', 'false');
-      const image = document.createElement('span');
-      image.className = 'customizer-swatch-image';
-      image.setAttribute('aria-hidden', 'true');
-      if (select.id === 'custColor') image.style.setProperty('--swatch-color', item.value);
-      const label = document.createElement('span');
-      label.textContent = item.textContent;
-      swatch.append(image, label);
-      swatch.addEventListener('click', () => {
-        select.value = item.value;
-        select.dispatchEvent(new Event('change', { bubbles: true }));
-        optionCard.classList.remove('is-open');
-        swatches.hidden = true;
-        currentButton.setAttribute('aria-expanded', 'false');
-      });
-      swatches.appendChild(swatch);
+  function renderSelectionRails() {
+    const rail = document.getElementById('customizer-selection-right');
+    rail.replaceChildren();
+    for (const selectId of customizerSelectionValues) {
+      const selectedValue = selectId === 'custFlex'
+        ? `${flexInput.value} flex`
+        : document.getElementById(selectId)?.selectedOptions[0]?.textContent;
+      if (!selectedValue) continue;
+      const value = document.createElement('span');
+      value.className = 'customizer-selection-value';
+      value.textContent = selectedValue;
+      rail.appendChild(value);
     }
-    optionCard.appendChild(swatches);
+  }
 
-    currentButton.addEventListener('click', () => {
-      const willOpen = !optionCard.classList.contains('is-open');
-      document.querySelectorAll('.customizer-option.is-open').forEach(openCard => {
-        openCard.classList.remove('is-open');
-        openCard.querySelector('.customizer-option-current')?.setAttribute('aria-expanded', 'false');
-        openCard.querySelector('.customizer-swatches').hidden = true;
+  function makeSelectOptions(selectId) {
+    const select = document.getElementById(selectId);
+    const field = document.createElement('section');
+    field.className = 'customizer-hotspot-field';
+    const title = document.createElement('h3');
+    title.textContent = customizerLabels[selectId];
+    field.appendChild(title);
+    const choices = document.createElement('div');
+    choices.className = 'customizer-hotspot-choices';
+    field.dataset.selectId = selectId;
+    for (const option of select.options) {
+      const choice = document.createElement('button');
+      choice.type = 'button';
+      choice.className = 'customizer-hotspot-choice';
+      choice.dataset.value = option.value;
+      choice.setAttribute('aria-pressed', String(option.value === select.value));
+      choice.append(
+        createOptionImage(selectId, option.value, 'customizer-choice-image'),
+        document.createTextNode(option.textContent)
+      );
+      choice.addEventListener('click', () => {
+        select.value = option.value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      optionCard.classList.toggle('is-open', willOpen);
-      swatches.hidden = !willOpen;
-      currentButton.setAttribute('aria-expanded', String(willOpen));
-    });
+      choices.appendChild(choice);
+    }
+    field.appendChild(choices);
+    return field;
+  }
 
-    const syncSelection = () => {
-      const selected = select.selectedOptions[0];
-      currentButton.querySelector('.customizer-option-value').textContent = selected?.textContent ?? '';
-      if (select.id === 'custColor') {
-        currentButton.querySelector('.customizer-option-image').style.setProperty('--swatch-color', select.value);
-        document.getElementById('customizer-preview-stage').style.setProperty('--stick-color', select.value);
+  function renderHotspotPanel(groupName) {
+    const group = customizerHotspotGroups[groupName];
+    activeHotspot = groupName;
+    panelTitle.textContent = group.title;
+    panelOptions.replaceChildren(...group.selects.map(makeSelectOptions));
+    if (group.flex) {
+      const flexField = document.createElement('section');
+      flexField.className = 'customizer-hotspot-field customizer-flex-field';
+      const label = document.createElement('label');
+      label.htmlFor = 'custFlex';
+      label.textContent = 'Flex';
+      const output = document.createElement('output');
+      output.textContent = flexInput.value;
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = flexInput.min;
+      slider.max = flexInput.max;
+      slider.step = flexInput.step;
+      slider.value = flexInput.value;
+      slider.setAttribute('aria-label', 'Flex');
+      slider.addEventListener('input', () => {
+        flexInput.value = slider.value;
+        flexInput.dispatchEvent(new Event('input', { bubbles: true }));
+        output.textContent = slider.value;
+      });
+      flexField.append(label, output, slider);
+      panelOptions.appendChild(flexField);
+    }
+    panel.hidden = false;
+    stage.querySelectorAll('.customizer-hotspot').forEach(button => {
+      button.classList.toggle('active', button.dataset.hotspot === groupName);
+    });
+  }
+
+  function closeHotspotPanel() {
+    activeHotspot = '';
+    panel.hidden = true;
+    stage.querySelectorAll('.customizer-hotspot').forEach(button => button.classList.remove('active'));
+  }
+
+  function refreshHotspotChoices() {
+    panelOptions.querySelectorAll('.customizer-hotspot-choice').forEach(choice => {
+      const selectId = choice.closest('.customizer-hotspot-field')?.dataset.selectId;
+      const targetSelect = selectId ? document.getElementById(selectId) : null;
+      const selected = targetSelect?.value === choice.dataset.value;
+      choice.classList.toggle('selected', Boolean(selected));
+      choice.setAttribute('aria-pressed', String(Boolean(selected)));
+    });
+  }
+
+  document.querySelectorAll('.customizer-hotspot').forEach(button => {
+    button.addEventListener('click', () => {
+      if (activeHotspot === button.dataset.hotspot && !panel.hidden) {
+        closeHotspotPanel();
+      } else {
+        renderHotspotPanel(button.dataset.hotspot);
       }
-      for (const swatch of swatches.children) {
-        const active = swatch.dataset.value === select.value;
-        swatch.classList.toggle('selected', active);
-        swatch.setAttribute('aria-pressed', String(active));
-      }
-      currentButton.querySelector('.customizer-option-image').textContent =
-        select.id === 'custColor' ? '' : (selected?.textContent.trim().slice(0, 2).toUpperCase() ?? '＋');
-    };
-    select.addEventListener('change', syncSelection);
-    syncSelection();
+    });
   });
+  document.getElementById('customizer-hotspot-close').addEventListener('click', closeHotspotPanel);
+
+  for (const selectId of Object.values(customizerHotspotGroups).flatMap(group => group.selects)) {
+    const select = document.getElementById(selectId);
+    select.addEventListener('change', () => {
+      if (selectId === 'custColor') stage.style.setProperty('--stick-color', select.value);
+      renderSelectionRails();
+      refreshHotspotChoices();
+      if (!swipeInProgress) showRandomOption();
+    });
+  }
+  flexInput.addEventListener('input', () => {
+    renderSelectionRails();
+    const visibleFlex = panelOptions.querySelector('.customizer-flex-field');
+    if (visibleFlex) visibleFlex.querySelector('output').textContent = flexInput.value;
+    if (!swipeInProgress) showRandomOption();
+  });
+  stage.style.setProperty('--stick-color', document.getElementById('custColor').value);
+  renderSelectionRails();
+
+  function showRandomOption() {
+    const candidates = Object.values(customizerHotspotGroups)
+      .flatMap(group => group.selects)
+      .flatMap(selectId => {
+        const select = document.getElementById(selectId);
+        return [...select.options]
+          .filter(option => option.value !== select.value)
+          .map(option => ({ selectId, value: option.value, label: option.textContent }));
+      });
+    const flexStep = Number(flexInput.step) || 1;
+    for (let value = Number(flexInput.min); value <= Number(flexInput.max); value += flexStep) {
+      if (value !== Number(flexInput.value)) {
+        candidates.push({ selectId: 'custFlex', value: String(value), label: `${value} flex` });
+      }
+    }
+    currentRandomOption = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+    if (!currentRandomOption) {
+      document.getElementById('customizer-swipe-deck').hidden = true;
+      return;
+    }
+    const title = customizerLabels[currentRandomOption.selectId];
+    document.getElementById('customizer-swipe-category').textContent = title;
+    document.getElementById('customizer-swipe-value').textContent = currentRandomOption.label;
+    const image = document.getElementById('customizer-swipe-image');
+    image.replaceChildren(createOptionImage(currentRandomOption.selectId, currentRandomOption.value, 'customizer-choice-image'));
+    swipeCard.classList.remove('swipe-left', 'swipe-right');
+  }
+
+  function finishSwipe(accept) {
+    if (swipeInProgress || !currentRandomOption) return;
+    swipeInProgress = true;
+    swipeCard.classList.add(accept ? 'swipe-right' : 'swipe-left');
+    window.setTimeout(() => {
+      if (accept) {
+        if (currentRandomOption.selectId === 'custFlex') {
+          flexInput.value = currentRandomOption.value;
+          flexInput.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+          const select = document.getElementById(currentRandomOption.selectId);
+          select.value = currentRandomOption.value;
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      swipeInProgress = false;
+      showRandomOption();
+    }, 180);
+  }
+
+  document.getElementById('customizer-swipe-accept').addEventListener('click', () => finishSwipe(true));
+  document.getElementById('customizer-swipe-reject').addEventListener('click', () => finishSwipe(false));
+  swipeCard.addEventListener('pointerdown', event => {
+    if (event.target.closest('button')) return;
+    swipeStartX = event.clientX;
+    swipeCard.setPointerCapture(event.pointerId);
+  });
+  swipeCard.addEventListener('pointerup', event => {
+    if (swipeStartX === null) return;
+    const distance = event.clientX - swipeStartX;
+    swipeStartX = null;
+    if (Math.abs(distance) >= 70) finishSwipe(distance > 0);
+  });
+  swipeCard.addEventListener('pointercancel', () => { swipeStartX = null; });
+  showRandomOption();
 }
 
 function syncCustomizerControlsFromState() {
   const selectValues = {
+    custHandedness: StickCustomizerState.handedness,
     custColor: StickCustomizerState.color,
-    custModel: StickCustomizerState.model,
+    custBladePattern: StickCustomizerState.bladeCurve,
     custShaftShape: StickCustomizerState.shaftShape,
     custShaftSurface: StickCustomizerState.shaftSurface,
     custShaft3dGrip: StickCustomizerState.shaft3dGrip,
     custKickpoint: StickCustomizerState.kickpoint,
-    custBladeCurve: StickCustomizerState.bladeCurve,
     custBladeTexture: StickCustomizerState.bladeTexture,
     custShaftWall: StickCustomizerState.shaftWall
   };
@@ -266,13 +535,8 @@ function syncCustomizerControlsFromState() {
     const select = document.getElementById(id);
     if (select) select.value = value;
   }
-  document.getElementById('custShaftGrip').checked = StickCustomizerState.shaftGrip;
-  document.getElementById('custBladeGrip').checked = StickCustomizerState.bladeGrip;
-  document.getElementById('custStickTape').checked = StickCustomizerState.stickTape;
   document.getElementById('custFlex').value = StickCustomizerState.flex;
   document.getElementById('custFlexValue').textContent = StickCustomizerState.flex;
-  document.getElementById('custThickness').value = StickCustomizerState.shaftThickness;
-  document.getElementById('custThicknessValue').textContent = Number(StickCustomizerState.shaftThickness).toFixed(1);
 }
 
 export function syncUiFromState() {
@@ -318,6 +582,86 @@ export function syncUiFromState() {
 }
 
 export function initUiBindings(updatePhysics) {
+    const profileStorageKey = 'kickpoint-player-profile';
+    const profileForm = document.getElementById('player-profile-form');
+    const profileStatus = document.getElementById('profile-status');
+    const profileName = document.getElementById('player-name');
+    const profileJersey = document.getElementById('player-jersey');
+    const profileStick = document.getElementById('player-stick');
+    let profileSaveFailed = false;
+
+    try {
+      const savedProfile = localStorage.getItem(profileStorageKey);
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        profileName.value = typeof profile.name === 'string' ? profile.name : '';
+        profileJersey.value = typeof profile.jerseyNumber === 'string' ? profile.jerseyNumber : '';
+        profileStick.value = typeof profile.stick === 'string' ? profile.stick : '';
+        if (profile.handedness === 'left' || profile.handedness === 'right') {
+          document.querySelector(`input[name="handedness"][value="${profile.handedness}"]`).checked = true;
+          StickCustomizerState.handedness = profile.handedness;
+        }
+      }
+    } catch (error) {
+      console.error('Could not load the saved player profile:', error);
+      profileStatus.textContent = 'Je opgeslagen profiel kon niet worden geladen. Je kunt hieronder een nieuw profiel invullen.';
+      profileStatus.hidden = false;
+    }
+    profileName.addEventListener('input', () => profileName.setCustomValidity(''));
+
+    const showPlayerProfile = () => {
+      document.getElementById('intro-video').pause();
+      document.getElementById('profile-title').textContent = 'Maak je spelersprofiel';
+      appState.mode = 'profile';
+      updateUiMode();
+      profileName.focus();
+    };
+    document.getElementById('btnSkipIntro').addEventListener('click', showPlayerProfile);
+    document.getElementById('intro-video').addEventListener('ended', showPlayerProfile);
+    document.getElementById('intro-video').addEventListener('error', () => {
+      document.getElementById('intro-error').hidden = false;
+    });
+    document.getElementById('btnEditProfile').addEventListener('click', () => {
+      document.getElementById('profile-title').textContent = 'Spelersprofiel aanpassen';
+      appState.mode = 'profile';
+      updateUiMode();
+    });
+    profileForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const handedness = profileForm.elements.handedness.value;
+      const playerProfile = {
+        name: profileName.value.trim(),
+        jerseyNumber: profileJersey.value,
+        stick: profileStick.value.trim(),
+        handedness
+      };
+      if (!playerProfile.name) {
+        profileName.setCustomValidity('Vul een gamertag in.');
+        profileName.reportValidity();
+        return;
+      }
+      profileName.setCustomValidity('');
+      profileStatus.hidden = true;
+      try {
+        localStorage.setItem(profileStorageKey, JSON.stringify(playerProfile));
+        profileSaveFailed = false;
+      } catch (error) {
+        console.error('Could not save the player profile:', error);
+        profileStatus.textContent = 'Je profiel kon niet op dit apparaat worden opgeslagen.';
+        profileStatus.hidden = false;
+        profileSaveFailed = true;
+      }
+      StickCustomizerState.handedness = handedness;
+      const handednessSelect = document.getElementById('custHandedness');
+      handednessSelect.value = handedness;
+      handednessSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      document.getElementById('menu-player-name').textContent = profileSaveFailed
+        ? `Welkom, ${playerProfile.name} · profiel niet opgeslagen`
+        : `Welkom, ${playerProfile.name}`;
+      appState.mode = 'menu';
+      updateUiMode();
+    });
+
     // Basic navigation
     document.getElementById('btnPlayNow').addEventListener('click', () => {
         game.mode = 'free';
@@ -368,31 +712,17 @@ export function initUiBindings(updatePhysics) {
     });
 
     // Customizer Hookings
+    document.getElementById('custHandedness').addEventListener('change', (e) => {
+        StickCustomizerState.handedness = e.target.value;
+    });
     document.getElementById('custColor').addEventListener('change', (e) => {
         StickCustomizerState.color = e.target.value;
-        const colorKickpoints = {
-            '#0000ff': 'low',
-            '#ff0000': 'hybrid',
-            '#ffff00': 'mid'
-        };
-        const kickpoint = colorKickpoints[e.target.value.toLowerCase()];
-        if (kickpoint) {
-            StickCustomizerState.kickpoint = kickpoint;
-            const kickpointSelect = document.getElementById('custKickpoint');
-            kickpointSelect.value = kickpoint;
-            kickpointSelect.dispatchEvent(new Event('change', { bubbles: true }));
-        }
     });
-    document.getElementById('custModel').addEventListener('change', (e) => StickCustomizerState.model = e.target.value);
+    document.getElementById('custBladePattern').addEventListener('change', (e) => StickCustomizerState.bladeCurve = e.target.value);
     document.getElementById('custShaftShape').addEventListener('change', (e) => StickCustomizerState.shaftShape = e.target.value);
     document.getElementById('custShaftSurface').addEventListener('change', (e) => StickCustomizerState.shaftSurface = e.target.value);
     document.getElementById('custShaft3dGrip').addEventListener('change', (e) => StickCustomizerState.shaft3dGrip = e.target.value);
-    document.getElementById('custBladeCurve').addEventListener('change', (e) => StickCustomizerState.bladeCurve = e.target.value);
     document.getElementById('custBladeTexture').addEventListener('change', (e) => StickCustomizerState.bladeTexture = e.target.value);
-    document.getElementById('custShaftGrip').addEventListener('change', (e) => StickCustomizerState.shaftGrip = e.target.checked);
-    document.getElementById('custBladeGrip').addEventListener('change', (e) => StickCustomizerState.bladeGrip = e.target.checked);
-    document.getElementById('custStickTape').addEventListener('change', (e) => StickCustomizerState.stickTape = e.target.checked);
-
     document.getElementById('custFlex').addEventListener('input', (e) => {
         StickCustomizerState.flex = e.target.value;
         document.getElementById('custFlexValue').textContent = e.target.value;
@@ -406,25 +736,11 @@ export function initUiBindings(updatePhysics) {
         thin: 2.5,
         regular: 3
     };
-    const thicknessInput = document.getElementById('custThickness');
-    const thicknessValue = document.getElementById('custThicknessValue');
     const shaftWallSelect = document.getElementById('custShaftWall');
     shaftWallSelect.addEventListener('change', (e) => {
         const thickness = shaftWallThicknesses[e.target.value];
         StickCustomizerState.shaftWall = e.target.value;
         StickCustomizerState.shaftThickness = thickness;
-        thicknessInput.value = thickness;
-        thicknessValue.textContent = thickness.toFixed(1);
-    });
-    thicknessInput.addEventListener('input', (e) => {
-        const thickness = parseFloat(e.target.value);
-        StickCustomizerState.shaftThickness = thickness;
-        thicknessValue.textContent = thickness.toFixed(1);
-        const nearestWall = Object.entries(shaftWallThicknesses).reduce((nearest, [wall, value]) =>
-            Math.abs(value - thickness) < Math.abs(shaftWallThicknesses[nearest] - thickness) ? wall : nearest,
-        shaftWallSelect.value);
-        StickCustomizerState.shaftWall = nearestWall;
-        shaftWallSelect.value = nearestWall;
     });
 
     // Game settings bindings
@@ -605,4 +921,5 @@ export function initUiBindings(updatePhysics) {
     });
     syncCustomizerControlsFromState();
     initCustomizerSwatches();
+    updateUiMode();
 }
