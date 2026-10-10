@@ -13,6 +13,7 @@ export function updateUiMode() {
   const gameSettingsMenu = document.getElementById('game-settings');
   const customizerMenu = document.getElementById('stick-customizer');
   const btnPlayNow = document.getElementById('btnPlayNow');
+  document.body.classList.toggle('customizer-open', appState.mode === 'customizer');
 
   const targetHud = document.getElementById('target-hud');
   const isSplash = appState.mode === 'splash';
@@ -316,7 +317,6 @@ function initCustomizerSwatches() {
   const panelOptions = document.getElementById('customizer-hotspot-options');
   const flexInput = document.getElementById('custFlex');
   const swipeCard = document.getElementById('customizer-swipe-card');
-  let activeHotspot = '';
   let currentRandomOption = null;
   let swipeStartX = null;
   let swipeInProgress = false;
@@ -330,18 +330,46 @@ function initCustomizerSwatches() {
     return image;
   }
 
-  function renderSelectionRails() {
-    const rail = document.getElementById('customizer-selection-right');
-    rail.replaceChildren();
-    for (const selectId of customizerSelectionValues) {
-      const selectedValue = selectId === 'custFlex'
-        ? `${flexInput.value} flex`
-        : document.getElementById(selectId)?.selectedOptions[0]?.textContent;
-      if (!selectedValue) continue;
-      const value = document.createElement('span');
-      value.className = 'customizer-selection-value';
-      value.textContent = selectedValue;
-      rail.appendChild(value);
+  function renderCustomizerOverview() {
+    const overview = document.getElementById('customizer-overview');
+    overview.replaceChildren();
+    for (const [groupName, group] of Object.entries(customizerHotspotGroups)) {
+      const section = document.createElement('section');
+      section.className = 'customizer-overview-group';
+      const heading = document.createElement('div');
+      heading.className = 'customizer-overview-heading';
+      const title = document.createElement('h3');
+      title.textContent = group.title;
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'customizer-overview-edit';
+      edit.textContent = 'Aanpassen';
+      edit.addEventListener('click', () => openCustomizerCategory(groupName));
+      heading.append(title, edit);
+      const values = document.createElement('div');
+      values.className = 'customizer-overview-values';
+      for (const selectId of group.selects) {
+        const row = document.createElement('div');
+        row.className = 'customizer-overview-value';
+        const label = document.createElement('span');
+        label.textContent = customizerLabels[selectId];
+        const selected = document.createElement('strong');
+        selected.textContent = document.getElementById(selectId)?.selectedOptions[0]?.textContent ?? '';
+        row.append(label, selected);
+        values.appendChild(row);
+      }
+      if (group.flex) {
+        const row = document.createElement('div');
+        row.className = 'customizer-overview-value';
+        const label = document.createElement('span');
+        label.textContent = 'Flex';
+        const selected = document.createElement('strong');
+        selected.textContent = `${flexInput.value} flex`;
+        row.append(label, selected);
+        values.appendChild(row);
+      }
+      section.append(heading, values);
+      overview.appendChild(section);
     }
   }
 
@@ -377,7 +405,6 @@ function initCustomizerSwatches() {
 
   function renderHotspotPanel(groupName) {
     const group = customizerHotspotGroups[groupName];
-    activeHotspot = groupName;
     panelTitle.textContent = group.title;
     panelOptions.replaceChildren(...group.selects.map(makeSelectOptions));
     if (group.flex) {
@@ -404,15 +431,30 @@ function initCustomizerSwatches() {
       panelOptions.appendChild(flexField);
     }
     panel.hidden = false;
-    stage.querySelectorAll('.customizer-hotspot').forEach(button => {
-      button.classList.toggle('active', button.dataset.hotspot === groupName);
+    document.getElementById('customizer-overview').hidden = true;
+    stage.dataset.zoom = groupName;
+    document.querySelectorAll('.customizer-category-tab').forEach(button => {
+      const active = button.dataset.category === groupName;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
     });
+    document.getElementById('stick-customizer').classList.remove('options-collapsed');
+  }
+
+  function openCustomizerCategory(groupName) {
+    if (customizerHotspotGroups[groupName]) renderHotspotPanel(groupName);
   }
 
   function closeHotspotPanel() {
-    activeHotspot = '';
     panel.hidden = true;
-    stage.querySelectorAll('.customizer-hotspot').forEach(button => button.classList.remove('active'));
+    document.getElementById('customizer-overview').hidden = false;
+    panelTitle.textContent = 'Alle keuzes';
+    stage.dataset.zoom = 'overview';
+    document.querySelectorAll('.customizer-category-tab').forEach(button => {
+      const active = button.dataset.category === 'overview';
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
   }
 
   function refreshHotspotChoices() {
@@ -425,34 +467,35 @@ function initCustomizerSwatches() {
     });
   }
 
-  document.querySelectorAll('.customizer-hotspot').forEach(button => {
+  document.querySelectorAll('.customizer-category-tab').forEach(button => {
     button.addEventListener('click', () => {
-      if (activeHotspot === button.dataset.hotspot && !panel.hidden) {
-        closeHotspotPanel();
-      } else {
-        renderHotspotPanel(button.dataset.hotspot);
-      }
+      if (button.dataset.category === 'overview') closeHotspotPanel();
+      else openCustomizerCategory(button.dataset.category);
     });
   });
-  document.getElementById('customizer-hotspot-close').addEventListener('click', closeHotspotPanel);
+  document.getElementById('customizer-collapse').addEventListener('click', event => {
+    const collapsed = document.getElementById('stick-customizer').classList.toggle('options-collapsed');
+    event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+    event.currentTarget.setAttribute('aria-label', collapsed ? 'Opties uitklappen' : 'Opties inklappen');
+  });
 
   for (const selectId of Object.values(customizerHotspotGroups).flatMap(group => group.selects)) {
     const select = document.getElementById(selectId);
     select.addEventListener('change', () => {
       if (selectId === 'custColor') stage.style.setProperty('--stick-color', select.value);
-      renderSelectionRails();
+      renderCustomizerOverview();
       refreshHotspotChoices();
       if (!swipeInProgress) showRandomOption();
     });
   }
   flexInput.addEventListener('input', () => {
-    renderSelectionRails();
+    renderCustomizerOverview();
     const visibleFlex = panelOptions.querySelector('.customizer-flex-field');
     if (visibleFlex) visibleFlex.querySelector('output').textContent = flexInput.value;
     if (!swipeInProgress) showRandomOption();
   });
   stage.style.setProperty('--stick-color', document.getElementById('custColor').value);
-  renderSelectionRails();
+  renderCustomizerOverview();
 
   function showRandomOption() {
     const candidates = Object.values(customizerHotspotGroups)

@@ -4,7 +4,7 @@ import { appState, state, game, swipeData } from './state.js?v=customizer-patter
 import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=customizer-patterns-1';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=customizer-patterns-1';
 import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=customizer-patterns-1';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-patterns-1';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-overhaul-1';
 import { bindInput } from './input.js?v=customizer-patterns-1';
 import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
 
@@ -72,36 +72,10 @@ let stickModelRoot = null;
 let ghostStickModelRoot = null;
 let gameplayStickVisibility = null;
 let stickModelLoadRequest = 0;
-
-function updateCustomizerHotspotPositions() {
-  if (!customizerPreviewModel) return;
-  const previewStage = document.getElementById('customizer-preview-stage');
-  if (!previewStage) return;
-
-  customizerPreviewModel.updateMatrixWorld(true);
-  const bounds = new THREE.Box3().setFromObject(customizerPreviewModel);
-  if (bounds.isEmpty()) return;
-  const center = bounds.getCenter(new THREE.Vector3());
-  const top = new THREE.Vector3(center.x, bounds.max.y, center.z);
-  const bottom = new THREE.Vector3(center.x, bounds.min.y, center.z);
-  const stageBounds = previewStage.getBoundingClientRect();
-  const hotspotPositions = {
-    'shaft-top': 0.03,
-    color: 0.24,
-    grip: 0.49,
-    kickpoint: 0.73,
-    blade: 0.95
-  };
-
-  camera.updateMatrixWorld(true);
-  for (const [hotspot, progress] of Object.entries(hotspotPositions)) {
-    const position = top.clone().lerp(bottom, progress).project(camera);
-    const button = previewStage.querySelector(`[data-hotspot="${hotspot}"]`);
-    if (!button) continue;
-    button.style.left = `${(position.x + 1) * window.innerWidth / 2 - stageBounds.left}px`;
-    button.style.top = `${(1 - position.y) * window.innerHeight / 2 - stageBounds.top}px`;
-  }
-}
+const defaultSceneBackground = scene.background.clone();
+let customizerZoom = 1.3;
+let customizerFocusProgress = 0.5;
+let customizerBackgroundActive = false;
 
 function applyStickColor(material, color) {
   const normalizedColor = color.toLowerCase();
@@ -1204,19 +1178,49 @@ function animate() {
       const cameraForward = camera.getWorldDirection(new THREE.Vector3());
       const previewStage = document.getElementById('customizer-preview-stage');
       const stageBounds = previewStage.getBoundingClientRect();
-      const previewTargetY = stageBounds.top + stageBounds.height / 2 - 22;
+      const previewTargetY = stageBounds.top + stageBounds.height / 2;
       const worldUnitsPerPixel = (2 * 2400 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / window.innerHeight;
       const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
       const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-      const previewTargetX = stageBounds.left + stageBounds.width * 0.4;
+      const previewTargetX = stageBounds.left + stageBounds.width * 0.5;
+      const zoomByCategory = {
+        overview: 1.3,
+        blade: 2.15,
+        kickpoint: 1.8,
+        grip: 1.8,
+        color: 1.55,
+        'shaft-top': 1.8
+      };
+      const focusByCategory = {
+        overview: 0.5,
+        blade: 0.95,
+        kickpoint: 0.73,
+        grip: 0.49,
+        color: 0.24,
+        'shaft-top': 0.03
+      };
+      const zoomCategory = previewStage.dataset.zoom || 'overview';
+      const targetZoom = zoomByCategory[zoomCategory] ?? zoomByCategory.overview;
+      const targetFocusProgress = focusByCategory[zoomCategory] ?? 0.5;
+      customizerZoom += (targetZoom - customizerZoom) * 0.12;
+      customizerFocusProgress += (targetFocusProgress - customizerFocusProgress) * 0.12;
+      customizerPreviewModel.scale.setScalar(customizerPreviewScale * customizerZoom);
+      if (!customizerBackgroundActive) {
+        scene.background.set('#f1f2f4');
+        customizerBackgroundActive = true;
+      }
       customizerPreviewGroup.position.copy(camera.position)
         .addScaledVector(cameraForward, 2400)
         .addScaledVector(cameraUp, (window.innerHeight / 2 - previewTargetY) * worldUnitsPerPixel)
-        .addScaledVector(cameraRight, (previewTargetX - window.innerWidth / 2) * worldUnitsPerPixel);
+        .addScaledVector(cameraRight, (previewTargetX - window.innerWidth / 2) * worldUnitsPerPixel)
+        .addScaledVector(cameraUp, (customizerFocusProgress - 0.5) * 1100 * customizerZoom);
       customizerPreviewGroup.quaternion.copy(camera.quaternion);
       customizerPreviewGroup.updateMatrixWorld(true);
-      updateCustomizerHotspotPositions();
     }
+  }
+  if (!isCustomizerVisible && customizerBackgroundActive) {
+    scene.background.copy(defaultSceneBackground);
+    customizerBackgroundActive = false;
   }
   renderer.render(scene, camera);
 }
@@ -1226,6 +1230,32 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('canvas-container').appendChild(renderer.domElement);
   initUiBindings(updatePhysics);
   bindInput(controls, syncUiFromState);
+  let customizerDragStart = null;
+  renderer.domElement.addEventListener('pointerdown', event => {
+    if (appState.mode !== 'customizer') return;
+    const previewStage = document.getElementById('customizer-preview-stage');
+    const bounds = previewStage.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom) return;
+    customizerDragStart = { x: event.clientX, y: event.clientY };
+  });
+  renderer.domElement.addEventListener('pointerup', event => {
+    if (!customizerDragStart || appState.mode !== 'customizer') {
+      customizerDragStart = null;
+      return;
+    }
+    const deltaX = event.clientX - customizerDragStart.x;
+    const deltaY = event.clientY - customizerDragStart.y;
+    customizerDragStart = null;
+    if (Math.abs(deltaX) < 70 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return;
+    const customizer = document.getElementById('stick-customizer');
+    const collapsed = deltaX > 0;
+    customizer.classList.toggle('options-collapsed', collapsed);
+    const collapseButton = document.getElementById('customizer-collapse');
+    collapseButton.setAttribute('aria-expanded', String(!collapsed));
+    collapseButton.setAttribute('aria-label', collapsed ? 'Opties uitklappen' : 'Opties inklappen');
+  });
+  renderer.domElement.addEventListener('pointercancel', () => { customizerDragStart = null; });
 
   const loader = new GLTFLoader();
   const modelStatus = document.getElementById('customizer-model-status');

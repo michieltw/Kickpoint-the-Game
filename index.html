@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css?v=customizer-layout-6">
+  <link rel="stylesheet" href="css/style.css?v=customizer-overhaul-1">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -140,20 +140,28 @@
             <span class="preview-stick-shaft"></span>
             <span class="preview-stick-grip"></span>
           </div>
-          <button class="customizer-hotspot" type="button" data-hotspot="blade" style="--hotspot-y: 88%;" aria-label="Bladopties" title="Bladopties"></button>
-          <button class="customizer-hotspot" type="button" data-hotspot="kickpoint" style="--hotspot-y: 70%;" aria-label="Kickpoint en flex" title="Kickpoint en flex"></button>
-          <button class="customizer-hotspot" type="button" data-hotspot="grip" style="--hotspot-y: 51%;" aria-label="Gripopties" title="Gripopties"></button>
-          <button class="customizer-hotspot" type="button" data-hotspot="color" style="--hotspot-y: 31%;" aria-label="Stick kleur" title="Stick kleur"></button>
-          <button class="customizer-hotspot" type="button" data-hotspot="shaft-top" style="--hotspot-y: 11%;" aria-label="Shaftvorm en wand" title="Shaftvorm en wand"></button>
-          <section class="customizer-hotspot-panel" id="customizer-hotspot-panel" aria-label="Hotspotopties" hidden>
-            <header>
-              <h2 id="customizer-hotspot-title"></h2>
-              <button type="button" id="customizer-hotspot-close" aria-label="Sluiten">×</button>
-            </header>
+        </div>
+        <section class="customizer-options-panel" aria-label="Stickopties">
+          <nav class="customizer-category-nav" id="customizer-category-nav" aria-label="Keuzecategorieën">
+            <button type="button" class="customizer-category-tab" data-category="overview" aria-pressed="true">Overzicht</button>
+            <button type="button" class="customizer-category-tab" data-category="blade" aria-pressed="false">Blad</button>
+            <button type="button" class="customizer-category-tab" data-category="kickpoint" aria-pressed="false">Kickpoint</button>
+            <button type="button" class="customizer-category-tab" data-category="grip" aria-pressed="false">Grip</button>
+            <button type="button" class="customizer-category-tab" data-category="color" aria-pressed="false">Kleur</button>
+            <button type="button" class="customizer-category-tab" data-category="shaft-top" aria-pressed="false">Shaft</button>
+          </nav>
+          <div class="customizer-options-heading">
+            <div>
+              <span class="customizer-options-kicker">JOUW STICK</span>
+              <h2 id="customizer-hotspot-title">Alle keuzes</h2>
+            </div>
+            <button type="button" id="customizer-collapse" class="customizer-collapse" aria-label="Opties inklappen" aria-expanded="true">‹</button>
+          </div>
+          <div class="customizer-overview" id="customizer-overview" aria-label="Gekozen stickopties"></div>
+          <section class="customizer-hotspot-panel" id="customizer-hotspot-panel" aria-label="Categorieopties" hidden>
             <div id="customizer-hotspot-options"></div>
           </section>
-        </div>
-        <aside class="customizer-selection-rail" id="customizer-selection-right" aria-label="Gekozen stickopties"></aside>
+        </section>
       </div>
       <p class="customizer-model-status" id="customizer-model-status" role="status" hidden></p>
 
@@ -421,6 +429,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=customizer-patterns-1"></script>
+  <script type="module" src="js/main.js?v=customizer-overhaul-1"></script>
 </body>
 </html>
