@@ -34,6 +34,7 @@ export const StickCustomizerState = {
   bladeCurve: 'P28',
   bladeTexture: '3d-texture',
   flex: 90,
+  ageCategory: 'SR',
   kickpoint: 'mid',
   shaftThickness: 2.0, // mm
   shaftWall: 'very-thin'

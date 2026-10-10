@@ -1,5 +1,6 @@
 import { appState, state, game } from './state.js?v=customizer-patterns-1';
 import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-patterns-1';
+import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
 import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=customizer-patterns-1';
 import { camera, renderer } from './scene.js?v=customizer-patterns-1';
 
@@ -12,8 +13,10 @@ export function updateUiMode() {
   const settings = document.getElementById('workbenchPanel');
   const gameSettingsMenu = document.getElementById('game-settings');
   const customizerMenu = document.getElementById('stick-customizer');
+  const buildReview = document.getElementById('build-review');
   const btnPlayNow = document.getElementById('btnPlayNow');
   document.body.classList.toggle('customizer-open', appState.mode === 'customizer');
+  buildReview.hidden = appState.mode !== 'build-review';
 
   const targetHud = document.getElementById('target-hud');
   const isSplash = appState.mode === 'splash';
@@ -50,6 +53,13 @@ export function updateUiMode() {
       if(targetHud) {
           targetHud.style.display = game.mode === 'targets' ? 'flex' : 'none';
       }
+    } else if (appState.mode === 'build-review') {
+      menu.classList.add('hidden');
+      gameUi.classList.remove('visible');
+      settings.style.display = 'none';
+      gameSettingsMenu.classList.remove('visible');
+      customizerMenu.classList.remove('visible');
+      if (targetHud) targetHud.style.display = 'none';
     } else if (appState.mode === 'gameSettings') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
@@ -257,8 +267,13 @@ function applyCustomOptionImage(element, selectId, value) {
 }
 
 const customizerHotspotGroups = {
+  color: {
+    title: 'Stick kleur',
+    selects: ['custColor'],
+    flex: false
+  },
   blade: {
-    title: 'Pattern',
+    title: 'Blad',
     selects: ['custBladePattern', 'custHandedness', 'custBladeTexture'],
     flex: false
   },
@@ -270,11 +285,6 @@ const customizerHotspotGroups = {
   grip: {
     title: 'Shaft grip',
     selects: ['custShaftSurface', 'custShaft3dGrip'],
-    flex: false
-  },
-  color: {
-    title: 'Stick kleur',
-    selects: ['custColor'],
     flex: false
   },
   'shaft-top': {
@@ -315,11 +325,147 @@ function initCustomizerSwatches() {
   const panel = document.getElementById('customizer-hotspot-panel');
   const panelTitle = document.getElementById('customizer-hotspot-title');
   const panelOptions = document.getElementById('customizer-hotspot-options');
+  const overview = document.getElementById('customizer-overview');
+  const statsPanel = document.getElementById('customizer-stats');
   const flexInput = document.getElementById('custFlex');
   const swipeCard = document.getElementById('customizer-swipe-card');
+  const neutralBuild = {
+    ...StickCustomizerState,
+    bladeCurve: 'P92',
+    bladeTexture: 'matte-no-texture',
+    shaftSurface: 'mat-without-grip',
+    shaftThickness: 2,
+    flex: 85,
+    kickpoint: 'hybrid'
+  };
+  const neutralModifiers = getStickShotModifiers(neutralBuild);
+  const statDefinitions = [
+    { key: 'puckSpeed', label: 'Schotsnelheid' },
+    { key: 'accuracy', label: 'Nauwkeurigheid' },
+    { key: 'quickness', label: 'Shot-quickness' }
+  ];
+  const effectSources = [
+    { option: 'bladeCurve', selectId: 'custBladePattern' },
+    { option: 'shaftSurface', selectId: 'custShaftSurface' },
+    { option: 'bladeTexture', selectId: 'custBladeTexture' },
+    { option: 'shaftThickness', selectId: 'custShaftWall', getValue: () => StickCustomizerState.shaftThickness }
+  ];
   let currentRandomOption = null;
   let swipeStartX = null;
   let swipeInProgress = false;
+
+  function getFlexAgeCategories(value = Number(flexInput.value)) {
+    return [
+      ...(value >= 20 && value <= 50 ? ['JR'] : []),
+      ...(value >= 35 && value <= 65 ? ['INT'] : []),
+      ...(value >= 65 && value <= 125 ? ['SR'] : [])
+    ];
+  }
+
+  function isCustomizerOptionAllowed(selectId, value) {
+    if (StickCustomizerState.ageCategory === 'JR') {
+      if (selectId === 'custBladePattern' && !['P28JR', 'P92JR'].includes(value)) return false;
+      if (selectId === 'custKickpoint' && value !== 'low') return false;
+    }
+    return true;
+  }
+
+  function syncFlexAgeCategory() {
+    StickCustomizerState.flex = flexInput.value;
+    const categories = getFlexAgeCategories();
+    if (!categories.includes(StickCustomizerState.ageCategory)) {
+      StickCustomizerState.ageCategory = categories[0];
+    }
+    if (categories.length === 1) StickCustomizerState.ageCategory = categories[0];
+
+    if (StickCustomizerState.ageCategory === 'JR') {
+      const pattern = document.getElementById('custBladePattern');
+      if (!['P28JR', 'P92JR'].includes(pattern.value)) {
+        pattern.value = 'P28JR';
+        pattern.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const kickpoint = document.getElementById('custKickpoint');
+      if (kickpoint.value !== 'low') {
+        kickpoint.value = 'low';
+        kickpoint.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  }
+
+  function createStatBar(label, multiplier, detail = null) {
+    const row = document.createElement('div');
+    row.className = detail ? 'customizer-stat-row customizer-stat-row-detail' : 'customizer-stat-row';
+    const heading = document.createElement('div');
+    heading.className = 'customizer-stat-heading';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const value = document.createElement('strong');
+    const percent = (multiplier - 1) * 100;
+    value.textContent = detail
+      ? `${percent > 0 ? '+' : ''}${percent.toFixed(1)}%`
+      : `${(multiplier * 100).toFixed(1)}%`;
+    heading.append(name, value);
+
+    const track = document.createElement('div');
+    track.className = 'customizer-stat-track';
+    track.setAttribute('role', 'img');
+    track.setAttribute('aria-label', `${label}: ${value.textContent}`);
+    const fill = document.createElement('span');
+    fill.className = 'customizer-stat-fill';
+    fill.style.width = `${Math.max(0, Math.min(100, ((multiplier - 0.6) / 0.9) * 100))}%`;
+    const neutralMarker = document.createElement('span');
+    neutralMarker.className = 'customizer-stat-neutral';
+    track.append(fill, neutralMarker);
+    row.append(heading, track);
+    return row;
+  }
+
+  function renderCustomizerStats() {
+    const totals = getStickShotModifiers(StickCustomizerState);
+    const totalSection = document.createElement('section');
+    totalSection.className = 'customizer-stats-group';
+    const totalHeading = document.createElement('h3');
+    totalHeading.textContent = 'Totale build';
+    totalSection.appendChild(totalHeading);
+    for (const stat of statDefinitions) {
+      totalSection.appendChild(createStatBar(stat.label, totals[stat.key]));
+    }
+
+    const effectsSection = document.createElement('section');
+    effectsSection.className = 'customizer-stats-group';
+    const effectsHeading = document.createElement('h3');
+    effectsHeading.textContent = 'Effect per onderdeel';
+    effectsSection.appendChild(effectsHeading);
+    for (const source of effectSources) {
+      const value = source.getValue?.() ?? StickCustomizerState[source.option];
+      const selectedModifiers = getStickShotModifiers({
+        ...neutralBuild,
+        [source.option]: value
+      });
+      const effects = statDefinitions
+        .map(stat => ({
+          label: stat.label,
+          multiplier: selectedModifiers[stat.key] / neutralModifiers[stat.key]
+        }))
+        .filter(effect => Math.abs(effect.multiplier - 1) > 0.0001);
+      if (!effects.length) continue;
+
+      const sourceSection = document.createElement('section');
+      sourceSection.className = 'customizer-stat-source';
+      const title = document.createElement('h4');
+      title.textContent = customizerLabels[source.selectId];
+      const selectedValue = document.getElementById(source.selectId)?.selectedOptions[0]?.textContent ?? '';
+      const selected = document.createElement('span');
+      selected.className = 'customizer-stat-selection';
+      selected.textContent = selectedValue;
+      sourceSection.append(title, selected);
+      for (const effect of effects) {
+        sourceSection.appendChild(createStatBar(effect.label, effect.multiplier, true));
+      }
+      effectsSection.appendChild(sourceSection);
+    }
+    statsPanel.replaceChildren(totalSection, effectsSection);
+  }
 
   function createOptionImage(selectId, value, className) {
     const image = document.createElement('span');
@@ -331,7 +477,6 @@ function initCustomizerSwatches() {
   }
 
   function renderCustomizerOverview() {
-    const overview = document.getElementById('customizer-overview');
     overview.replaceChildren();
     for (const [groupName, group] of Object.entries(customizerHotspotGroups)) {
       const section = document.createElement('section');
@@ -371,6 +516,67 @@ function initCustomizerSwatches() {
       section.append(heading, values);
       overview.appendChild(section);
     }
+    renderCustomizerStats();
+  }
+
+  function renderBuildReview() {
+    const summary = document.getElementById('build-summary-options');
+    const values = Object.fromEntries(customizerSelectionValues.map(selectId => {
+      const select = document.getElementById(selectId);
+      return [selectId, selectId === 'custFlex' ? flexInput.value : select.value];
+    }));
+    const encodedValues = btoa(JSON.stringify(values))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    document.getElementById('build-summary-code').textContent = `KP1-${encodedValues}`;
+
+    summary.replaceChildren();
+    for (const [groupName, group] of Object.entries(customizerHotspotGroups)) {
+      const section = document.createElement('section');
+      section.className = 'build-summary-group';
+      const heading = document.createElement('div');
+      heading.className = 'build-summary-heading';
+      const title = document.createElement('h2');
+      title.textContent = group.title;
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'customizer-overview-edit';
+      edit.dataset.editCategory = groupName;
+      edit.textContent = 'Aanpassen';
+      heading.append(title, edit);
+
+      const list = document.createElement('dl');
+      for (const selectId of group.selects) {
+        const row = document.createElement('div');
+        row.className = 'build-summary-row';
+        const label = document.createElement('dt');
+        label.textContent = customizerLabels[selectId];
+        const selected = document.createElement('dd');
+        selected.textContent = document.getElementById(selectId)?.selectedOptions[0]?.textContent ?? '';
+        if (selectId === 'custColor') {
+          const swatch = document.createElement('span');
+          swatch.className = 'build-summary-color';
+          swatch.style.backgroundColor = values.custColor;
+          swatch.setAttribute('aria-hidden', 'true');
+          selected.prepend(swatch);
+        }
+        row.append(label, selected);
+        list.appendChild(row);
+      }
+      if (group.flex) {
+        const row = document.createElement('div');
+        row.className = 'build-summary-row';
+        const label = document.createElement('dt');
+        label.textContent = 'Flex';
+        const selected = document.createElement('dd');
+        selected.textContent = `${flexInput.value} flex`;
+        row.append(label, selected);
+        list.appendChild(row);
+      }
+      section.append(heading, list);
+      summary.appendChild(section);
+    }
   }
 
   function makeSelectOptions(selectId) {
@@ -384,6 +590,7 @@ function initCustomizerSwatches() {
     choices.className = 'customizer-hotspot-choices';
     field.dataset.selectId = selectId;
     for (const option of select.options) {
+      if (!isCustomizerOptionAllowed(selectId, option.value)) continue;
       const choice = document.createElement('button');
       choice.type = 'button';
       choice.className = 'customizer-hotspot-choice';
@@ -410,34 +617,74 @@ function initCustomizerSwatches() {
     if (group.flex) {
       const flexField = document.createElement('section');
       flexField.className = 'customizer-hotspot-field customizer-flex-field';
-      const label = document.createElement('label');
-      label.htmlFor = 'custFlex';
+      const label = document.createElement('h3');
       label.textContent = 'Flex';
+      const carousel = document.createElement('div');
+      carousel.className = 'customizer-flex-carousel';
+      carousel.setAttribute('aria-label', 'Kies flex');
+      const currentFlex = Number(flexInput.value);
+      const step = Number(flexInput.step) || 1;
+      const previous = document.createElement('button');
+      previous.type = 'button';
+      previous.className = 'customizer-flex-carousel-arrow';
+      previous.textContent = `‹ ${currentFlex - step}`;
+      previous.disabled = currentFlex <= Number(flexInput.min);
+      previous.setAttribute('aria-label', `Flex ${currentFlex - step}`);
+      previous.addEventListener('click', () => changeFlex(currentFlex - step));
       const output = document.createElement('output');
-      output.textContent = flexInput.value;
-      const slider = document.createElement('input');
-      slider.type = 'range';
-      slider.min = flexInput.min;
-      slider.max = flexInput.max;
-      slider.step = flexInput.step;
-      slider.value = flexInput.value;
-      slider.setAttribute('aria-label', 'Flex');
-      slider.addEventListener('input', () => {
-        flexInput.value = slider.value;
-        flexInput.dispatchEvent(new Event('input', { bubbles: true }));
-        output.textContent = slider.value;
-      });
-      flexField.append(label, output, slider);
+      output.className = 'customizer-flex-current';
+      output.setAttribute('aria-live', 'polite');
+      output.textContent = `${currentFlex} flex`;
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.className = 'customizer-flex-carousel-arrow';
+      next.textContent = `${currentFlex + step} ›`;
+      next.disabled = currentFlex >= Number(flexInput.max);
+      next.setAttribute('aria-label', `Flex ${currentFlex + step}`);
+      next.addEventListener('click', () => changeFlex(currentFlex + step));
+      carousel.append(previous, output, next);
+      flexField.append(label, carousel);
+
+      const categories = getFlexAgeCategories(currentFlex);
+      const selectedCategory = StickCustomizerState.ageCategory;
+      const categoryLabel = document.createElement('p');
+      categoryLabel.className = 'customizer-flex-category-label';
+      categoryLabel.textContent = categories.length > 1
+        ? 'Kies leeftijdscategorie'
+        : 'Leeftijdscategorie';
+      flexField.appendChild(categoryLabel);
+      const categoryOptions = document.createElement('div');
+      categoryOptions.className = 'customizer-flex-categories';
+      for (const category of categories) {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'customizer-flex-category';
+        option.textContent = category;
+        option.setAttribute('aria-pressed', String(category === selectedCategory));
+        option.addEventListener('click', () => {
+          StickCustomizerState.ageCategory = category;
+          syncFlexAgeCategory();
+          renderCustomizerOverview();
+          renderHotspotPanel('kickpoint');
+          if (!swipeInProgress) showRandomOption();
+        });
+        categoryOptions.appendChild(option);
+      }
+      flexField.appendChild(categoryOptions);
       panelOptions.appendChild(flexField);
     }
     panel.hidden = false;
-    document.getElementById('customizer-overview').hidden = true;
+    overview.hidden = true;
+    statsPanel.hidden = true;
+    document.getElementById('customizer-prebuilds').hidden = true;
+    document.getElementById('customizer-info').hidden = true;
     stage.dataset.zoom = groupName;
     document.querySelectorAll('.customizer-category-tab').forEach(button => {
-      const active = button.dataset.category === groupName;
+      const active = button.dataset.tab === 'overview';
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
+    panelTitle.textContent = group.title;
     document.getElementById('stick-customizer').classList.remove('options-collapsed');
   }
 
@@ -445,13 +692,44 @@ function initCustomizerSwatches() {
     if (customizerHotspotGroups[groupName]) renderHotspotPanel(groupName);
   }
 
+  function changeFlex(value) {
+    const min = Number(flexInput.min);
+    const max = Number(flexInput.max);
+    flexInput.value = String(Math.max(min, Math.min(max, value)));
+    flexInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   function closeHotspotPanel() {
     panel.hidden = true;
-    document.getElementById('customizer-overview').hidden = false;
+    overview.hidden = false;
+    statsPanel.hidden = true;
+    document.getElementById('customizer-prebuilds').hidden = true;
+    document.getElementById('customizer-info').hidden = true;
     panelTitle.textContent = 'Alle keuzes';
     stage.dataset.zoom = 'overview';
     document.querySelectorAll('.customizer-category-tab').forEach(button => {
-      const active = button.dataset.category === 'overview';
+      const active = button.dataset.tab === 'overview';
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+  }
+
+  function showCustomizerTab(tab) {
+    panel.hidden = true;
+    overview.hidden = tab !== 'overview';
+    statsPanel.hidden = tab !== 'stats';
+    document.getElementById('customizer-prebuilds').hidden = tab !== 'prebuilds';
+    document.getElementById('customizer-info').hidden = tab !== 'info';
+    stage.dataset.zoom = 'overview';
+    const titles = {
+      overview: 'Alle keuzes',
+      prebuilds: 'Pre-builds',
+      stats: 'Stats',
+      info: 'Info'
+    };
+    panelTitle.textContent = titles[tab];
+    document.querySelectorAll('.customizer-category-tab').forEach(button => {
+      const active = button.dataset.tab === tab;
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
     });
@@ -469,8 +747,8 @@ function initCustomizerSwatches() {
 
   document.querySelectorAll('.customizer-category-tab').forEach(button => {
     button.addEventListener('click', () => {
-      if (button.dataset.category === 'overview') closeHotspotPanel();
-      else openCustomizerCategory(button.dataset.category);
+      if (button.dataset.tab === 'overview') closeHotspotPanel();
+      else showCustomizerTab(button.dataset.tab);
     });
   });
   document.getElementById('customizer-collapse').addEventListener('click', event => {
@@ -489,11 +767,39 @@ function initCustomizerSwatches() {
     });
   }
   flexInput.addEventListener('input', () => {
+    syncFlexAgeCategory();
     renderCustomizerOverview();
-    const visibleFlex = panelOptions.querySelector('.customizer-flex-field');
-    if (visibleFlex) visibleFlex.querySelector('output').textContent = flexInput.value;
+    if (!panel.hidden && panelTitle.textContent === customizerHotspotGroups.kickpoint.title) {
+      renderHotspotPanel('kickpoint');
+    }
     if (!swipeInProgress) showRandomOption();
   });
+  document.getElementById('btnCustomizerBack').addEventListener('click', () => {
+    renderBuildReview();
+    appState.mode = 'build-review';
+    updateUiMode();
+  });
+  document.getElementById('build-summary-options').addEventListener('click', event => {
+    const editButton = event.target.closest('[data-edit-category]');
+    if (!editButton) return;
+    appState.mode = 'customizer';
+    updateUiMode();
+    openCustomizerCategory(editButton.dataset.editCategory);
+  });
+  document.getElementById('btnOrderCustomStick').addEventListener('click', event => {
+    const orderUrl = event.currentTarget.dataset.orderUrl.trim();
+    if (orderUrl) {
+      window.location.assign(orderUrl);
+      return;
+    }
+    document.getElementById('build-order-status').hidden = false;
+  });
+  document.getElementById('btnTestCustomStick').addEventListener('click', () => {
+    game.mode = 'free';
+    appState.mode = 'game';
+    updateUiMode();
+  });
+  syncFlexAgeCategory();
   stage.style.setProperty('--stick-color', document.getElementById('custColor').value);
   renderCustomizerOverview();
 
@@ -503,7 +809,7 @@ function initCustomizerSwatches() {
       .flatMap(selectId => {
         const select = document.getElementById(selectId);
         return [...select.options]
-          .filter(option => option.value !== select.value)
+          .filter(option => option.value !== select.value && isCustomizerOptionAllowed(selectId, option.value))
           .map(option => ({ selectId, value: option.value, label: option.textContent }));
       });
     const flexStep = Number(flexInput.step) || 1;
@@ -652,15 +958,13 @@ export function initUiBindings(updatePhysics) {
     }
     profileName.addEventListener('input', () => profileName.setCustomValidity(''));
 
-    const showPlayerProfile = () => {
+    const showCustomizer = () => {
       document.getElementById('intro-video').pause();
-      document.getElementById('profile-title').textContent = 'Maak je spelersprofiel';
-      appState.mode = 'profile';
+      appState.mode = 'customizer';
       updateUiMode();
-      profileName.focus();
     };
-    document.getElementById('btnSkipIntro').addEventListener('click', showPlayerProfile);
-    document.getElementById('intro-video').addEventListener('ended', showPlayerProfile);
+    document.getElementById('btnSkipIntro').addEventListener('click', showCustomizer);
+    document.getElementById('intro-video').addEventListener('ended', showCustomizer);
     document.getElementById('intro-video').addEventListener('error', () => {
       document.getElementById('intro-error').hidden = false;
     });
@@ -746,7 +1050,6 @@ export function initUiBindings(updatePhysics) {
         setTimeout(drawStiffnessCurve, 50); // Redraw after panel shows
     });
     document.getElementById('btnGameSettingsBack').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
-    document.getElementById('btnCustomizerBack').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
     document.getElementById('btnMenu').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
     document.getElementById('btnSettingsBack').addEventListener('click', (e) => {
         e.stopPropagation();
