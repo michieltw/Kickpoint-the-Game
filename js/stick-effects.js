@@ -6,10 +6,6 @@ export const STICK_EFFECT_LIMITS = Object.freeze({
 });
 
 export const STICK_MODIFIER_RULES = Object.freeze({
-  model: {
-    values: { 'P28-ST': 0 },
-    effects: {}
-  },
   shaftGrip: {
     values: { false: 0, true: 1 },
     effects: {}
@@ -41,10 +37,19 @@ export const STICK_MODIFIER_RULES = Object.freeze({
   },
   bladeCurve: {
     presets: {
+      P02: { quickness: 0.96, puckSpeed: 1.02, accuracy: 1.05, shotTendencyY: -0.005 },
+      P08: { quickness: 1.01, puckSpeed: 1.00, accuracy: 1.02, shotTendencyY: 0.008 },
+      P14: { quickness: 1.00, puckSpeed: 0.99, accuracy: 1.03, shotTendencyY: 0.008 },
       P92: { quickness: 1.00, puckSpeed: 1.00, accuracy: 1.00, shotTendencyY: 0.005 },
       P28: { quickness: 1.04, puckSpeed: 1.03, accuracy: 1.02, shotTendencyY: 0.025 },
+      P28JR: { quickness: 1.04, puckSpeed: 1.02, accuracy: 1.01, shotTendencyY: 0.022 },
+      P28M: { quickness: 1.03, puckSpeed: 1.02, accuracy: 1.02, shotTendencyY: 0.021 },
+      P77: { quickness: 1.00, puckSpeed: 1.02, accuracy: 1.01, shotTendencyY: 0.008 },
       P88: { quickness: 0.95, puckSpeed: 0.95, accuracy: 1.04, shotTendencyY: 0.001 },
-      P90TM: { quickness: 1.02, puckSpeed: 1.01, accuracy: 1.01, shotTendencyY: 0.015 }
+      P90TM: { quickness: 1.02, puckSpeed: 1.01, accuracy: 1.01, shotTendencyY: 0.015 },
+      P91: { quickness: 0.98, puckSpeed: 0.99, accuracy: 1.05, shotTendencyY: 0.002 },
+      P92JR: { quickness: 1.01, puckSpeed: 1.00, accuracy: 1.02, shotTendencyY: 0.005 },
+      P92M: { quickness: 1.01, puckSpeed: 1.00, accuracy: 1.03, shotTendencyY: 0.008 }
     },
     effects: {}
   },

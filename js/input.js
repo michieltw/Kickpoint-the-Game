@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { gameSettings, StickCustomizerState } from './config.js?v=customizer-layout-17';
-import { state, game, swipeData } from './state.js?v=customizer-layout-17';
-import { getStiffnessDynamics } from './physics.js?v=customizer-layout-17';
-import { camera, GOAL } from './scene.js?v=customizer-layout-17'; // game.net is in sceneGame.net technically, or we map it
-import { getStickShotModifiers } from './stick-effects.js?v=customizer-layout-17';
+import { gameSettings, StickCustomizerState } from './config.js?v=customizer-patterns-1';
+import { state, game, swipeData } from './state.js?v=customizer-patterns-1';
+import { getStiffnessDynamics } from './physics.js?v=customizer-patterns-1';
+import { camera, GOAL } from './scene.js?v=customizer-patterns-1'; // game.net is in sceneGame.net technically, or we map it
+import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
 
 export function getGoalAim(clientX, clientY, pathErrorX = 0) {
   const aimX = clientX + pathErrorX * 1.5;

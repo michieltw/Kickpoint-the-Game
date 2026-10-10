@@ -1,19 +1,107 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { appState, state, game, swipeData } from './state.js?v=customizer-layout-17';
-import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=customizer-layout-17';
-import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=customizer-layout-17';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=customizer-layout-17';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-layout-17';
-import { bindInput } from './input.js?v=customizer-layout-17';
-import { getStickShotModifiers } from './stick-effects.js?v=customizer-layout-17';
+import { appState, state, game, swipeData } from './state.js?v=customizer-patterns-1';
+import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=customizer-patterns-1';
+import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=customizer-patterns-1';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=customizer-patterns-1';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-patterns-1';
+import { bindInput } from './input.js?v=customizer-patterns-1';
+import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
 
-const MODEL_URL = 'https://raw.githubusercontent.com/michieltw/GLB-s/main/glb_files_retextured/P28-ST.glb';
-
+const STICK_MODEL_URLS = Object.freeze({
+  P02: {
+    right: 'https://cdn.shopify.com/3d/models/cd2d87b8d6b26bd7/P02_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/58f284073fd3f799/P02_LH.glb'
+  },
+  P08: {
+    right: 'https://cdn.shopify.com/3d/models/7d4cd03834d034d4/P08_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/940d7bdc95647163/P08_LH.glb'
+  },
+  P14: {
+    right: 'https://cdn.shopify.com/3d/models/50f00dd2270ddba8/P14_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/0a7a949a25c5fb72/P14_LH.glb'
+  },
+  P28: {
+    right: 'https://cdn.shopify.com/3d/models/6dc6981a802980a1/P28_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/e71a8e2f973341c2/P28_LH.glb'
+  },
+  P28JR: {
+    right: 'https://cdn.shopify.com/3d/models/4155fbd2b542bdfe/P28JR_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/2ff49b10e6e6ef24/P28JR_LH.glb'
+  },
+  P28M: {
+    right: 'https://cdn.shopify.com/3d/models/55080b51ee3916f0/P28M_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/952f0c502d380828/P28M_LH.glb'
+  },
+  P77: {
+    right: 'https://cdn.shopify.com/3d/models/da2893675325061f/P77_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/031fe16be65368db/P77_LH.glb'
+  },
+  P88: {
+    right: 'https://cdn.shopify.com/3d/models/18e301eb986f31d6/P88_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/17d76c84fca93530/P88_LH.glb'
+  },
+  P90TM: {
+    right: 'https://cdn.shopify.com/3d/models/87bb8cd1b9392e32/P90TM_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/fb3dc634aebb7206/P90TM_LH.glb'
+  },
+  P91: {
+    right: 'https://cdn.shopify.com/3d/models/9a497649283412b7/P91_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/f60bbb594cd11f4f/P91_LH.glb'
+  },
+  P92: {
+    right: 'https://cdn.shopify.com/3d/models/7ee3819dca989fbe/P92_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/b90155611e9b89df/P92_LH.glb'
+  },
+  P92JR: {
+    right: 'https://cdn.shopify.com/3d/models/97a10c3e5d7000f1/P92JR_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/5fc0089cce60157a/P92JR_LH.glb'
+  },
+  P92M: {
+    right: 'https://cdn.shopify.com/3d/models/3053e8d2f2fcbadc/P92M_RH.glb',
+    left: 'https://cdn.shopify.com/3d/models/90129ce43667e61e/P92M_LH.glb'
+  }
+});
 let playDirection = 1;
 let lastTime = performance.now();
 let customizerPreviewGroup = null;
+let customizerPreviewModel = null;
+let customizerPreviewScale = 1;
+let customizerPreviewMesh = null;
+let stickModelRoot = null;
+let ghostStickModelRoot = null;
 let gameplayStickVisibility = null;
+let stickModelLoadRequest = 0;
+
+function updateCustomizerHotspotPositions() {
+  if (!customizerPreviewModel) return;
+  const previewStage = document.getElementById('customizer-preview-stage');
+  if (!previewStage) return;
+
+  customizerPreviewModel.updateMatrixWorld(true);
+  const bounds = new THREE.Box3().setFromObject(customizerPreviewModel);
+  if (bounds.isEmpty()) return;
+  const center = bounds.getCenter(new THREE.Vector3());
+  const top = new THREE.Vector3(center.x, bounds.max.y, center.z);
+  const bottom = new THREE.Vector3(center.x, bounds.min.y, center.z);
+  const stageBounds = previewStage.getBoundingClientRect();
+  const hotspotPositions = {
+    'shaft-top': 0.03,
+    color: 0.24,
+    grip: 0.49,
+    kickpoint: 0.73,
+    blade: 0.95
+  };
+
+  camera.updateMatrixWorld(true);
+  for (const [hotspot, progress] of Object.entries(hotspotPositions)) {
+    const position = top.clone().lerp(bottom, progress).project(camera);
+    const button = previewStage.querySelector(`[data-hotspot="${hotspot}"]`);
+    if (!button) continue;
+    button.style.left = `${(position.x + 1) * window.innerWidth / 2 - stageBounds.left}px`;
+    button.style.top = `${(1 - position.y) * window.innerHeight / 2 - stageBounds.top}px`;
+  }
+}
 
 function applyStickColor(material, color) {
   const normalizedColor = color.toLowerCase();
@@ -28,6 +116,221 @@ function applyStickColor(material, color) {
     material.metalness = isMetallic ? 0.65 : 0.08;
     material.roughness = normalizedColor === '#bfc7ce' ? 0.18 : isMetallic ? 0.28 : 0.48;
   }
+}
+
+function disposeModelObject(root) {
+  const geometries = new Set();
+  const materials = new Set();
+  root.traverse(child => {
+    if (!child.isMesh) return;
+    geometries.add(child.geometry);
+    for (const material of (Array.isArray(child.material) ? child.material : [child.material])) {
+      materials.add(material);
+    }
+  });
+  geometries.forEach(geometry => geometry.dispose());
+  materials.forEach(material => material.dispose());
+}
+
+function createPreviewModel(root) {
+  if (!customizerPreviewGroup) {
+    customizerPreviewGroup = new THREE.Group();
+    customizerPreviewGroup.add(new THREE.AmbientLight(0xffffff, 1.8));
+    const addPreviewLight = (color, intensity, position) => {
+      const light = new THREE.DirectionalLight(color, intensity);
+      const target = new THREE.Object3D();
+      light.position.copy(position);
+      customizerPreviewGroup.add(light, target);
+      light.target = target;
+    };
+    addPreviewLight(0xffffff, 4.2, new THREE.Vector3(-650, 900, 800));
+    addPreviewLight(0xb9e7ff, 3.1, new THREE.Vector3(700, 150, 600));
+    addPreviewLight(0xffffff, 3.6, new THREE.Vector3(100, 500, -800));
+    scene.add(customizerPreviewGroup);
+  }
+
+  if (customizerPreviewModel) {
+    customizerPreviewGroup.remove(customizerPreviewModel);
+    disposeModelObject(customizerPreviewModel);
+  }
+  customizerPreviewMesh = null;
+
+  const previewModel = root.clone(true);
+  previewModel.traverse(child => {
+    if (!child.isMesh) return;
+    if (!customizerPreviewMesh) customizerPreviewMesh = child;
+    child.geometry = child.geometry.clone();
+    child.geometry.computeBoundingBox();
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    const previewMaterials = materials.map(material => {
+      const previewMaterial = material.clone();
+      applyStickColor(previewMaterial, StickCustomizerState.color);
+      previewMaterial.onBeforeCompile = shader => {
+        const checkerCellSize = Math.max(
+          Math.min(child.geometry.boundingBox?.getSize(new THREE.Vector3()).x ?? 1,
+            child.geometry.boundingBox?.getSize(new THREE.Vector3()).z ?? 1) * 0.375,
+          0.00001
+        ) * customizerPreviewScale;
+        shader.uniforms.customizerCheckerCellSize = { value: checkerCellSize };
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;')
+          .replace(
+            '#include <begin_vertex>',
+            '#include <begin_vertex>\nvCustomizerCheckerPosition = (modelMatrix * vec4(position, 1.0)).xyz;\nvCustomizerCheckerNormal = normalize(mat3(modelMatrix) * normal);'
+          );
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;\nuniform float customizerCheckerCellSize;')
+          .replace(
+            '#include <color_fragment>',
+            `#include <color_fragment>
+            vec3 checkerNormal = abs(normalize(vCustomizerCheckerNormal));
+            vec2 checkerCoordinates = checkerNormal.x > checkerNormal.y && checkerNormal.x > checkerNormal.z
+              ? vCustomizerCheckerPosition.yz
+              : checkerNormal.y > checkerNormal.z
+                ? vCustomizerCheckerPosition.xz
+                : vCustomizerCheckerPosition.xy;
+            float checkerParity = mod(
+              floor(checkerCoordinates.x / customizerCheckerCellSize)
+              + floor(checkerCoordinates.y / customizerCheckerCellSize),
+              2.0
+            );
+            float stickBrightness = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+            vec3 checkerTone = stickBrightness > 0.5 ? vec3(0.68) : vec3(0.5);
+            diffuseColor.rgb = mix(diffuseColor.rgb, checkerTone, checkerParity * 0.32);`
+          );
+      };
+      previewMaterial.customProgramCacheKey = () => 'customizer-subtle-checker-v1';
+      previewMaterial.depthTest = false;
+      previewMaterial.depthWrite = false;
+      return previewMaterial;
+    });
+    child.material = Array.isArray(child.material) ? previewMaterials : previewMaterials[0];
+    child.renderOrder = 1000;
+  });
+
+  previewModel.updateMatrixWorld(true);
+  let previewBounds = new THREE.Box3().setFromObject(previewModel);
+  const previewSize = previewBounds.getSize(new THREE.Vector3());
+  if (previewSize.x > previewSize.y && previewSize.x > previewSize.z) {
+    previewModel.rotation.z = -Math.PI / 2;
+  } else if (previewSize.z > previewSize.y && previewSize.z > previewSize.x) {
+    previewModel.rotation.x = Math.PI / 2;
+  }
+  previewModel.updateMatrixWorld(true);
+  previewBounds = new THREE.Box3().setFromObject(previewModel);
+  const previewCenter = previewBounds.getCenter(new THREE.Vector3());
+  const previewHeight = Math.max(...previewBounds.getSize(new THREE.Vector3()).toArray());
+  if (!Number.isFinite(previewHeight) || previewHeight <= 0) {
+    disposeModelObject(previewModel);
+    throw new Error('The selected 3D stick model has invalid dimensions.');
+  }
+  previewModel.position.sub(previewCenter);
+  customizerPreviewScale = 1100 / previewHeight;
+  previewModel.scale.setScalar(customizerPreviewScale);
+  customizerPreviewModel = previewModel;
+  customizerPreviewGroup.add(previewModel);
+  customizerPreviewGroup.visible = false;
+}
+
+function installStickModel(root) {
+  let stickMesh = null;
+  root.traverse(child => {
+    if (!stickMesh && child.isMesh) stickMesh = child;
+  });
+  if (!stickMesh?.geometry?.attributes?.position) {
+    disposeModelObject(root);
+    throw new Error('The selected 3D stick model contains no mesh geometry.');
+  }
+
+  if (!stickParams.stickGroup) {
+    stickParams.stickGroup = new THREE.Group();
+    stickParams.stickGroup.rotation.y = 0.22;
+    stickParams.stickGroup.rotation.z = 0.40 + (20 * Math.PI / 180);
+    stickParams.stickGroup.position.set(0, 0, -20500);
+
+    const topHandLocal = new THREE.Vector3(X_center, L_total, Z_center);
+    const topHandWorld = topHandLocal.clone()
+      .applyQuaternion(stickParams.stickGroup.quaternion)
+      .add(stickParams.stickGroup.position);
+    stickParams.stickGroup.rotation.y -= THREE.MathUtils.degToRad(25);
+    const rotatedTopHand = topHandLocal.clone().applyQuaternion(stickParams.stickGroup.quaternion);
+    stickParams.stickGroup.position.x = topHandWorld.x - rotatedTopHand.x;
+    stickParams.stickGroup.position.z = topHandWorld.z - rotatedTopHand.z;
+    scene.add(stickParams.stickGroup);
+  }
+
+  if (stickModelRoot) {
+    stickParams.stickGroup.remove(stickModelRoot);
+    disposeModelObject(stickModelRoot);
+  }
+  if (stickParams.ghostStickGroup) {
+    scene.remove(stickParams.ghostStickGroup);
+    disposeModelObject(stickParams.ghostStickGroup);
+  }
+
+  stickModelRoot = root;
+  root.traverse(child => {
+    if (!child.isMesh) return;
+    const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material];
+    const materials = sourceMaterials.map(material => {
+      const clonedMaterial = material.clone();
+      applyStickColor(clonedMaterial, StickCustomizerState.color);
+      return clonedMaterial;
+    });
+    child.material = Array.isArray(child.material) ? materials : materials[0];
+  });
+  stickParams.stickGroup.add(root);
+  stickParams.stickMesh = stickMesh;
+  stickParams.stickMesh.geometry.computeVertexNormals();
+  stickParams.originalPositions = new Float32Array(stickMesh.geometry.attributes.position.array);
+  const rowsByHeight = new Map();
+  for (let i = 0; i < stickParams.originalPositions.length; i += 3) {
+    const y = stickParams.originalPositions[i + 1];
+    let row = rowsByHeight.get(y);
+    if (!row) {
+      row = { y, indices: [] };
+      rowsByHeight.set(y, row);
+    }
+    row.indices.push(i);
+  }
+  stickParams.vertexRows = Array.from(rowsByHeight.values());
+
+  stickParams.stickGroup.position.y = 0;
+  stickParams.stickGroup.updateMatrixWorld(true);
+  const stickBounds = new THREE.Box3().setFromObject(stickParams.stickGroup, true);
+  stickParams.stickGroup.position.y -= stickBounds.min.y;
+  stickParams.stickRestY = stickParams.stickGroup.position.y;
+  stickParams.initialGroupPosition = stickParams.stickGroup.position.clone();
+
+  stickParams.ghostStickGroup = stickParams.stickGroup.clone(false);
+  ghostStickModelRoot = root.clone(true);
+  stickParams.ghostStickGroup.add(ghostStickModelRoot);
+  stickParams.ghostStickMesh = null;
+  stickParams.ghostStickGroup.visible = false;
+  stickParams.ghostStickGroup.traverse(child => {
+    if (!child.isMesh) return;
+    child.geometry = child.geometry.clone();
+    const materials = Array.isArray(child.material) ? child.material : [child.material];
+    const ghostMaterials = materials.map(material => {
+      const ghostMaterial = material.clone();
+      ghostMaterial.transparent = true;
+      ghostMaterial.opacity = 0.32;
+      ghostMaterial.depthWrite = false;
+      return ghostMaterial;
+    });
+    child.material = Array.isArray(child.material) ? ghostMaterials : ghostMaterials[0];
+    if (!stickParams.ghostStickMesh) stickParams.ghostStickMesh = child;
+  });
+  scene.add(stickParams.ghostStickGroup);
+
+  createPreviewModel(root);
+  if (!stickParams.ghostStickMesh || !customizerPreviewMesh) {
+    throw new Error('The selected 3D stick model is missing required mesh geometry.');
+  }
+  document.getElementById('customizer-preview-stage').classList.add('has-stick-preview');
+  stickParams.stickGroup.updateMatrixWorld(true);
+  initializeBladePath();
+  updatePhysics();
 }
 
 // Replay controls
@@ -899,9 +1202,20 @@ function animate() {
     if (isCustomizerVisible) {
       camera.updateMatrixWorld();
       const cameraForward = camera.getWorldDirection(new THREE.Vector3());
+      const previewStage = document.getElementById('customizer-preview-stage');
+      const stageBounds = previewStage.getBoundingClientRect();
+      const previewTargetY = stageBounds.top + stageBounds.height / 2 - 22;
+      const worldUnitsPerPixel = (2 * 2400 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / window.innerHeight;
+      const cameraUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+      const cameraRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      const previewTargetX = stageBounds.left + stageBounds.width * 0.4;
       customizerPreviewGroup.position.copy(camera.position)
-        .addScaledVector(cameraForward, 2400);
+        .addScaledVector(cameraForward, 2400)
+        .addScaledVector(cameraUp, (window.innerHeight / 2 - previewTargetY) * worldUnitsPerPixel)
+        .addScaledVector(cameraRight, (previewTargetX - window.innerWidth / 2) * worldUnitsPerPixel);
       customizerPreviewGroup.quaternion.copy(camera.quaternion);
+      customizerPreviewGroup.updateMatrixWorld(true);
+      updateCustomizerHotspotPositions();
     }
   }
   renderer.render(scene, camera);
@@ -913,192 +1227,81 @@ document.addEventListener('DOMContentLoaded', () => {
   initUiBindings(updatePhysics);
   bindInput(controls, syncUiFromState);
 
-  // Load Model
   const loader = new GLTFLoader();
-  loader.load(
-    MODEL_URL,
-    (gltf) => {
-      const root = gltf.scene;
-      root.traverse((child) => {
-        if (child.isMesh && !stickParams.stickMesh) {
-          stickParams.stickMesh = child;
-        }
-      });
+  const modelStatus = document.getElementById('customizer-model-status');
+  let hasStarted = false;
 
-      if (stickParams.stickMesh) {
-        const geom = stickParams.stickMesh.geometry;
-        geom.computeVertexNormals();
-        stickParams.originalPositions = new Float32Array(geom.attributes.position.array);
-        const rowsByHeight = new Map();
-        for (let i = 0; i < stickParams.originalPositions.length; i += 3) {
-          const y = stickParams.originalPositions[i + 1];
-          let row = rowsByHeight.get(y);
-          if (!row) {
-            row = { y, indices: [] };
-            rowsByHeight.set(y, row);
-          }
-          row.indices.push(i);
-        }
-        stickParams.vertexRows = Array.from(rowsByHeight.values());
-
-        // Customizer Color Hook
-        stickParams.stickMesh.material = new THREE.MeshStandardMaterial({
-          color: StickCustomizerState.color,
-          roughness: 0.5,
-          metalness: 0.25,
-          side: THREE.DoubleSide
-        });
-
-        // Listen to customizer color changes to update mesh in real time
-        document.getElementById('custColor').addEventListener('change', (e) => {
-           applyStickColor(stickParams.stickMesh.material, e.target.value);
-           customizerPreviewGroup?.traverse(child => {
-             if (!child.isMesh) return;
-             const materials = Array.isArray(child.material) ? child.material : [child.material];
-             materials.forEach(material => applyStickColor(material, e.target.value));
-           });
-        });
-      }
-
-      stickParams.stickGroup = new THREE.Group();
-      stickParams.stickGroup.rotation.y = 0.22;
-      stickParams.stickGroup.rotation.z = 0.40 + (20 * Math.PI / 180);
-      stickParams.stickGroup.position.set(0, 0, -20500);
-
-      const topHandLocal = new THREE.Vector3(X_center, L_total, Z_center);
-      const topHandWorld = topHandLocal.clone().applyQuaternion(stickParams.stickGroup.quaternion).add(stickParams.stickGroup.position);
-      stickParams.stickGroup.rotation.y -= THREE.MathUtils.degToRad(25);
-      const rotatedTopHand = topHandLocal.clone().applyQuaternion(stickParams.stickGroup.quaternion);
-      stickParams.stickGroup.position.x = topHandWorld.x - rotatedTopHand.x;
-      stickParams.stickGroup.position.z = topHandWorld.z - rotatedTopHand.z;
-
-      stickParams.stickGroup.add(root);
-      scene.add(stickParams.stickGroup);
-
-      stickParams.ghostStickGroup = stickParams.stickGroup.clone(true);
-      stickParams.ghostStickGroup.visible = false;
-      stickParams.ghostStickGroup.traverse(child => {
-        if (child.isMesh) {
-          child.geometry = child.geometry.clone();
-          child.material = child.material.clone();
-          child.material.transparent = true;
-          child.material.opacity = 0.32;
-          child.material.depthWrite = false;
-          if (!stickParams.ghostStickMesh) stickParams.ghostStickMesh = child;
-        }
-      });
-      scene.add(stickParams.ghostStickGroup);
-      stickParams.stickGroup.updateMatrixWorld(true);
-      const initialStickBox = new THREE.Box3().setFromObject(stickParams.stickGroup, true);
-      stickParams.stickGroup.position.y -= initialStickBox.min.y;
-      stickParams.stickRestY = stickParams.stickGroup.position.y;
-
-      // Store the exactly aligned start position
-      stickParams.initialGroupPosition = stickParams.stickGroup.position.clone();
-
-      customizerPreviewGroup = new THREE.Group();
-      const previewAmbient = new THREE.AmbientLight(0xffffff, 1.8);
-      customizerPreviewGroup.add(previewAmbient);
-      const addPreviewLight = (color, intensity, position) => {
-        const light = new THREE.DirectionalLight(color, intensity);
-        const target = new THREE.Object3D();
-        light.position.copy(position);
-        customizerPreviewGroup.add(light, target);
-        light.target = target;
-      };
-      addPreviewLight(0xffffff, 4.2, new THREE.Vector3(-650, 900, 800));
-      addPreviewLight(0xb9e7ff, 3.1, new THREE.Vector3(700, 150, 600));
-      addPreviewLight(0xffffff, 3.6, new THREE.Vector3(100, 500, -800));
-      const previewModel = root.clone(true);
-      const sourceGeometry = stickParams.stickMesh.geometry;
-      sourceGeometry.computeBoundingBox();
-      const stickDimensions = sourceGeometry.boundingBox.getSize(new THREE.Vector3());
-      let checkerCellSize = Math.max(
-        Math.min(stickDimensions.x, stickDimensions.z) * 0.375,
-        0.00001
-      );
-      const checkerUniforms = [];
-      previewModel.traverse(child => {
-      if (!child.isMesh) return;
-      child.geometry = child.geometry.clone();
-      const materials = Array.isArray(child.material) ? child.material : [child.material];
-      const previewMaterials = materials.map(material => {
-        const previewMaterial = material.clone();
-        applyStickColor(previewMaterial, StickCustomizerState.color);
-        previewMaterial.onBeforeCompile = shader => {
-          const checkerCellSizeUniform = { value: checkerCellSize };
-          shader.uniforms.customizerCheckerCellSize = checkerCellSizeUniform;
-          checkerUniforms.push(checkerCellSizeUniform);
-          shader.vertexShader = shader.vertexShader
-            .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;')
-            .replace(
-              '#include <begin_vertex>',
-              '#include <begin_vertex>\nvCustomizerCheckerPosition = (modelMatrix * vec4(position, 1.0)).xyz;\nvCustomizerCheckerNormal = normalize(mat3(modelMatrix) * normal);'
-            );
-          shader.fragmentShader = shader.fragmentShader
-            .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;\nuniform float customizerCheckerCellSize;')
-            .replace(
-              '#include <color_fragment>',
-              `#include <color_fragment>
-              vec3 checkerNormal = abs(normalize(vCustomizerCheckerNormal));
-              vec2 checkerCoordinates = checkerNormal.x > checkerNormal.y && checkerNormal.x > checkerNormal.z
-                ? vCustomizerCheckerPosition.yz
-                : checkerNormal.y > checkerNormal.z
-                  ? vCustomizerCheckerPosition.xz
-                  : vCustomizerCheckerPosition.xy;
-              float checkerParity = mod(
-                floor(checkerCoordinates.x / customizerCheckerCellSize)
-                + floor(checkerCoordinates.y / customizerCheckerCellSize),
-                2.0
-              );
-              float stickBrightness = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-              vec3 checkerTone = stickBrightness > 0.5 ? vec3(0.68) : vec3(0.5);
-              diffuseColor.rgb = mix(diffuseColor.rgb, checkerTone, checkerParity * 0.32);`
-            );
-        };
-        previewMaterial.customProgramCacheKey = () => 'customizer-subtle-checker-v1';
-        previewMaterial.depthTest = false;
-        previewMaterial.depthWrite = false;
-        return previewMaterial;
-      });
-      child.material = Array.isArray(child.material) ? previewMaterials : previewMaterials[0];
-      child.renderOrder = 1000;
-      });
-      customizerPreviewGroup.add(previewModel);
-      previewModel.updateMatrixWorld(true);
-      let previewBounds = new THREE.Box3().setFromObject(previewModel);
-      const previewSize = previewBounds.getSize(new THREE.Vector3());
-      if (previewSize.x > previewSize.y && previewSize.x > previewSize.z) {
-      previewModel.rotation.z = -Math.PI / 2;
-      } else if (previewSize.z > previewSize.y && previewSize.z > previewSize.x) {
-      previewModel.rotation.x = Math.PI / 2;
-      }
-      previewModel.updateMatrixWorld(true);
-      previewBounds = new THREE.Box3().setFromObject(previewModel);
-      const previewCenter = previewBounds.getCenter(new THREE.Vector3());
-      const previewHeight = Math.max(...previewBounds.getSize(new THREE.Vector3()).toArray());
-      previewModel.position.sub(previewCenter);
-      previewModel.scale.setScalar(1400 / previewHeight);
-      checkerCellSize *= previewModel.scale.x;
-      checkerUniforms.forEach(uniform => { uniform.value = checkerCellSize; });
-      customizerPreviewGroup.visible = false;
-      scene.add(customizerPreviewGroup);
-      document.getElementById('customizer-preview-stage').classList.add('has-stick-preview');
-
-      appState.mode = 'customizer';
-      updateUiMode();
-
-      syncUiFromState();
-      updatePhysics();
-      initializeBladePath();
-
-      animate();
-    },
-    undefined,
-    (err) => {
-      console.error('Model load error:', err);
-      const splashText = document.getElementById('splash-text');
-      if (splashText) splashText.innerHTML = '<span style="color: #ff4444;">Fout bij laden van 3D model.</span>';
+  const handleStickModelChange = () => {
+    const pattern = StickCustomizerState.bladeCurve;
+    const handedness = StickCustomizerState.handedness;
+    const modelUrl = STICK_MODEL_URLS[pattern]?.[handedness];
+    if (!modelUrl) {
+      modelStatus.textContent = `Pattern ${pattern} is niet beschikbaar voor deze handvoorkeur.`;
+      modelStatus.hidden = false;
+      console.error(`No GLB URL is configured for pattern "${pattern}" (${handedness}).`);
+      return;
     }
-  );
+
+    const requestId = ++stickModelLoadRequest;
+    modelStatus.textContent = 'Stickmodel wordt geladen…';
+    modelStatus.hidden = false;
+    loader.load(modelUrl, gltf => {
+      if (requestId !== stickModelLoadRequest) {
+        disposeModelObject(gltf.scene);
+        return;
+      }
+
+      let installed = false;
+      try {
+        installStickModel(gltf.scene);
+        installed = true;
+        modelStatus.textContent = '';
+        modelStatus.hidden = true;
+      } catch (error) {
+        console.error(`Could not install the ${pattern} stick model:`, error);
+        modelStatus.textContent = `Pattern ${pattern} kon niet worden geladen. Probeer het later opnieuw.`;
+        modelStatus.hidden = false;
+      }
+
+      if (installed && !hasStarted) {
+        hasStarted = true;
+        appState.mode = 'intro';
+        updateUiMode();
+        const introVideo = document.getElementById('intro-video');
+        introVideo.currentTime = 0;
+        introVideo.play().catch(error => {
+          console.error('Could not start the intro video:', error);
+          const introError = document.getElementById('intro-error');
+          introError.textContent = 'De intro kon niet automatisch starten. Je kunt hem overslaan.';
+          introError.hidden = false;
+        });
+        syncUiFromState();
+        updatePhysics();
+        initializeBladePath();
+        animate();
+      }
+    }, undefined, error => {
+      if (requestId !== stickModelLoadRequest) return;
+      console.error(`Could not load the ${pattern} stick model:`, error);
+      modelStatus.textContent = `Pattern ${pattern} kon niet worden geladen. Probeer het later opnieuw.`;
+      modelStatus.hidden = false;
+      if (!hasStarted) {
+        const splashText = document.getElementById('splash-text');
+        if (splashText) splashText.textContent = 'Fout bij laden van 3D model.';
+      }
+    });
+  };
+
+  document.getElementById('custBladePattern').addEventListener('change', handleStickModelChange);
+  document.getElementById('custHandedness').addEventListener('change', handleStickModelChange);
+  document.getElementById('custColor').addEventListener('change', event => {
+    for (const modelRoot of [stickModelRoot, ghostStickModelRoot, customizerPreviewModel]) {
+      modelRoot?.traverse(child => {
+        if (!child.isMesh) return;
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach(material => applyStickColor(material, event.target.value));
+      });
+    }
+  });
+  handleStickModelChange();
 });

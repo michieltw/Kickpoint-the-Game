@@ -23,8 +23,8 @@ export const gameSettings = {
 };
 
 export const StickCustomizerState = {
+  handedness: 'right',
   color: '#ffffff',
-  model: 'P28-ST',
   shaftGrip: false,
   bladeGrip: false,
   stickTape: false,
