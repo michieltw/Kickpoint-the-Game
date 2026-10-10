@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-patterns-1';
 
-export const appState = { mode: 'splash' }; // 'splash', 'intro', 'profile', 'menu', 'game', 'gameSettings', 'settings'
+export const appState = { mode: 'splash' }; // 'splash', 'intro', 'profile', 'menu', 'game', 'gameSettings', 'settings', 'customizer', 'build-review'
 
 export const state = {
   bottomGlovePos: 50,

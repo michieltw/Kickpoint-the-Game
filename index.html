@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css?v=customizer-overhaul-1">
+  <link rel="stylesheet" href="css/style.css?v=customizer-tabs-stats-1">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -142,13 +142,11 @@
           </div>
         </div>
         <section class="customizer-options-panel" aria-label="Stickopties">
-          <nav class="customizer-category-nav" id="customizer-category-nav" aria-label="Keuzecategorieën">
-            <button type="button" class="customizer-category-tab" data-category="overview" aria-pressed="true">Overzicht</button>
-            <button type="button" class="customizer-category-tab" data-category="blade" aria-pressed="false">Blad</button>
-            <button type="button" class="customizer-category-tab" data-category="kickpoint" aria-pressed="false">Kickpoint</button>
-            <button type="button" class="customizer-category-tab" data-category="grip" aria-pressed="false">Grip</button>
-            <button type="button" class="customizer-category-tab" data-category="color" aria-pressed="false">Kleur</button>
-            <button type="button" class="customizer-category-tab" data-category="shaft-top" aria-pressed="false">Shaft</button>
+          <nav class="customizer-category-nav" id="customizer-category-nav" aria-label="Customizer-tabbladen">
+            <button type="button" class="customizer-category-tab active" data-tab="overview" aria-pressed="true">Overzicht</button>
+            <button type="button" class="customizer-category-tab" data-tab="prebuilds" aria-pressed="false">Pre-builds</button>
+            <button type="button" class="customizer-category-tab" data-tab="stats" aria-pressed="false">Stats</button>
+            <button type="button" class="customizer-category-tab" data-tab="info" aria-pressed="false">Info</button>
           </nav>
           <div class="customizer-options-heading">
             <div>
@@ -158,6 +156,9 @@
             <button type="button" id="customizer-collapse" class="customizer-collapse" aria-label="Opties inklappen" aria-expanded="true">‹</button>
           </div>
           <div class="customizer-overview" id="customizer-overview" aria-label="Gekozen stickopties"></div>
+          <div class="customizer-stats" id="customizer-stats" aria-label="Buildstatistieken" hidden></div>
+          <div class="customizer-empty-tab" id="customizer-prebuilds" aria-label="Pre-builds" hidden></div>
+          <div class="customizer-empty-tab" id="customizer-info" aria-label="Informatie" hidden></div>
           <section class="customizer-hotspot-panel" id="customizer-hotspot-panel" aria-label="Categorieopties" hidden>
             <div id="customizer-hotspot-options"></div>
           </section>
@@ -223,14 +224,49 @@
           <option value="ultra-thin">Ultra dun</option><option value="flinter-thin">Flinter dun</option>
           <option value="very-thin">Zeer dun</option><option value="thin">Dun</option><option value="regular">Regulier</option>
         </select>
-        <input id="custFlex" type="range" min="40" max="120" step="5" value="90">
+        <input id="custFlex" type="range" min="20" max="125" step="5" value="90">
         <output id="custFlexValue">90</output>
       </div>
 
       <footer class="customizer-footer">
         <span>Je kunt je keuzes later altijd aanpassen.</span>
-        <button class="menu-btn" id="btnCustomizerBack">Verder naar spel</button>
+        <button class="menu-btn" id="btnCustomizerBack">Voltooien</button>
       </footer>
+    </div>
+  </section>
+
+  <section id="build-review" class="build-review" aria-labelledby="build-review-title" hidden>
+    <div class="build-review-shell">
+      <header class="build-review-header">
+        <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" alt="Blackout Hockey">
+        <span class="customizer-eyebrow">JOUW CONFIGURATIE</span>
+        <h1 id="build-review-title">Jouw build summary</h1>
+        <p>Controleer je keuzes en pas ze zo nodig nog aan.</p>
+        <div class="build-code">
+          <span>Unieke buildcode</span>
+          <code id="build-summary-code"></code>
+        </div>
+      </header>
+
+      <div class="build-summary-options" id="build-summary-options" aria-label="Build summary"></div>
+
+      <div class="build-review-actions">
+        <section class="build-action-card build-order-card">
+          <div>
+            <h2>Mijn stick op maat bestellen</h2>
+            <p>Gebruik je buildcode om deze configuratie te bestellen.</p>
+          </div>
+          <button class="menu-btn build-order-button" id="btnOrderCustomStick" type="button" data-order-url="">Bestellen</button>
+          <p class="build-order-status" id="build-order-status" role="status" hidden>De bestelpagina wordt binnenkort gekoppeld.</p>
+        </section>
+        <section class="build-action-card build-test-card">
+          <div>
+            <h2>Mijn stick testen</h2>
+            <p>Probeer je build direct uit in de game.</p>
+          </div>
+          <button class="menu-btn build-play-button" id="btnTestCustomStick" type="button"><span aria-hidden="true">▶</span> Play</button>
+        </section>
+      </div>
     </div>
   </section>
 
@@ -429,6 +465,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=customizer-overhaul-1"></script>
+  <script type="module" src="js/main.js?v=customizer-tabs-stats-1"></script>
 </body>
 </html>
