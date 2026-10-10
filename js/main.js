@@ -4,7 +4,7 @@ import { appState, state, game, swipeData } from './state.js?v=customizer-patter
 import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=customizer-patterns-1';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=customizer-patterns-1';
 import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=customizer-patterns-1';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-overhaul-1';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-tabs-stats-1';
 import { bindInput } from './input.js?v=customizer-patterns-1';
 import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
 
@@ -168,12 +168,10 @@ function createPreviewModel(root) {
               + floor(checkerCoordinates.y / customizerCheckerCellSize),
               2.0
             );
-            float stickBrightness = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
-            vec3 checkerTone = stickBrightness > 0.5 ? vec3(0.68) : vec3(0.5);
-            diffuseColor.rgb = mix(diffuseColor.rgb, checkerTone, checkerParity * 0.32);`
+            diffuseColor.rgb *= mix(0.94, 1.0, checkerParity);`
           );
       };
-      previewMaterial.customProgramCacheKey = () => 'customizer-subtle-checker-v1';
+      previewMaterial.customProgramCacheKey = () => 'customizer-subtle-checker-v2';
       previewMaterial.depthTest = false;
       previewMaterial.depthWrite = false;
       return previewMaterial;
@@ -207,6 +205,15 @@ function createPreviewModel(root) {
 }
 
 function installStickModel(root) {
+  if (StickCustomizerState.bladeCurve === 'P28') {
+    const alignP28Model = new THREE.Matrix4().makeRotationY(Math.PI);
+    root.traverse(child => {
+      if (!child.isMesh) return;
+      child.geometry.applyMatrix4(alignP28Model);
+      child.geometry.computeVertexNormals();
+    });
+  }
+
   let stickMesh = null;
   root.traverse(child => {
     if (!stickMesh && child.isMesh) stickMesh = child;
@@ -1193,7 +1200,7 @@ function animate() {
       };
       const focusByCategory = {
         overview: 0.5,
-        blade: 0.95,
+        blade: 0.85,
         kickpoint: 0.73,
         grip: 0.49,
         color: 0.24,
