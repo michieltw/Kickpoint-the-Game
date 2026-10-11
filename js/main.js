@@ -8,6 +8,7 @@ import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } fro
 import { spawnTargets, shatterTarget } from './targets.js';
 import { bindInput } from './input.js';
 import { getStickShotModifiers } from './stick-effects.js';
+import { handleTutorialShotComplete, endTutorial } from './tutorial.js';
 
 const STICK_MODEL_URLS = Object.freeze({
   P02: {
@@ -497,7 +498,8 @@ function resolveGoalCollisions(previousPosition) {
     ]
   ];
 
-  for (const [frameStart, frameEnd] of frameSegments) {
+  for (let i = 0; i < frameSegments.length; i++) {
+    const [frameStart, frameEnd] = frameSegments[i];
     const { puckPoint, framePoint } = closestPointsOnSegments(
       previousPosition,
       game.puck.position,
@@ -518,6 +520,19 @@ function resolveGoalCollisions(previousPosition) {
     game.puck.position.copy(framePoint).addScaledVector(normal, collisionRadius + 0.5);
     if (game.puckVelocity.dot(normal) < 0) {
       game.puckVelocity.reflect(normal).multiplyScalar(0.65);
+    }
+
+    // Check if tutorial phase 4 and hit the crossbar (index 2 is the crossbar)
+    if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase === 4 && i === 2) {
+      appState.tutorial.hits++;
+      const tutInstr = document.getElementById('tutorial-instruction');
+      if (tutInstr) {
+         tutInstr.innerText = 'Crossbar Hit! Tutorial Complete!';
+         tutInstr.style.color = '#16a34a';
+      }
+      setTimeout(() => {
+        endTutorial();
+      }, 3000);
     }
   }
 
@@ -616,7 +631,20 @@ function resetPuck() {
     goalOverlay = null;
   }
 
-  if (game.mode === 'randomSpawn') {
+  if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase === 4) {
+      const startZ = -10000; // Blue line roughly
+      game.puck.position.set(95, 12.5, startZ);
+      if (stickParams.stickGroup && stickParams.initialGroupPosition) {
+          const deltaZ = startZ - (-20120);
+          stickParams.stickGroup.position.set(
+              stickParams.initialGroupPosition.x,
+              stickParams.stickRestY,
+              stickParams.initialGroupPosition.z + deltaZ
+          );
+      }
+      camera.position.set(0, 1000, startZ + 2420);
+      controls.target.set(0, 600, startZ - 580);
+  } else if (game.mode === 'randomSpawn') {
       // Offensive zone: from roughly blue line (z=-10000) to below the circles (z=-20000)
       // Avoid edges: limit width to roughly +/- 6000
       const randomZ = -10000 - Math.random() * 10000;
@@ -1008,6 +1036,10 @@ function animate() {
             game.replayRecording = false;
             document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
 
+            if (appState.tutorial && appState.tutorial.isActive) {
+              handleTutorialShotComplete();
+            }
+
             schedulePuckReset(2000);
        }
        if (game.puckState === 'shot' && (
@@ -1018,6 +1050,9 @@ function animate() {
          game.shotElapsed > 8
        )) {
           finishMissedShot();
+         if (appState.tutorial && appState.tutorial.isActive) {
+           handleTutorialShotComplete();
+         }
        }
     }
   }

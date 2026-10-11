@@ -958,13 +958,15 @@ export function initUiBindings(updatePhysics) {
     }
     profileName.addEventListener('input', () => profileName.setCustomValidity(''));
 
-    const showCustomizer = () => {
+    const showTutorial = async () => {
       document.getElementById('intro-video').pause();
-      appState.mode = 'customizer';
+      const { startTutorial } = await import('./tutorial.js');
+      appState.mode = 'game'; // Tutorial runs in game mode
       updateUiMode();
+      startTutorial();
     };
-    document.getElementById('btnSkipIntro').addEventListener('click', showCustomizer);
-    document.getElementById('intro-video').addEventListener('ended', showCustomizer);
+    document.getElementById('btnSkipIntro').addEventListener('click', showTutorial);
+    document.getElementById('intro-video').addEventListener('ended', showTutorial);
     document.getElementById('intro-video').addEventListener('error', () => {
       document.getElementById('intro-error').hidden = false;
     });
