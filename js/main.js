@@ -104,8 +104,8 @@ function updateStickIndicator() {
   }
 }
 
-function applyStickColor(material, color) {
-  const normalizedColor = color.toLowerCase();
+function applyStickColor(material, color = StickCustomizerState.color) {
+  const normalizedColor = (color || '#ffffff').toLowerCase();
   const isBlack = normalizedColor === '#000000';
   const isMetallic = ['#c0c0c0', '#d4af37', '#bfc7ce'].includes(normalizedColor);
 

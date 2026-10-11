@@ -17,7 +17,11 @@ function triggerStickUpdate(kickpoint) {
 
 export function startTutorial() {
     // Show handedness popup before actually starting the first phase
-    document.getElementById('handedness-popup').style.display = 'block';
+    const popup = document.getElementById('handedness-popup');
+    if (popup) {
+        popup.hidden = false;
+        popup.style.display = 'block';
+    }
 }
 
 function beginTutorialPhases() {
@@ -33,14 +37,23 @@ function beginTutorialPhases() {
     triggerStickUpdate('low');
 
     // Show tutorial HUD
-    document.getElementById('tutorial-hud').style.display = 'flex';
+    const hud = document.getElementById('tutorial-hud');
+    if (hud) hud.style.display = 'flex';
     document.getElementById('tutorial-phase').innerText = 'Phase 1: Low Kick (0/3)';
     document.getElementById('tutorial-instruction').innerText = 'Take 3 shots to feel the quick release of the Low Kick stick.';
-    document.getElementById('crossbar-selection').style.display = 'none';
+    const crossbar = document.getElementById('crossbar-selection');
+    if (crossbar) {
+        crossbar.hidden = true;
+        crossbar.style.display = 'none';
+    }
 }
 
 export function selectTutorialHandedness(handedness) {
-    document.getElementById('handedness-popup').style.display = 'none';
+    const popup = document.getElementById('handedness-popup');
+    if (popup) {
+        popup.hidden = true;
+        popup.style.display = 'none';
+    }
     const custHandedness = document.getElementById('custHandedness');
     if (custHandedness) {
         custHandedness.value = handedness;
@@ -50,7 +63,11 @@ export function selectTutorialHandedness(handedness) {
 }
 
 export function skipTutorialHandedness() {
-    document.getElementById('handedness-popup').style.display = 'none';
+    const popup = document.getElementById('handedness-popup');
+    if (popup) {
+        popup.hidden = true;
+        popup.style.display = 'none';
+    }
     beginTutorialPhases();
 }
 
@@ -97,7 +114,11 @@ function setupCrossbarChallenge() {
     document.getElementById('tutorial-instruction').innerText = 'Choose your preferred stick and hit the crossbar from the blue line!';
 
     // Show stick selection for crossbar challenge
-    document.getElementById('crossbar-selection').style.display = 'flex';
+    const crossbar = document.getElementById('crossbar-selection');
+    if (crossbar) {
+        crossbar.hidden = false;
+        crossbar.style.display = 'flex';
+    }
 
     // The puck reset logic in main.js handles placing it at the blue line
 }
@@ -105,7 +126,11 @@ function setupCrossbarChallenge() {
 export function selectCrossbarStick(kickpoint) {
     triggerStickUpdate(kickpoint);
     window.dispatchEvent(new CustomEvent("tutorialKickpointSwitched"));
-    document.getElementById('crossbar-selection').style.display = 'none';
+    const crossbar = document.getElementById('crossbar-selection');
+    if (crossbar) {
+        crossbar.hidden = true;
+        crossbar.style.display = 'none';
+    }
     document.getElementById('tutorial-instruction').innerText = 'Hit the crossbar!';
 }
 
