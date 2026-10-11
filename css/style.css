@@ -491,6 +491,12 @@ body, html {
 }
 
 /* Main Menu */
+.main-menu-glass {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
 #main-menu {
   position: absolute;
   inset: 0;
@@ -555,6 +561,9 @@ body, html {
   padding: 20px;
 }
 #game-settings.visible { display: flex; }
+.game-settings-relative {
+  position: relative;
+}
 .game-settings-card {
   width: min(540px, 100%);
   max-height: calc(100vh - 40px);
@@ -606,8 +615,23 @@ body, html {
   gap: 12px;
   margin-top: 24px;
 }
+.game-settings-btn {
+  margin: 0;
+  width: auto;
+  padding: 10px 20px;
+  font-size: 14px;
+}
 
 /* Customizer Additions */
+.compact-customizer-section {
+    margin-top: 10px !important;
+    padding-top: 10px !important;
+}
+.display-options-heading {
+    color: #111;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
 .customizer-section {
     margin-top: 20px;
     padding-top: 20px;
@@ -1600,6 +1624,110 @@ body.customizer-open { touch-action: auto; }
   .customizer-hotspot-choices { grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); gap: 8px; }
   .customizer-hotspot-choice { min-height: 92px; font-size: 11px; }
   .customizer-choice-image { width: 48px; height: 48px; flex-basis: 48px; }
+}
+
+/* Overlay and HUD styles from inline CSS */
+.aim-tracer-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4;
+  display: none;
+}
+.score-overlay {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 32px;
+  font-weight: bold;
+  color: #fff;
+  z-index: 10;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  display: flex;
+  gap: 40px;
+  pointer-events: none;
+}
+.speed-overlay {
+  position: absolute;
+  top: 25px;
+  right: 30px;
+  font-family: monospace;
+  font-size: 42px;
+  font-weight: 900;
+  color: #ff0000;
+  z-index: 10;
+  text-shadow: 0 0 10px rgba(255,0,0,0.8);
+  pointer-events: none;
+  display: none;
+}
+.speed-unit-lbl {
+  font-size: 18px;
+}
+.target-hud {
+  display: none;
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 24px;
+  font-weight: bold;
+  color: #eab308;
+  z-index: 10;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  gap: 40px;
+  pointer-events: none;
+}
+.replay-close-btn {
+  background: #cc0000 !important;
+  color: #fff !important;
+  border: none !important;
+  margin-left: 10px !important;
+}
+.swipe-zone {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 25vh;
+  z-index: 5;
+  touch-action: none;
+  background: linear-gradient(to top, rgba(255,255,255,0.05), transparent);
+  border-top: 1px dashed rgba(255,255,255,0.2);
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
+  font-weight: bold;
+  color: rgba(255,255,255,0.5);
+  font-size: 14px;
+}
+.btn-settings-back {
+  background: none !important;
+  border: 1px solid #fff !important;
+  color: #fff !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  font-size: 10px !important;
+  cursor: pointer !important;
+  margin-right: 8px !important;
+}
+.collapse-icon {
+  font-size: 11px;
+  color: #aaa;
+}
+.btn-reset-stiffness {
+  width: 100% !important;
+}
+.timeline-inputs {
+  margin-top: 4px !important;
+}
+.hidden {
+  display: none !important;
 }
 
 /* Replay controls */

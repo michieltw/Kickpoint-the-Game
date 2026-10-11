@@ -1,8 +1,8 @@
-import { appState, state, game } from './state.js?v=customizer-patterns-1';
-import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js?v=customizer-patterns-1';
-import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
-import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js?v=customizer-patterns-1';
-import { camera, renderer } from './scene.js?v=customizer-patterns-1';
+import { appState, state, game } from './state.js';
+import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js';
+import { getStickShotModifiers } from './stick-effects.js';
+import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js';
+import { camera, renderer } from './scene.js';
 
 export function updateUiMode() {
   const splash = document.getElementById('splash-screen');
