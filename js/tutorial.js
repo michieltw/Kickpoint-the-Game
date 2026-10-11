@@ -12,6 +12,11 @@ function triggerStickUpdate(kickpoint) {
 }
 
 export function startTutorial() {
+    // Show handedness popup before actually starting the first phase
+    document.getElementById('handedness-popup').style.display = 'block';
+}
+
+function beginTutorialPhases() {
     appState.tutorial = {
         isActive: true,
         phase: 1, // 1: Low Kick, 2: Mid Kick, 3: Hybrid Kick, 4: Crossbar challenge
@@ -28,8 +33,25 @@ export function startTutorial() {
     document.getElementById('tutorial-phase').innerText = 'Phase 1: Low Kick (0/3)';
     document.getElementById('tutorial-instruction').innerText = 'Take 3 shots to feel the quick release of the Low Kick stick.';
     document.getElementById('crossbar-selection').style.display = 'none';
-
 }
+
+export function selectTutorialHandedness(handedness) {
+    document.getElementById('handedness-popup').style.display = 'none';
+    const custHandedness = document.getElementById('custHandedness');
+    if (custHandedness) {
+        custHandedness.value = handedness;
+        custHandedness.dispatchEvent(new Event('change'));
+    }
+    beginTutorialPhases();
+}
+
+export function skipTutorialHandedness() {
+    document.getElementById('handedness-popup').style.display = 'none';
+    beginTutorialPhases();
+}
+
+window.selectTutorialHandedness = selectTutorialHandedness;
+window.skipTutorialHandedness = skipTutorialHandedness;
 
 export function handleTutorialShotComplete() {
     if (!appState.tutorial || !appState.tutorial.isActive) return;
@@ -78,6 +100,7 @@ function setupCrossbarChallenge() {
 
 export function selectCrossbarStick(kickpoint) {
     triggerStickUpdate(kickpoint);
+    window.dispatchEvent(new CustomEvent("tutorialKickpointSwitched"));
     document.getElementById('crossbar-selection').style.display = 'none';
     document.getElementById('tutorial-instruction').innerText = 'Hit the crossbar!';
 }

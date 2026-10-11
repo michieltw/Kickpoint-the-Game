@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appState, state, game, swipeData } from './state.js';
 import { gameSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius } from './config.js';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL, updateBoardLogos } from './scene.js';
 import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
 import { spawnTargets, shatterTarget } from './targets.js';
 import { bindInput } from './input.js';
@@ -83,6 +83,35 @@ function applyStickColor(material, color) {
   const normalizedColor = color.toLowerCase();
   const isBlack = normalizedColor === '#000000';
   const isMetallic = ['#c0c0c0', '#d4af37', '#bfc7ce'].includes(normalizedColor);
+
+  if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
+    const tutorialColors = { 'low': '#0000ff', 'mid': '#facc15', 'hybrid': '#ff0000' };
+    const tutColor = tutorialColors[StickCustomizerState.kickpoint] || tutorialColors['low'];
+    if (tutColor) {
+      if (stickParams.indicatorMesh) {
+        stickParams.indicatorMesh.material.color.set(tutColor);
+        // moved logic below
+        // Position indicator
+        if (StickCustomizerState.kickpoint === 'low') {
+          stickParams.indicatorMesh.position.set(-110, 350, 23);
+        } else if (StickCustomizerState.kickpoint === 'mid') {
+          stickParams.indicatorMesh.position.set(-110, 750, 23);
+        } else if (StickCustomizerState.kickpoint === 'hybrid') {
+          stickParams.indicatorMesh.position.set(-110, 550, 23);
+        }
+      }
+      material.color?.set(tutColor);
+      material.map = null; // Remove checkered pattern
+      if (material.emissive) {
+         material.emissive.set(tutColor);
+         // Don't set full emissive to let shading happen, but give it a solid base
+         material.emissiveIntensity = 0.2;
+      }
+      material.needsUpdate = true;
+      return;
+    }
+  }
+
   material.color?.set(color);
   if (material.emissive) {
     material.emissive.set(isBlack ? '#3b414a' : '#000000');
@@ -284,6 +313,22 @@ function installStickModel(root) {
   stickParams.stickGroup.position.y -= stickBounds.min.y;
   stickParams.stickRestY = stickParams.stickGroup.position.y;
   stickParams.initialGroupPosition = stickParams.stickGroup.position.clone();
+
+  if (!stickParams.indicatorMesh) {
+    const indicatorGeo = new THREE.CylinderGeometry(20, 20, 150, 16);
+    // Make it slightly open at ends and use an additive material
+    const indicatorMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide
+    });
+    stickParams.indicatorMesh = new THREE.Mesh(indicatorGeo, indicatorMat);
+    stickParams.indicatorMesh.visible = false;
+    stickParams.stickGroup.add(stickParams.indicatorMesh);
+  }
 
   stickParams.ghostStickGroup = stickParams.stickGroup.clone(false);
   ghostStickModelRoot = root.clone(true);
@@ -767,6 +812,18 @@ window.addEventListener('startTargetPractice', () => {
 
 // Animation Loop
 function animate() {
+  if (stickParams.indicatorMesh && stickParams.indicatorStartTime > 0) {
+    const now = performance.now();
+    const elapsed = now - stickParams.indicatorStartTime;
+    if (elapsed < 1500) {
+      stickParams.indicatorMesh.visible = true;
+      const pulse = (Math.sin(elapsed / 50) + 1) / 2;
+      stickParams.indicatorMesh.material.opacity = pulse;
+    } else {
+      stickParams.indicatorMesh.visible = false;
+      stickParams.indicatorStartTime = 0;
+    }
+  }
   requestAnimationFrame(animate);
   const now = performance.now();
   const delta = Math.min(0.05, (now - lastTime) / 1000);
@@ -1192,6 +1249,12 @@ function animate() {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+  window.addEventListener('tutorialKickpointSwitched', () => {
+    updateBoardLogos(StickCustomizerState.kickpoint);
+    if (stickParams.indicatorMesh) {
+      stickParams.indicatorStartTime = performance.now();
+    }
+  });
   document.getElementById('canvas-container').appendChild(renderer.domElement);
   initUiBindings(updatePhysics);
   bindInput(controls, syncUiFromState);

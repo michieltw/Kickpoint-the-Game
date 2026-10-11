@@ -245,6 +245,35 @@ const logoCenterY = (kickPlateHeight + boardHeight - topRailHeight / 2) / 2;
 logoPlane.position.set(0, logoCenterY, -rinkDepth + 15);
 boardGroup.add(logoPlane);
 
+// Add dynamic kickpoint logos on left and right side of main logo
+export const kickpointLogos = {
+    low: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Lowkplogo.png?v=1790252741'),
+    mid: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Midkplogo.png?v=1790253037'),
+    hybrid: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Hybridkplogo.png?v=1790252741')
+};
+
+const kpLogoHeight = 600;
+const kpLogoWidth = kpLogoHeight * 1.5; // Approximate aspect ratio, can adjust if needed
+const kpLogoMatLeft = new THREE.MeshBasicMaterial({
+    map: kickpointLogos.mid,
+    transparent: true,
+    depthWrite: false
+});
+const kpLogoMatRight = new THREE.MeshBasicMaterial({
+    map: kickpointLogos.mid,
+    transparent: true,
+    depthWrite: false
+});
+
+export const kpLogoPlaneLeft = new THREE.Mesh(new THREE.PlaneGeometry(kpLogoWidth, kpLogoHeight), kpLogoMatLeft);
+kpLogoPlaneLeft.position.set(-logoWidth/2 - kpLogoWidth/2 - 1000, logoCenterY, -rinkDepth + 15);
+boardGroup.add(kpLogoPlaneLeft);
+
+export const kpLogoPlaneRight = new THREE.Mesh(new THREE.PlaneGeometry(kpLogoWidth, kpLogoHeight), kpLogoMatRight);
+kpLogoPlaneRight.position.set(logoWidth/2 + kpLogoWidth/2 + 1000, logoCenterY, -rinkDepth + 15);
+boardGroup.add(kpLogoPlaneRight);
+
+
 scene.add(boardGroup);
 
 // Tribune
@@ -647,9 +676,20 @@ const shotTracerMat = new THREE.LineBasicMaterial({
 export const shotTracerLine = new THREE.Line(shotTracerGeo, shotTracerMat);
 scene.add(shotTracerLine);
 
+export function updateBoardLogos(kickpoint) {
+    if (kickpointLogos[kickpoint]) {
+        kpLogoPlaneLeft.material.map = kickpointLogos[kickpoint];
+        kpLogoPlaneLeft.material.needsUpdate = true;
+        kpLogoPlaneRight.material.map = kickpointLogos[kickpoint];
+        kpLogoPlaneRight.material.needsUpdate = true;
+    }
+}
+
 export let stickParams = {
     stickMesh: null,
     stickGroup: null,
+    indicatorMesh: null,
+    indicatorStartTime: 0,
     ghostStickGroup: null,
     ghostStickMesh: null,
     stickRestY: 0,
