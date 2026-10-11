@@ -1,13 +1,17 @@
 import { appState } from './state.js';
 import { updateUiMode } from './ui.js';
+import { StickCustomizerState } from './config.js';
 
 // Helper to trigger the main model load since handleStickModelChange is private in main.js
 // but we can trigger it via firing the change event on custKickpoint
 function triggerStickUpdate(kickpoint) {
+    StickCustomizerState.kickpoint = kickpoint;
     const custKickpoint = document.getElementById('custKickpoint');
     if (custKickpoint) {
         custKickpoint.value = kickpoint;
         custKickpoint.dispatchEvent(new Event('change'));
+    } else {
+        window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
     }
 }
 
@@ -112,6 +116,7 @@ export function endTutorial() {
     // Go to customizer
     appState.mode = 'customizer';
     updateUiMode();
+    window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
 }
 
 window.selectCrossbarStick = selectCrossbarStick;

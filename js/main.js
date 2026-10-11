@@ -79,27 +79,46 @@ let customizerZoom = 1.3;
 let customizerFocusProgress = 0.5;
 let customizerBackgroundActive = false;
 
+function updateStickIndicator() {
+  if (!stickParams.indicatorMesh) return;
+  if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
+    const tutorialColors = { 'low': '#0000ff', 'mid': '#ffff00', 'hybrid': '#ff0000' };
+    let currentKp = StickCustomizerState.kickpoint;
+    if (appState.tutorial.phase === 1) currentKp = 'low';
+    else if (appState.tutorial.phase === 2) currentKp = 'mid';
+    else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
+
+    const tutColor = tutorialColors[currentKp] || tutorialColors['low'];
+    stickParams.indicatorMesh.material.color.set(tutColor);
+
+    if (currentKp === 'low') {
+      stickParams.indicatorMesh.position.set(-110, 350, 23);
+    } else if (currentKp === 'mid') {
+      stickParams.indicatorMesh.position.set(-110, 750, 23);
+    } else if (currentKp === 'hybrid') {
+      stickParams.indicatorMesh.position.set(-110, 550, 23);
+    }
+  } else {
+    stickParams.indicatorMesh.visible = false;
+    stickParams.indicatorStartTime = 0;
+  }
+}
+
 function applyStickColor(material, color) {
   const normalizedColor = color.toLowerCase();
   const isBlack = normalizedColor === '#000000';
   const isMetallic = ['#c0c0c0', '#d4af37', '#bfc7ce'].includes(normalizedColor);
 
-  if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
-    const tutorialColors = { 'low': '#0000ff', 'mid': '#facc15', 'hybrid': '#ff0000' };
-    const tutColor = tutorialColors[StickCustomizerState.kickpoint] || tutorialColors['low'];
+  if (appState.tutorial && appState.tutorial.isActive) {
+    const tutorialColors = { 'low': '#0000ff', 'mid': '#ffff00', 'hybrid': '#ff0000' };
+    let currentKp = StickCustomizerState.kickpoint;
+    if (appState.tutorial.phase === 1) currentKp = 'low';
+    else if (appState.tutorial.phase === 2) currentKp = 'mid';
+    else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
+
+    const tutColor = tutorialColors[currentKp] || tutorialColors['low'];
     if (tutColor) {
-      if (stickParams.indicatorMesh) {
-        stickParams.indicatorMesh.material.color.set(tutColor);
-        // moved logic below
-        // Position indicator
-        if (StickCustomizerState.kickpoint === 'low') {
-          stickParams.indicatorMesh.position.set(-110, 350, 23);
-        } else if (StickCustomizerState.kickpoint === 'mid') {
-          stickParams.indicatorMesh.position.set(-110, 750, 23);
-        } else if (StickCustomizerState.kickpoint === 'hybrid') {
-          stickParams.indicatorMesh.position.set(-110, 550, 23);
-        }
-      }
+      updateStickIndicator();
       material.color?.set(tutColor);
       material.map = null; // Remove checkered pattern
       if (material.emissive) {
@@ -120,6 +139,17 @@ function applyStickColor(material, color) {
   if ('metalness' in material) {
     material.metalness = isMetallic ? 0.65 : 0.08;
     material.roughness = normalizedColor === '#bfc7ce' ? 0.18 : isMetallic ? 0.28 : 0.48;
+  }
+}
+
+function updateStickColors(color = StickCustomizerState.color) {
+  updateStickIndicator();
+  for (const modelRoot of [stickModelRoot, ghostStickModelRoot, customizerPreviewModel]) {
+    modelRoot?.traverse(child => {
+      if (!child.isMesh) return;
+      const materials = Array.isArray(child.material) ? child.material : [child.material];
+      materials.forEach(material => applyStickColor(material, color));
+    });
   }
 }
 
@@ -329,6 +359,7 @@ function installStickModel(root) {
     stickParams.indicatorMesh.visible = false;
     stickParams.stickGroup.add(stickParams.indicatorMesh);
   }
+  updateStickIndicator();
 
   stickParams.ghostStickGroup = stickParams.stickGroup.clone(false);
   ghostStickModelRoot = root.clone(true);
@@ -1242,8 +1273,14 @@ function animate() {
 document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('tutorialKickpointSwitched', () => {
     updateBoardLogos(StickCustomizerState.kickpoint);
+    updateStickColors();
     if (stickParams.indicatorMesh) {
-      stickParams.indicatorStartTime = performance.now();
+      if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
+        stickParams.indicatorStartTime = performance.now();
+      } else {
+        stickParams.indicatorMesh.visible = false;
+        stickParams.indicatorStartTime = 0;
+      }
     }
   });
   document.getElementById('canvas-container').appendChild(renderer.domElement);
@@ -1344,13 +1381,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('custBladePattern').addEventListener('change', handleStickModelChange);
   document.getElementById('custHandedness').addEventListener('change', handleStickModelChange);
   document.getElementById('custColor').addEventListener('change', event => {
-    for (const modelRoot of [stickModelRoot, ghostStickModelRoot, customizerPreviewModel]) {
-      modelRoot?.traverse(child => {
-        if (!child.isMesh) return;
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach(material => applyStickColor(material, event.target.value));
-      });
-    }
+    updateStickColors(event.target.value);
   });
   handleStickModelChange();
 });
