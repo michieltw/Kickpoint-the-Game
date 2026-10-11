@@ -31,7 +31,7 @@ export function updateUiMode() {
   if (isSplash || isIntro || isProfile) {
     menu.classList.add('hidden');
     gameUi.classList.remove('visible');
-    settings.style.display = 'none';
+    settings.classList.remove('visible');
     gameSettingsMenu.classList.remove('visible');
     customizerMenu.classList.remove('visible');
     if(targetHud) targetHud.style.display = 'none';
@@ -39,7 +39,7 @@ export function updateUiMode() {
     if (appState.mode === 'menu') {
       menu.classList.remove('hidden');
       gameUi.classList.remove('visible');
-      settings.style.display = 'none';
+      settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
       btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Play Now';
@@ -47,7 +47,7 @@ export function updateUiMode() {
     } else if (appState.mode === 'game') {
       menu.classList.add('hidden');
       gameUi.classList.add('visible');
-      settings.style.display = 'none';
+      settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
       if(targetHud) {
@@ -56,20 +56,20 @@ export function updateUiMode() {
     } else if (appState.mode === 'build-review') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
-      settings.style.display = 'none';
+      settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
       if (targetHud) targetHud.style.display = 'none';
     } else if (appState.mode === 'gameSettings') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
-      settings.style.display = 'none';
+      settings.classList.remove('visible');
       gameSettingsMenu.classList.add('visible');
       customizerMenu.classList.remove('visible');
     } else if (appState.mode === 'customizer') {
       menu.classList.add('hidden');
       gameUi.classList.remove('visible');
-      settings.style.display = 'none';
+      settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.add('visible');
     } else if (appState.mode === 'settings') {
@@ -77,7 +77,7 @@ export function updateUiMode() {
       gameUi.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
-      settings.style.display = 'flex';
+      settings.classList.add('visible');
       settings.classList.remove('collapsed');
     }
   }

@@ -1726,8 +1726,11 @@ body.customizer-open { touch-action: auto; }
 .timeline-inputs {
   margin-top: 4px !important;
 }
-.hidden {
-  display: none !important;
+#workbenchPanel {
+  display: none;
+}
+#workbenchPanel.visible {
+  display: flex;
 }
 
 /* Replay controls */
