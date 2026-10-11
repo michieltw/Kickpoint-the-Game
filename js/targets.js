@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { game } from './state.js';
-import { GOAL, targetGroup, particleGroup, createTargetTexture } from './scene.js';
-import { targetRadius } from './config.js';
+import { targetGroup, particleGroup, createTargetTexture } from './scene.js';
+import { targetRadius, GOAL } from './config.js';
 
 let targetMaterial = null;
 
@@ -53,6 +53,7 @@ export function shatterTarget(target) {
     game.activeTargets = game.activeTargets.filter(t => t !== target);
 
     if (target.mesh.geometry) target.mesh.geometry.dispose();
+    if (target.mesh.material) target.mesh.material.dispose();
 
     // Spawn particles
     const particleGeo = new THREE.PlaneGeometry(30, 30);

@@ -274,7 +274,7 @@
 
   <canvas id="aimTracerCanvas" class="aim-tracer-canvas"></canvas>
 
-  <div id="handedness-popup" class="glass-panel" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; padding: 30px; text-align: center; border-radius: 12px; background: rgba(255, 255, 255, 0.9);">
+  <div id="handedness-popup" class="glass-panel" hidden>
     <h2>Select Your Handedness</h2>
     <p>Do you shoot Left or Right?</p>
     <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px;">
@@ -289,7 +289,7 @@
   <div id="tutorial-hud">
     <div id="tutorial-phase">Phase 1: Low Kick (0/3)</div>
     <div id="tutorial-instruction">Take 3 shots to feel the quick release of the Low Kick stick.</div>
-    <div id="crossbar-selection" style="display: none;">
+    <div id="crossbar-selection" hidden>
       <button onclick="selectCrossbarStick('low')">Low Kick</button>
       <button onclick="selectCrossbarStick('mid')">Mid Kick</button>
       <button onclick="selectCrossbarStick('hybrid')">Hybrid Kick</button>

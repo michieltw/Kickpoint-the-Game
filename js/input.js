@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { gameSettings, StickCustomizerState } from './config.js';
+import { gameSettings, StickCustomizerState, GOAL } from './config.js';
 import { state, game, swipeData } from './state.js';
 import { getStiffnessDynamics } from './physics.js';
-import { camera, GOAL } from './scene.js'; // game.net is in sceneGame.net technically, or we map it
+import { camera } from './scene.js'; // game.net is in sceneGame.net technically, or we map it
 import { getStickShotModifiers } from './stick-effects.js';
 
 export function getGoalAim(clientX, clientY, pathErrorX = 0) {

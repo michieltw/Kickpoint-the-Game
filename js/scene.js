@@ -1,3 +1,4 @@
+import { GOAL } from "./config.js";
 import * as THREE from 'three';
 import { game } from './state.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -447,16 +448,6 @@ function createPostTexture() {
     return tex;
 }
 
-export const GOAL = Object.freeze({
-    width: 1830,
-    height: 1220,
-    depth: 1000,
-    rearWidth: 1400,
-    rearHeight: 900,
-    rearTopDepth: 400,
-    cornerRadius: 215,
-    postRadius: 30
-});
 
 const { width: netWidth, height: netHeight, depth: netDepth } = GOAL;
 game.net = new THREE.Group();
