@@ -44,3 +44,17 @@ export const StickCustomizerState = {
   shaftThickness: 2.0, // mm
   shaftWall: 'very-thin'
 };
+
+export const GOAL = Object.freeze({
+    width: 1830,
+    height: 1220,
+    depth: 1000,
+    rearWidth: 1400,
+    rearHeight: 900,
+    rearTopDepth: 400,
+    cornerRadius: 215,
+    postRadius: 30
+});
+
+export const flightMinTime = 0.02;
+export const flightMaxTime = 4;

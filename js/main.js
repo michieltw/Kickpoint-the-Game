@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appState, state, game, swipeData } from './state.js';
-import { gameSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius } from './config.js';
+import { gameSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius, GOAL, flightMinTime, flightMaxTime } from './config.js';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL, updateBoardLogos } from './scene.js';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, updateBoardLogos } from './scene.js';
 import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
 import { spawnTargets, shatterTarget } from './targets.js';
 import { bindInput } from './input.js';
@@ -374,8 +374,8 @@ function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bla
     delta.z / (speedMultiplier * time)
   );
   const getSpeedError = (time) => getVelocityAtTime(time).length() - speed;
-  const minTime = 0.02;
-  const maxTime = 4;
+  const minTime = flightMinTime;
+  const maxTime = flightMaxTime;
   const samples = 256;
   let previousTime = minTime;
   let previousError = getSpeedError(previousTime);
@@ -1076,16 +1076,7 @@ function animate() {
             updateGameScore();
             goalOverlay = document.createElement('div');
             goalOverlay.textContent = 'GOAL!';
-            goalOverlay.style.position = 'absolute';
-            goalOverlay.style.top = '50%';
-            goalOverlay.style.left = '50%';
-            goalOverlay.style.transform = 'translate(-50%, -50%)';
-            goalOverlay.style.fontSize = '80px';
-            goalOverlay.style.color = '#ff0000';
-            goalOverlay.style.fontWeight = 'bold';
-            goalOverlay.style.textShadow = '0 0 20px rgba(255,0,0,0.8)';
-            goalOverlay.style.pointerEvents = 'none';
-            goalOverlay.style.zIndex = '50';
+            goalOverlay.className = "goal-overlay";
             document.body.appendChild(goalOverlay);
 
             game.puckVelocity.multiplyScalar(0.1);

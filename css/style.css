@@ -184,8 +184,8 @@ body, html {
 /* Glassmorphism Classes */
 .glass-panel {
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.9);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
   color: #111111;
@@ -246,7 +246,7 @@ body, html {
   display: flex;
   align-items: center;
   gap: 6px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
   transition: all 0.2s ease;
 }
 .btn-action:hover {
@@ -334,7 +334,7 @@ body, html {
   width: 4px;
 }
 .panel-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.75);
   border-radius: 2px;
 }
 
@@ -433,7 +433,7 @@ body, html {
   transition: all 0.2s;
 }
 .btn-toggle.active {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.75);
   border-color: #ffffff;
 }
 .btn-play {
@@ -485,7 +485,7 @@ body, html {
   color: #ffffff;
 }
 .btn-jump.active {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.75);
   border-color: rgba(255, 255, 255, 0.4);
   color: #ffffff;
 }
@@ -727,7 +727,6 @@ body, html {
   font-size: 12px;
   text-align: center;
 }
-.customizer-model-status[hidden] { display: none; }
 .customizer-option-column { display: grid; gap: 10px; align-content: center; }
 .customizer-option {
   position: relative;
@@ -802,7 +801,6 @@ body, html {
   box-shadow: 0 14px 38px rgba(0, 0, 0, 0.5);
 }
 .customizer-option-column:last-child .customizer-option .customizer-swatches { right: 0; left: auto; }
-.customizer-swatches[hidden] { display: none; }
 .customizer-swatch {
   min-width: 0;
   min-height: 42px;
@@ -924,7 +922,6 @@ body, html {
   background: rgba(6, 12, 20, 0.97);
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7);
 }
-.customizer-hotspot-panel[hidden] { display: none; }
 .customizer-hotspot-panel > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .customizer-hotspot-panel h2 { color: #fff; font-size: 16px; }
 #customizer-hotspot-close {
@@ -1020,7 +1017,6 @@ body, html {
 }
 .customizer-swipe-actions button:last-child { color: #06200f; background: #4ade80; }
 .customizer-swipe-actions button:first-child { color: #4b1010; background: #fca5a5; }
-.customizer-swipe-deck[hidden] { display: none; }
 .customizer-footer {
   display: flex;
   justify-content: space-between;
@@ -1212,10 +1208,6 @@ body.customizer-open { touch-action: auto; }
   touch-action: pan-y;
   padding: 0 10px 10px;
 }
-.customizer-overview[hidden],
-.customizer-hotspot-panel[hidden],
-.customizer-stats[hidden],
-.customizer-empty-tab[hidden] { display: none; }
 .customizer-overview-group {
   margin-bottom: 8px;
   padding: 9px;
@@ -1484,7 +1476,6 @@ body.customizer-open { touch-action: auto; }
   color: #172033;
   background: radial-gradient(ellipse at 50% 0%, #f7f8fa, #e9edf2 75%);
 }
-#build-review[hidden] { display: none; }
 .build-review-shell {
   width: min(900px, 100%);
   display: flex;
@@ -1603,7 +1594,6 @@ body.customizer-open { touch-action: auto; }
   font-weight: 800;
 }
 .build-order-status { color: #647084; }
-.build-order-status[hidden] { display: none; }
 
 @media (max-width: 560px) {
   .build-review { padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
@@ -1769,7 +1759,7 @@ body.customizer-open { touch-action: auto; }
   left: 50%;
   transform: translateX(-50%);
   background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(20px);
   padding: 15px 30px;
   border-radius: 12px;
   text-align: center;
@@ -1807,4 +1797,41 @@ body.customizer-open { touch-action: auto; }
 
 #crossbar-selection button:hover {
   background: #333;
+}
+
+/* Goal Overlay */
+.goal-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 80px;
+  color: #000000;
+  font-weight: bold;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  z-index: 50;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 20px 40px;
+  border-radius: 12px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Handedness Popup */
+#handedness-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  padding: 30px;
+  text-align: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+[hidden] {
+  display: none !important;
 }
