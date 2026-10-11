@@ -1075,7 +1075,10 @@ export function initUiBindings(updatePhysics) {
         StickCustomizerState.flex = e.target.value;
         document.getElementById('custFlexValue').textContent = e.target.value;
     });
-    document.getElementById('custKickpoint').addEventListener('change', (e) => StickCustomizerState.kickpoint = e.target.value);
+    document.getElementById('custKickpoint').addEventListener('change', (e) => {
+        StickCustomizerState.kickpoint = e.target.value;
+        window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
+    });
 
     const shaftWallThicknesses = {
         'ultra-thin': 1,

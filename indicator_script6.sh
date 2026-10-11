@@ -1,0 +1,2 @@
+# Update logos when switching kickpoint inside the customizer as well
+sed -i 's/document.getElementById('"'"'custKickpoint'"'"').addEventListener('"'"'change'"'"', (e) => StickCustomizerState.kickpoint = e.target.value);/document.getElementById('"'"'custKickpoint'"'"').addEventListener('"'"'change'"'"', (e) => {\n        StickCustomizerState.kickpoint = e.target.value;\n        window.dispatchEvent(new CustomEvent('"'"'tutorialKickpointSwitched'"'"'));\n    });/' js/ui.js

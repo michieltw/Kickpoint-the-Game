@@ -1,92 +1,71 @@
+npm warn exec The following package was not found and will be installed: http-server@14.1.1
+npm warn deprecated whatwg-encoding@2.0.0: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+Starting up http-server, serving .
 
-> app@1.0.0 start
-> python3 -m http.server 8000
+http-server version: 14.1.1
 
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:46:09] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:48:22] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:49:06] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:15] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:50:54] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:51:36] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:52:21] "GET /js/stick-effects.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET / HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /css/style.css HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/main.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/config.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/ui.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/state.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/physics.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/scene.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/targets.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/input.js HTTP/1.1" 200 -
-127.0.0.1 - - [11/Oct/2026 05:53:10] "GET /js/stick-effects.js HTTP/1.1" 200 -
+http-server settings:
+CORS: disabled
+Cache: 3600 seconds
+Connection Timeout: 120 seconds
+Directory Listings: visible
+AutoIndex: visible
+Serve GZIP Files: false
+Serve Brotli Files: false
+Default File Extension: none
+
+Available on:
+  http://127.0.0.1:8080
+  http://192.168.0.2:8080
+Hit CTRL-C to stop the server
+
+[2026-10-11T09:28:50.744Z]  "GET /index.html" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+(node:2309818) [DEP0066] DeprecationWarning: OutgoingMessage.prototype._headers is deprecated
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[2026-10-11T09:28:50.769Z]  "GET /css/style.css" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.774Z]  "GET /js/main.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.797Z]  "GET /js/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.798Z]  "GET /js/config.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.801Z]  "GET /js/physics.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.803Z]  "GET /js/scene.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.804Z]  "GET /js/input.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.807Z]  "GET /js/ui.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.810Z]  "GET /js/stick-effects.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.811Z]  "GET /js/tutorial.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:28:50.811Z]  "GET /js/targets.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.484Z]  "GET /index.html" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.503Z]  "GET /css/style.css" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.507Z]  "GET /js/main.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.530Z]  "GET /js/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.531Z]  "GET /js/config.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.533Z]  "GET /js/physics.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.534Z]  "GET /js/scene.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.535Z]  "GET /js/ui.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.536Z]  "GET /js/input.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.537Z]  "GET /js/stick-effects.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.537Z]  "GET /js/targets.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:31:33.544Z]  "GET /js/tutorial.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.678Z]  "GET /index.html" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.696Z]  "GET /css/style.css" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.698Z]  "GET /js/main.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.725Z]  "GET /js/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.728Z]  "GET /js/config.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.730Z]  "GET /js/physics.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.731Z]  "GET /js/scene.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.733Z]  "GET /js/input.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.734Z]  "GET /js/stick-effects.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.734Z]  "GET /js/tutorial.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.735Z]  "GET /js/ui.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:40:11.739Z]  "GET /js/targets.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.940Z]  "GET /index.html" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.958Z]  "GET /css/style.css" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.958Z]  "GET /js/main.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.977Z]  "GET /js/state.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.980Z]  "GET /js/config.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.983Z]  "GET /js/physics.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.985Z]  "GET /js/scene.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.986Z]  "GET /js/ui.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.987Z]  "GET /js/targets.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.988Z]  "GET /js/input.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.989Z]  "GET /js/stick-effects.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
+[2026-10-11T09:54:02.994Z]  "GET /js/tutorial.js" "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/156.0.8078.4 Safari/537.36"
