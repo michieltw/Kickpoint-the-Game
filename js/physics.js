@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { L_total, Z_center, X_center, SEGMENTS, gameSettings } from './config.js?v=customizer-patterns-1';
-import { state, game } from './state.js?v=customizer-patterns-1';
-import { bgMarker, thMarker, stickParams } from './scene.js?v=customizer-patterns-1';
+import { L_total, Z_center, X_center, SEGMENTS, gameSettings } from './config.js';
+import { state, game } from './state.js';
+import { bgMarker, thMarker, stickParams } from './scene.js';
 
 export let sortedStiffnessCurve = [...state.stiffnessCurve].sort((a, b) => a.y - b.y);
 export let cachedStiffnessDynamics = null;

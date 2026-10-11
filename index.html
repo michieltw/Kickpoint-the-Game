@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css?v=customizer-tabs-stats-1">
+  <link rel="stylesheet" href="css/style.css">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -61,7 +61,7 @@
     </form>
   </section>
 
-  <div id="main-menu" class="hidden glass-panel" style="border: none; box-shadow: none; border-radius: 0;">
+  <div id="main-menu" class="hidden glass-panel main-menu-glass">
     <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo" alt="Blackout Hockey">
     <p id="menu-player-name" class="menu-player-name"></p>
     <button class="menu-btn" id="btnPlayNow">Free Play</button>
@@ -72,8 +72,8 @@
     <button class="menu-btn secondary" id="btnEditProfile">Spelersprofiel aanpassen</button>
   </div>
 
-  <section id="game-settings" class="hidden glass-panel" style="border:none; box-shadow:none; border-radius:0;" aria-label="Spelinstellingen">
-    <div class="game-settings-card glass-panel" style="position:relative;">
+  <section id="game-settings" class="hidden glass-panel main-menu-glass" aria-label="Spelinstellingen">
+    <div class="game-settings-card glass-panel game-settings-relative">
       <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Spelinstellingen</h2>
       <p>Configureer de gameplay mechanics.</p>
@@ -104,8 +104,8 @@
         <input id="settingDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
       </div>
 
-      <div class="customizer-section" style="margin-top: 10px; padding-top: 10px;">
-          <h3 style="color: #111; font-size: 14px; margin-bottom: 8px;">Display Options</h3>
+      <div class="customizer-section compact-customizer-section">
+          <h3 class="display-options-heading">Display Options</h3>
 
           <div class="game-setting-row">
               <label>Snelheidsweergave (Speed Unit)</label>
@@ -120,9 +120,9 @@
       </div>
 
       <div class="game-settings-actions">
-        <button class="menu-btn" id="btnSettingsPlay" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Terug naar spel</button>
-        <button class="menu-btn secondary" id="btnPhysicsSettings" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Physics Simulator</button>
-        <button class="menu-btn secondary" id="btnGameSettingsBack" style="margin:0; width:auto; padding:10px 20px; font-size:14px;">Hoofdmenu</button>
+        <button class="menu-btn game-settings-btn" id="btnSettingsPlay">Terug naar spel</button>
+        <button class="menu-btn secondary game-settings-btn" id="btnPhysicsSettings">Physics Simulator</button>
+        <button class="menu-btn secondary game-settings-btn" id="btnGameSettingsBack">Hoofdmenu</button>
       </div>
     </div>
   </section>
@@ -272,7 +272,7 @@
 
   <div id="canvas-container"></div>
 
-  <canvas id="aimTracerCanvas" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:4; display:none;"></canvas>
+  <canvas id="aimTracerCanvas" class="aim-tracer-canvas"></canvas>
 
   <div id="game-ui">
     <div class="top-bar">
@@ -283,18 +283,18 @@
       </div>
     </div>
 
-    <div id="score-overlay" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 32px; font-weight: bold; color: #fff; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: flex; gap: 40px; pointer-events: none;">
+    <div id="score-overlay" class="score-overlay">
       <div>Score: <span id="score-val">0</span></div>
       <div>Shots: <span id="shots-val">0</span></div>
     </div>
 
     <!-- Speed Counter overlay -->
-    <div id="speed-overlay" style="position: absolute; top: 25px; right: 30px; font-family: monospace; font-size: 42px; font-weight: 900; color: #ff0000; z-index: 10; text-shadow: 0 0 10px rgba(255,0,0,0.8); pointer-events: none; display: none;">
-      <span id="speed-val">0</span> <span id="speed-unit-lbl" style="font-size:18px;">km/h</span>
+    <div id="speed-overlay" class="speed-overlay">
+      <span id="speed-val">0</span> <span id="speed-unit-lbl" class="speed-unit-lbl">km/h</span>
     </div>
 
     <!-- Target Mode HUD -->
-    <div id="target-hud" style="display:none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); font-size: 24px; font-weight: bold; color: #eab308; z-index: 10; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); gap: 40px; pointer-events: none;">
+    <div id="target-hud" class="target-hud">
       <div>Targets Left: <span id="target-count">4</span></div>
       <div>Time: <span id="target-time">0.00</span>s</div>
     </div>
@@ -314,23 +314,23 @@
         </select>
         <input id="replayTimeline" type="range" min="0" max="0" step="0.1" value="0" aria-label="Handmatige replaypositie">
         <span id="replayFrameLabel">0 / 0</span>
-        <button id="replayClose" title="Terug naar spel" style="background:#cc0000; color:#fff; border:none; margin-left: 10px;">Sluiten</button>
+        <button id="replayClose" title="Terug naar spel" class="replay-close-btn">Sluiten</button>
       </div>
     </div>
 
     <!-- Swipe Zone Element -->
-    <div id="swipeZone" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 25vh; z-index: 5; touch-action: none; background: linear-gradient(to top, rgba(255,255,255,0.05), transparent); border-top: 1px dashed rgba(255,255,255,0.2); pointer-events: auto; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 20px; font-weight: bold; color: rgba(255,255,255,0.5); font-size: 14px;">
+    <div id="swipeZone" class="swipe-zone">
       Start Swipe Hier
     </div>
   </div>
 
   <!-- Floating Workbench Controls Panel -->
-  <div class="workbench-panel collapsed glass-panel" style="display: none;" id="workbenchPanel">
+  <div class="workbench-panel collapsed glass-panel hidden" id="workbenchPanel">
     <div class="panel-header">
       <h2>⚙ Physics Simulator</h2>
       <div>
-        <button id="btnSettingsBack" style="background: none; border: 1px solid #fff; color: #fff; border-radius: 4px; padding: 2px 6px; font-size: 10px; cursor: pointer; margin-right: 8px;">Back</button>
-        <span id="collapseIcon" style="font-size: 11px; color: #aaa;">▼ Inklappen</span>
+        <button id="btnSettingsBack" class="btn-settings-back">Back</button>
+        <span id="collapseIcon" class="collapse-icon">▼ Inklappen</span>
       </div>
     </div>
 
@@ -394,7 +394,7 @@
         <div class="param-header"><span>Afgeleid kickpoint:</span><strong id="kickpointReadout"></strong></div>
         <div class="param-header"><span>Gemiddelde flex:</span><strong id="flexReadout"></strong></div>
         <canvas id="stiffnessCurve" class="stiffness-editor"></canvas>
-        <button id="btnResetStiffness" class="btn-jump" style="width: 100%;">Reset Profile</button>
+        <button id="btnResetStiffness" class="btn-jump btn-reset-stiffness">Reset Profile</button>
       </div>
 
       <!-- 3. Fulcrum & Release Dynamiek -->
@@ -449,7 +449,7 @@
 
         <button id="btnHoldMax" class="btn-toggle active">✓ Vasthouden (600 ms)</button>
 
-        <div class="param-inputs" style="margin-top: 4px;">
+        <div class="param-inputs timeline-inputs">
           <input type="range" id="slTimeline" min="0" max="1200" step="5" value="600" class="param-slider" />
           <button id="btnPlay" class="btn-play">▶ Play</button>
         </div>
@@ -465,6 +465,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=customizer-tabs-stats-1"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

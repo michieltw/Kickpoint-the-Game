@@ -167,8 +167,20 @@ export function getStickShotModifiers(customizer = {}) {
     puckSpeed: 1,
     accuracy: 1,
     shotTendencyX: 0,
-    shotTendencyY: 0
+    shotTendencyY: 0,
+    stickWeight: 400 // Base stick weight in grams
   };
+
+  // Modify stick weight based on shaft wall/thickness (approx 15g per 0.5mm thickness difference from neutral 2.0)
+  const shaftThickness = customizer.shaftThickness !== undefined ? customizer.shaftThickness : 2.0;
+  totals.stickWeight += (shaftThickness - 2.0) * 30;
+
+  if (customizer.shaftGrip || customizer.shaftSurface === 'supergloss-with-grip' || customizer.shaftSurface === 'gloss-with-grip' || customizer.shaftSurface === 'mat-with-grip') {
+    totals.stickWeight += 15; // Grip adds weight
+  }
+  if (customizer.stickTape) {
+    totals.stickWeight += 10; // Tape adds weight
+  }
 
   for (const [option, rule] of Object.entries(STICK_MODIFIER_RULES)) {
     const normalizedValue = getNormalizedValue(customizer[option], rule);

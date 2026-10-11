@@ -3,6 +3,11 @@ export const Z_center = 23;
 export const X_center = -100;
 export const SEGMENTS = 140;
 
+export const gravity = 9810;
+export const puckRadius = 38;
+export const rinkWidth = 26000;
+export const targetRadius = 240;
+
 export const DEFAULT_STIFFNESS_CURVE = [
   { y: 0, x: 0.5 },
   { y: 0.33, x: 0.5 },

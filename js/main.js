@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { appState, state, game, swipeData } from './state.js?v=customizer-patterns-1';
-import { gameSettings, StickCustomizerState, L_total, Z_center, X_center } from './config.js?v=customizer-patterns-1';
-import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js?v=customizer-patterns-1';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js?v=customizer-patterns-1';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js?v=customizer-tabs-stats-1';
-import { bindInput } from './input.js?v=customizer-patterns-1';
-import { getStickShotModifiers } from './stick-effects.js?v=customizer-patterns-1';
+import { appState, state, game, swipeData } from './state.js';
+import { gameSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius } from './config.js';
+import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, GOAL } from './scene.js';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
+import { spawnTargets, shatterTarget } from './targets.js';
+import { bindInput } from './input.js';
+import { getStickShotModifiers } from './stick-effects.js';
 
 const STICK_MODEL_URLS = Object.freeze({
   P02: {
@@ -319,7 +320,6 @@ let replayPaused = false;
 let replayDirection = 1;
 
 function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bladeVelocity) {
-  const gravity = 9810;
   const delta = target.clone().sub(start);
   // Find the flight time at the requested speed that compensates for gravity.
   const getVelocityAtTime = (time) => new THREE.Vector3(
@@ -481,7 +481,6 @@ function closestPointsOnSegments(firstStart, firstEnd, secondStart, secondEnd) {
 function resolveGoalCollisions(previousPosition) {
   const netX = game.net.position.x;
   const netZ = game.net.position.z;
-  const puckRadius = 38;
   const collisionRadius = puckRadius + GOAL.postRadius;
   const frameSegments = [
     [
@@ -733,87 +732,10 @@ document.getElementById('ghostPuckToggle').addEventListener('change', refreshRep
 document.getElementById('replayClose').addEventListener('click', resetPuck);
 
 // Target Practice Logic
-const targetRadius = 240;
-let targetMaterial = null;
-
-function spawnTargets() {
-    targetGroup.clear();
-    particleGroup.clear();
-    game.activeTargets = [];
-    game.particles = [];
-
-    if(!targetMaterial) {
-        targetMaterial = new THREE.MeshBasicMaterial({
-            map: createTargetTexture(),
-            transparent: true,
-            side: THREE.DoubleSide
-        });
-    }
-
-    // Target practice places targets within the goal opening.
-    const netX = game.net.position.x;
-    const netZ = game.net.position.z;
-    const netWidth = GOAL.width;
-    const netHeight = GOAL.height;
-
-    const offsets = [
-        { x: -netWidth/2 + targetRadius - 30, y: netHeight - targetRadius + 30 }, // Top Left
-        { x: netWidth/2 - targetRadius + 30, y: netHeight - targetRadius + 30 },  // Top Right
-        { x: -netWidth/2 + targetRadius - 30, y: targetRadius - 30 },            // Bottom Left
-        { x: netWidth/2 - targetRadius + 30, y: targetRadius - 30 }              // Bottom Right
-    ];
-
-    for(const offset of offsets) {
-        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(targetRadius*2, targetRadius*2), targetMaterial);
-        // Position them slightly inside the goal mouth so they are hittable
-        mesh.position.set(netX + offset.x, offset.y, netZ + 100);
-        targetGroup.add(mesh);
-        game.activeTargets.push({
-            mesh: mesh,
-            x: netX + offset.x,
-            y: offset.y,
-            z: netZ + 100,
-            radius: targetRadius
-        });
-    }
-}
-
 window.addEventListener('startTargetPractice', () => {
     spawnTargets();
     resetPuck();
 });
-
-function shatterTarget(target) {
-    targetGroup.remove(target.mesh);
-    game.activeTargets = game.activeTargets.filter(t => t !== target);
-
-    // Spawn particles
-    const particleGeo = new THREE.PlaneGeometry(30, 30);
-    const particleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-    const particleRedMat = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide });
-
-    for(let i=0; i<15; i++) {
-        const mat = Math.random() > 0.5 ? particleMat : particleRedMat;
-        const pMesh = new THREE.Mesh(particleGeo, mat);
-        pMesh.position.copy(target.mesh.position);
-        particleGroup.add(pMesh);
-
-        const angle = Math.random() * Math.PI * 2;
-        const speed = 500 + Math.random() * 1500;
-
-        game.particles.push({
-            mesh: pMesh,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            vz: 500 + Math.random() * 1000, // burst out towards camera
-            rx: Math.random() * 10,
-            ry: Math.random() * 10,
-            life: 1.0
-        });
-    }
-
-    document.getElementById('target-count').textContent = game.activeTargets.length;
-}
 
 // Animation Loop
 function animate() {
@@ -987,9 +909,9 @@ function animate() {
     if (game.puckState === 'shot') {
       game.shotElapsed += delta;
       game.puck.position.x += game.puckVelocity.x * delta;
-      game.puck.position.y += game.puckVelocity.y * delta - 0.5 * 9810 * delta * delta;
+      game.puck.position.y += game.puckVelocity.y * delta - 0.5 * gravity * delta * delta;
       game.puck.position.z += game.puckVelocity.z * delta;
-      game.puckVelocity.y -= 9810 * delta;
+      game.puckVelocity.y -= gravity * delta;
       const wobbleAmount = THREE.MathUtils.clamp(game.shotWobble / 240, 0, 1);
       const turbulence = Math.sin(game.shotElapsed * 24) * wobbleAmount * 0.12;
       game.puck.rotation.set(turbulence, game.shotElapsed * 8, Math.sin(game.shotElapsed * 19 + 0.8) * wobbleAmount * 0.08);
@@ -1019,13 +941,12 @@ function animate() {
        game.puckVelocity.z *= 0.98;
     }
 
-    const rinkWidth = 26000;
-    if (Math.abs(game.puck.position.x) > (rinkWidth / 2) - 38) {
-       game.puck.position.x = Math.sign(game.puck.position.x) * ((rinkWidth / 2) - 38);
+    if (Math.abs(game.puck.position.x) > (rinkWidth / 2) - puckRadius) {
+       game.puck.position.x = Math.sign(game.puck.position.x) * ((rinkWidth / 2) - puckRadius);
        game.puckVelocity.x *= -0.8;
     }
-    if (game.puck.position.z < -30000 + 38) {
-       game.puck.position.z = -30000 + 38;
+    if (game.puck.position.z < -30000 + puckRadius) {
+       game.puck.position.z = -30000 + puckRadius;
        game.puckVelocity.z *= -0.8;
     }
 
@@ -1062,9 +983,9 @@ function animate() {
        const crossingX = THREE.MathUtils.lerp(previousPuckPosition.x, game.puck.position.x, crossingProgress);
        const crossingY = THREE.MathUtils.lerp(previousPuckPosition.y, game.puck.position.y, crossingProgress);
        if (crossedGoalLine &&
-           Math.abs(crossingX - netX) < GOAL.width / 2 - GOAL.postRadius - 38 &&
+           Math.abs(crossingX - netX) < GOAL.width / 2 - GOAL.postRadius - puckRadius &&
            crossingY > 12.5 &&
-           crossingY < GOAL.height - GOAL.postRadius - 38) {
+           crossingY < GOAL.height - GOAL.postRadius - puckRadius) {
             game.puckState = 'goal';
             game.score++;
             updateGameScore();
@@ -1153,7 +1074,7 @@ function animate() {
       p.mesh.position.x += p.vx * delta;
       p.mesh.position.y += p.vy * delta;
       p.mesh.position.z += p.vz * delta;
-      p.vy -= 9810 * delta; // gravity
+      p.vy -= gravity * delta; // gravity
       p.mesh.rotation.x += p.rx * delta;
       p.mesh.rotation.y += p.ry * delta;
       p.life -= delta;
@@ -1161,6 +1082,8 @@ function animate() {
 
       if(p.life <= 0) {
           particleGroup.remove(p.mesh);
+          if (p.mesh.geometry) p.mesh.geometry.dispose();
+          if (p.mesh.material) p.mesh.material.dispose();
           game.particles.splice(i, 1);
       }
   }

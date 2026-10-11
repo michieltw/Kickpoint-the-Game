@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { game } from './state.js?v=customizer-patterns-1';
+import { game } from './state.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 export const scene = new THREE.Scene();
