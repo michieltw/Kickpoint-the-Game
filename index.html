@@ -274,6 +274,16 @@
 
   <canvas id="aimTracerCanvas" class="aim-tracer-canvas"></canvas>
 
+  <div id="tutorial-hud">
+    <div id="tutorial-phase">Phase 1: Low Kick (0/3)</div>
+    <div id="tutorial-instruction">Take 3 shots to feel the quick release of the Low Kick stick.</div>
+    <div id="crossbar-selection" style="display: none;">
+      <button onclick="selectCrossbarStick('low')">Low Kick</button>
+      <button onclick="selectCrossbarStick('mid')">Mid Kick</button>
+      <button onclick="selectCrossbarStick('hybrid')">Hybrid Kick</button>
+    </div>
+  </div>
+
   <div id="game-ui">
     <div class="top-bar">
       <div class="top-actions">

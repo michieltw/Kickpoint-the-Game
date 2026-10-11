@@ -1761,3 +1761,50 @@ body.customizer-open { touch-action: auto; }
 .replay-toggle { display: flex; align-items: center; gap: 6px; color: #333333; font-size: 11px; }
 #replayTimeline { flex: 1 1 180px; min-width: 140px; }
 #replayFrameLabel { min-width: 72px; color: #111111; font: 11px monospace; text-align: right; }
+
+/* Tutorial HUD */
+#tutorial-hud {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  padding: 15px 30px;
+  border-radius: 12px;
+  text-align: center;
+  color: #000;
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+#tutorial-phase {
+  font-weight: 800;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+}
+
+#crossbar-selection {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+#crossbar-selection button {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+#crossbar-selection button:hover {
+  background: #333;
+}
