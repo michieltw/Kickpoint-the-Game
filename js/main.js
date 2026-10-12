@@ -382,6 +382,9 @@ function installStickModel(root) {
   stickParams.stickGroup.position.y -= stickBounds.min.y;
   stickParams.stickRestY = stickParams.stickGroup.position.y;
   stickParams.initialGroupPosition = stickParams.stickGroup.position.clone();
+  stickParams.initialGroupQuaternion = stickParams.stickGroup.quaternion.clone();
+  stickParams.restGroupPosition = stickParams.stickGroup.position.clone();
+  stickParams.restGroupQuaternion = stickParams.stickGroup.quaternion.clone();
 
   if (!stickParams.indicatorMesh) {
     const indicatorGeo = new THREE.CylinderGeometry(20, 20, 150, 16);
@@ -718,6 +721,61 @@ function resolveGoalCollisions(previousPosition) {
   }
 }
 
+export function applyStickSlapshotAngle(angleRad) {
+  if (!stickParams.stickGroup) return;
+  if (!stickParams.restGroupPosition || !stickParams.restGroupQuaternion) {
+    stickParams.restGroupPosition = stickParams.stickGroup.position.clone();
+    stickParams.restGroupQuaternion = stickParams.stickGroup.quaternion.clone();
+  }
+
+  if (Math.abs(angleRad) < 0.0001) {
+    stickParams.stickGroup.position.copy(stickParams.restGroupPosition);
+    stickParams.stickGroup.quaternion.copy(stickParams.restGroupQuaternion);
+    stickParams.stickGroup.updateMatrixWorld(true);
+    return;
+  }
+
+  const isLeft = StickCustomizerState.handedness === 'left';
+  // Rotation axis pulls the stick blade back (+Z, away from goal) and up (+Y, off the ice)
+  const axis = isLeft
+    ? new THREE.Vector3(0.95, 0, 0.31).normalize()
+    : new THREE.Vector3(-0.95, 0, 0.31).normalize();
+
+  const qRot = new THREE.Quaternion().setFromAxisAngle(axis, angleRad);
+
+  const topHandLocal = new THREE.Vector3(X_center, L_total, Z_center);
+  const restPivot = topHandLocal.clone()
+    .applyQuaternion(stickParams.restGroupQuaternion)
+    .add(stickParams.restGroupPosition);
+
+  const offset = stickParams.restGroupPosition.clone().sub(restPivot);
+  offset.applyQuaternion(qRot);
+
+  stickParams.stickGroup.position.copy(restPivot).add(offset);
+  stickParams.stickGroup.quaternion.copy(stickParams.restGroupQuaternion).premultiply(qRot);
+  stickParams.stickGroup.updateMatrixWorld(true);
+}
+
+window.setStickSlapshotAngle = applyStickSlapshotAngle;
+
+function spawnIceChips(pos) {
+  const particleGeo = new THREE.PlaneGeometry(18, 18);
+  const particleMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, side: THREE.DoubleSide });
+  for (let i = 0; i < 14; i++) {
+    const mesh = new THREE.Mesh(particleGeo, particleMat);
+    mesh.position.copy(pos);
+    mesh.position.y = 8;
+    particleGroup.add(mesh);
+    game.particles.push({
+      mesh,
+      vx: (Math.random() - 0.5) * 450,
+      vy: Math.random() * 350 + 120,
+      vz: -Math.random() * 500,
+      life: 0.45
+    });
+  }
+}
+
 function resetPuck() {
   if (puckResetTimeout !== null) {
     window.clearTimeout(puckResetTimeout);
@@ -726,6 +784,11 @@ function resetPuck() {
   if (goalOverlay) {
     goalOverlay.remove();
     goalOverlay = null;
+  }
+
+  // Reset slapshot orientation before computing new resting position
+  if (stickParams.stickGroup && stickParams.initialGroupQuaternion) {
+    stickParams.stickGroup.quaternion.copy(stickParams.initialGroupQuaternion);
   }
 
   if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase === 4) {
@@ -741,6 +804,25 @@ function resetPuck() {
       }
       camera.position.set(0, 1000, startZ + 2420);
       controls.target.set(0, 600, startZ - 580);
+  } else if (game.mode === 'oneTimer') {
+      // One Timer mode: semi-randomly spawns further from the goal
+      // Between the hashmarks (~ -19000), top of faceoff circles (-16000), and just inside the blue line (-11500)
+      // Never too close to the boarding (boards are at +/- 13000; keep X within [-7500, 7500])
+      const randomZ = -11500 - Math.random() * 7500;
+      const randomX = (Math.random() - 0.5) * 15000;
+      game.puck.position.set(randomX, 12.5, randomZ);
+
+      if (stickParams.stickGroup && stickParams.initialGroupPosition) {
+          const deltaX = randomX - 95;
+          const deltaZ = randomZ - (-20120);
+          stickParams.stickGroup.position.set(
+              stickParams.initialGroupPosition.x + deltaX,
+              stickParams.stickRestY,
+              stickParams.initialGroupPosition.z + deltaZ
+          );
+      }
+      camera.position.set(randomX, 1000, randomZ + 2420);
+      controls.target.set(randomX, 600, randomZ - 580);
   } else if (game.mode === 'randomSpawn') {
       // Offensive zone: from roughly blue line (z=-10000) to below the circles (z=-20000)
       // Avoid edges: limit width to roughly +/- 6000
@@ -770,6 +852,13 @@ function resetPuck() {
       camera.position.set(0, 1000, -17700);
       controls.target.set(0, 600, -20700);
   }
+
+  if (stickParams.stickGroup) {
+      stickParams.restGroupPosition = stickParams.stickGroup.position.clone();
+      stickParams.restGroupQuaternion = stickParams.stickGroup.quaternion.clone();
+      applyStickSlapshotAngle(0);
+  }
+
   updateProjectedArrow(game.puck.position);
 
   game.puck.rotation.set(0, 0, 0);
@@ -777,6 +866,10 @@ function resetPuck() {
   game.puckState = 'idle';
   game.shotAim = null;
   game.shotQuickness = 1;
+  game.isSlapshot = false;
+  game.slapshotWindup = 0;
+  game.slapshotMaxAngle = 0;
+  game.slapshotHitIceTriggered = false;
   game.replayRecording = false;
   game.replayPlayback = null;
   replayPaused = false;
@@ -791,6 +884,13 @@ function resetPuck() {
   game.lastBladeCenterPosition = null;
   document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
   swipeData.triggered = false;
+  swipeData.isSlapshot = false;
+  swipeData.slapshotWindup = 0;
+
+  const oneTimerTip = document.getElementById('oneTimerTip');
+  if (oneTimerTip && game.mode === 'oneTimer') {
+      oneTimerTip.textContent = 'Veeg OMLAAG voor slapshot backswing · Veeg OMHOOG voor schot';
+  }
 
   // Clear Tracers
   shotTracerLine.visible = false;
@@ -930,6 +1030,25 @@ function animate() {
     }
     state.timeline = Math.round(next);
     syncUiFromState();
+
+    if (game.isSlapshot && swipeData.triggered) {
+      const iceHitTime = game.slapshotIceHitTime || 380;
+      if (state.timeline < iceHitTime) {
+        const downswingProgress = Math.max(0, Math.min(1, state.timeline / iceHitTime));
+        // Accelerating downswing towards the ice
+        const currentAngle = game.slapshotMaxAngle * (1 - Math.pow(downswingProgress, 1.8));
+        applyStickSlapshotAngle(currentAngle);
+      } else {
+        applyStickSlapshotAngle(0);
+        if (!game.slapshotHitIceTriggered) {
+          game.slapshotHitIceTriggered = true;
+          if (game.bladeHeelIndex >= 0) {
+            spawnIceChips(getBladePoint(game.bladeHeelIndex));
+          }
+        }
+      }
+    }
+
     updatePhysics();
 
     let bladeContactProgress = null;
@@ -1029,7 +1148,8 @@ function animate() {
           stick: StickCustomizerState,
           kickPoint: currentKp,
           state: state,
-          aimPoint: game.shotAim || new THREE.Vector3(0, 300, game.net.position.z)
+          aimPoint: game.shotAim || new THREE.Vector3(0, 300, game.net.position.z),
+          isSlapshot: Boolean(game.isSlapshot)
         });
 
         game.puckVelocity.copy(shotPhysics.launchVector);

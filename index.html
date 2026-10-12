@@ -4,14 +4,25 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css?v=swipe-indicator-v3">
+  <link rel="stylesheet" href="css/style.css?v=onetimer-v1">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
     {
       "imports": {
         "three": "https://esm.sh/three@0.160.0",
-        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/"
+        "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
+        "./js/main.js": "./js/main.js?v=onetimer-v1",
+        "./js/ui.js": "./js/ui.js?v=onetimer-v1",
+        "./js/state.js": "./js/state.js?v=onetimer-v1",
+        "./js/physics.js": "./js/physics.js?v=onetimer-v1",
+        "./js/input.js": "./js/input.js?v=onetimer-v1",
+        "./js/scene.js": "./js/scene.js?v=onetimer-v1",
+        "./js/config.js": "./js/config.js?v=onetimer-v1",
+        "./js/targets.js": "./js/targets.js?v=onetimer-v1",
+        "./js/tutorial.js": "./js/tutorial.js?v=onetimer-v1",
+        "./js/tutorial-ranking.js": "./js/tutorial-ranking.js?v=onetimer-v1",
+        "./js/stick-effects.js": "./js/stick-effects.js?v=onetimer-v1"
       }
     }
   </script>
@@ -64,12 +75,31 @@
   <div id="main-menu" class="glass-panel main-menu-glass">
     <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo" alt="Blackout Hockey">
     <p id="menu-player-name" class="menu-player-name"></p>
-    <button class="menu-btn" id="btnPlayNow">Free Play</button>
-    <button class="menu-btn" id="btnTargetPractice" style="background:#eab308; color:#000;">Target Practice</button>
-    <button class="menu-btn" id="btnRandomSpawn" style="background:#38bdf8; color:#000;">Random Spawn Mode</button>
-    <button class="menu-btn secondary" id="btnSettings">Settings</button>
-    <button class="menu-btn secondary" id="btnCustomizer">Customize Stick</button>
-    <button class="menu-btn secondary" id="btnEditProfile">Spelersprofiel aanpassen</button>
+    <div id="main-menu-default" style="display:flex; flex-direction:column; align-items:center;">
+      <button class="menu-btn" id="btnPlayNow" type="button">Free Play</button>
+      <button class="menu-btn" id="btnGameModes" type="button" style="background: linear-gradient(135deg, #f97316 0%, #eab308 50%, #38bdf8 100%); color:#000; font-weight: 800;" onclick="document.getElementById('main-menu-default').hidden=true; document.getElementById('main-menu-default').style.display='none'; document.getElementById('game-modes-menu').hidden=false; document.getElementById('game-modes-menu').style.display='flex';">Game Modes</button>
+      <button class="menu-btn secondary" id="btnSettings" type="button">Settings</button>
+      <button class="menu-btn secondary" id="btnCustomizer" type="button">Customize Stick</button>
+      <button class="menu-btn secondary" id="btnEditProfile" type="button">Spelersprofiel aanpassen</button>
+    </div>
+
+    <div id="game-modes-menu" hidden style="display:none; flex-direction:column; align-items:center;">
+      <h2 class="game-modes-title">Game Modes</h2>
+      <p class="game-modes-subtitle">Kies een spelmodus</p>
+      <button class="menu-btn mode-card-btn" id="btnOneTimer" type="button" style="background:#f97316; color:#ffffff;">
+        <span class="mode-name">One Timer</span>
+        <span class="mode-desc">Slapshot &amp; diepe offensive zone</span>
+      </button>
+      <button class="menu-btn mode-card-btn" id="btnTargetPractice" type="button" style="background:#eab308; color:#000000;">
+        <span class="mode-name">Target Practice</span>
+        <span class="mode-desc">Schiet alle doelen uit het net</span>
+      </button>
+      <button class="menu-btn mode-card-btn" id="btnRandomSpawn" type="button" style="background:#38bdf8; color:#000000;">
+        <span class="mode-name">Random Spawn Mode</span>
+        <span class="mode-desc">Willekeurige schietposities</span>
+      </button>
+      <button class="menu-btn secondary" id="btnGameModesBack" type="button" onclick="document.getElementById('game-modes-menu').hidden=true; document.getElementById('game-modes-menu').style.display='none'; document.getElementById('main-menu-default').hidden=false; document.getElementById('main-menu-default').style.display='flex';">← Terug naar menu</button>
+    </div>
   </div>
 
   <section id="game-settings" class="glass-panel main-menu-glass" aria-label="Spelinstellingen">
@@ -910,6 +940,12 @@
       <div>Time: <span id="target-time">0.00</span>s</div>
     </div>
 
+    <!-- One Timer Mode HUD -->
+    <div id="one-timer-hud" class="one-timer-hud" style="display: none;">
+      <div class="one-timer-badge">ONE TIMER</div>
+      <div class="one-timer-tip" id="oneTimerTip">Veeg OMLAAG voor slapshot backswing &middot; Veeg OMHOOG voor schot</div>
+    </div>
+
     <div id="replay-controls" class="glass-panel" aria-label="Replay bediening">
       <div class="replay-toolbar">
         <button id="replayRewind" title="Terugspoelen">◀◀ Terug</button>
@@ -1158,6 +1194,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=onetimer-v1"></script>
 </body>
 </html>

@@ -121,6 +121,16 @@ export function bindInput(controls, syncUiFromState) {
     swipeData.triggered = false;
     swipeData.puckHitTime = 0;
     swipeData.path = [{ x: e.clientX, y: e.clientY, t: now }];
+    swipeData.maxY = e.clientY;
+    swipeData.turnaroundPoint = { x: e.clientX, y: e.clientY, t: now };
+
+    if (game.mode === 'oneTimer' && swipeData.slapshotArmed) {
+      swipeData.isSlapshot = true;
+      swipeData.slapshotWindup = swipeData.armedWindup || 0.8;
+    } else {
+      swipeData.isSlapshot = false;
+      swipeData.slapshotWindup = 0;
+    }
 
     controls.enabled = false;
     e.stopPropagation();
@@ -137,6 +147,31 @@ export function bindInput(controls, syncUiFromState) {
     } else {
       swipeData.path.push({ x: e.clientX, y: e.clientY, t: now });
     }
+
+    if (game.mode === 'oneTimer') {
+      const downwardFromStart = e.clientY - swipeData.startY;
+      if (downwardFromStart > 18) {
+        swipeData.isSlapshot = true;
+        if (e.clientY >= swipeData.maxY) {
+          swipeData.maxY = e.clientY;
+          swipeData.turnaroundPoint = { x: e.clientX, y: e.clientY, t: now };
+        }
+        const rawWindup = (swipeData.maxY - swipeData.startY) / 140;
+        swipeData.slapshotWindup = Math.max(swipeData.slapshotWindup || 0, Math.min(1.25, rawWindup));
+        const maxBackswingRad = (52 * Math.PI) / 180;
+        // If user hasn't started swiping up yet, show live backswing pulling blade back and up
+        const upwardFromBottom = swipeData.maxY - e.clientY;
+        if (upwardFromBottom < 30 && typeof window.setStickSlapshotAngle === 'function') {
+          window.setStickSlapshotAngle(swipeData.slapshotWindup * maxBackswingRad);
+        }
+        const oneTimerTip = document.getElementById('oneTimerTip');
+        if (oneTimerTip) {
+          const pct = Math.min(100, Math.round((swipeData.slapshotWindup / 1.0) * 100));
+          oneTimerTip.textContent = `⚡ SLAPSHOT BACKSWING (${pct}%) · Veeg nu krachtig OMHOOG!`;
+        }
+      }
+    }
+
     const puckScreenY = window.innerHeight * 0.75;
     if (e.clientY <= puckScreenY && swipeData.puckHitTime === 0) {
         swipeData.puckHitY = e.clientY;
@@ -158,24 +193,94 @@ export function bindInput(controls, syncUiFromState) {
     swipeData.path.push({ x: e.clientX, y: e.clientY, t: now });
 
     const minSwipeDist = physicsSettings?.minSwipeDistance ?? 100;
-    if (swipeData.startY - swipeData.endY > minSwipeDist) {
+    const isOneTimerSlapshot = game.mode === 'oneTimer' && swipeData.isSlapshot;
+    const effectiveStartY = isOneTimerSlapshot ? swipeData.maxY : swipeData.startY;
+    const effectiveStartX = isOneTimerSlapshot && swipeData.turnaroundPoint ? swipeData.turnaroundPoint.x : swipeData.startX;
+    const effectiveStartTime = isOneTimerSlapshot && swipeData.turnaroundPoint ? swipeData.turnaroundPoint.t : swipeData.startTime;
+    const forwardDist = effectiveStartY - swipeData.endY;
+
+    // If in One Timer mode and the user swiped down to wind up, then lifted finger without swiping up:
+    // Keep the stick armed in backswing so their next upward swipe fires the slapshot!
+    if (isOneTimerSlapshot && forwardDist <= minSwipeDist) {
+        if (swipeData.maxY - swipeData.startY > 25) {
+            swipeData.slapshotArmed = true;
+            swipeData.armedWindup = Math.max(0.45, swipeData.slapshotWindup);
+            const maxBackswingRad = (52 * Math.PI) / 180;
+            if (typeof window.setStickSlapshotAngle === 'function') {
+                window.setStickSlapshotAngle(swipeData.armedWindup * maxBackswingRad);
+            }
+            const oneTimerTip = document.getElementById('oneTimerTip');
+            if (oneTimerTip) {
+                const pct = Math.min(100, Math.round(swipeData.armedWindup * 100));
+                oneTimerTip.textContent = `⚡ SLAPSHOT GELADEN (${pct}%) · Veeg OMHOOG om te schieten!`;
+            }
+        } else {
+            swipeData.slapshotArmed = false;
+            if (typeof window.setStickSlapshotAngle === 'function') {
+                window.setStickSlapshotAngle(0);
+            }
+        }
+        return;
+    }
+
+    if (forwardDist > minSwipeDist) {
+        const forwardPath = isOneTimerSlapshot
+          ? swipeData.path.filter(p => (p.t || 0) >= effectiveStartTime)
+          : swipeData.path;
+        if (forwardPath.length < 2) {
+          forwardPath.unshift({ x: effectiveStartX, y: effectiveStartY, t: effectiveStartTime });
+        }
+
         const kinematics = calculateSwipeKinematics(
-          swipeData.path,
-          swipeData.startTime,
+          forwardPath,
+          effectiveStartTime,
           swipeData.endTime,
-          swipeData.startY,
+          effectiveStartY,
           swipeData.endY
         );
 
-        if (kinematics.rawCompositeSpeed < gameSettings.minSwipeSpeed) return;
-        swipeData.power = kinematics.power;
+        if (kinematics.rawCompositeSpeed < gameSettings.minSwipeSpeed) {
+          if (isOneTimerSlapshot && typeof window.setStickSlapshotAngle === 'function') {
+            window.setStickSlapshotAngle(0);
+          }
+          swipeData.slapshotArmed = false;
+          return;
+        }
+
+        if (isOneTimerSlapshot) {
+          // Slapshot power calculation: adds more speed and can easily exceed normal 100% shooting limits when swung hard
+          const windupLevel = Math.max(0.5, swipeData.slapshotWindup || 0.8);
+          const windupBonus = 1.0 + 0.35 * Math.min(1.25, windupLevel);
+          const speedProgress = Math.max(0, (kinematics.normalizedSpeed - 0.30) / 7.5);
+          const slapshotRawPower = (40 + 85 * Math.pow(Math.min(1.65, speedProgress), 0.82)) * windupBonus;
+          swipeData.power = Math.max(40, Math.round(slapshotRawPower * (gameSettings.swipeRange ?? 1.0) * 10) / 10);
+
+          game.isSlapshot = true;
+          game.slapshotWindup = windupLevel;
+          game.slapshotMaxAngle = Math.max((28 * Math.PI) / 180, Math.min((62 * Math.PI) / 180, windupLevel * ((52 * Math.PI) / 180)));
+          game.slapshotIceHitTime = 380;
+          game.slapshotHitIceTriggered = false;
+          swipeData.slapshotArmed = false;
+
+          const oneTimerTip = document.getElementById('oneTimerTip');
+          if (oneTimerTip) {
+            oneTimerTip.textContent = `💥 SLAPSHOT! Power: ${Math.round(swipeData.power)}%`;
+          }
+        } else {
+          swipeData.power = kinematics.power;
+          game.isSlapshot = false;
+          game.slapshotWindup = 0;
+          game.slapshotMaxAngle = 0;
+          game.slapshotHitIceTriggered = false;
+          swipeData.slapshotArmed = false;
+        }
 
         let maxPathErrorX = 0;
         let maxPathErrorMagnitude = 0;
-        const swipeHeight = swipeData.startY - swipeData.endY;
-        for (const point of swipeData.path) {
-          const progress = swipeHeight ? Math.max(0, Math.min(1, (swipeData.startY - point.y) / swipeHeight)) : 0;
-          const expectedX = swipeData.startX + (swipeData.endX - swipeData.startX) * progress;
+        const swipeHeight = effectiveStartY - swipeData.endY;
+        for (const point of forwardPath) {
+          const progress = swipeHeight ? Math.max(0, Math.min(1, (effectiveStartY - point.y) / swipeHeight)) : 0;
+          const expectedX = effectiveStartX + (swipeData.endX - effectiveStartX) * progress;
           const errorX = point.x - expectedX;
           if (Math.abs(errorX) > maxPathErrorMagnitude) {
             maxPathErrorMagnitude = Math.abs(errorX);
@@ -207,13 +312,13 @@ export function bindInput(controls, syncUiFromState) {
         game.releaseTime = game.contactTime + ((physicsSettings?.puckDwellTime ?? 180) * stiffnessDynamics.timingScale) / (relSpeedMult * quickness);
 
         // Draw Aim Tracer if enabled
-        if(gameSettings.showAimTracer && swipeData.path.length > 1) {
+        if(gameSettings.showAimTracer && forwardPath.length > 1) {
             aimCanvas.style.display = 'block';
             aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
 
             // Draw ideal straight line
             aimCtx.beginPath();
-            aimCtx.moveTo(swipeData.startX, swipeData.startY);
+            aimCtx.moveTo(effectiveStartX, effectiveStartY);
             aimCtx.lineTo(swipeData.endX, swipeData.endY);
             aimCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
             aimCtx.lineWidth = 4;
@@ -222,11 +327,11 @@ export function bindInput(controls, syncUiFromState) {
 
             // Draw actual path
             aimCtx.beginPath();
-            aimCtx.moveTo(swipeData.path[0].x, swipeData.path[0].y);
-            for(let i=1; i<swipeData.path.length; i++) {
-                aimCtx.lineTo(swipeData.path[i].x, swipeData.path[i].y);
+            aimCtx.moveTo(forwardPath[0].x, forwardPath[0].y);
+            for(let i=1; i<forwardPath.length; i++) {
+                aimCtx.lineTo(forwardPath[i].x, forwardPath[i].y);
             }
-            aimCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+            aimCtx.strokeStyle = isOneTimerSlapshot ? 'rgba(249, 115, 22, 0.9)' : 'rgba(56, 189, 248, 0.8)';
             aimCtx.lineWidth = 6;
             aimCtx.setLineDash([]);
             aimCtx.stroke();
@@ -234,7 +339,7 @@ export function bindInput(controls, syncUiFromState) {
             // Draw accuracy text
             const accuracyScore = Math.max(0, 100 - Math.abs(swipeData.accuracy) * 1000).toFixed(1);
             aimCtx.font = "bold 24px monospace";
-            aimCtx.fillStyle = '#38bdf8';
+            aimCtx.fillStyle = isOneTimerSlapshot ? '#f97316' : '#38bdf8';
             aimCtx.fillText(`Acc: ${accuracyScore}%`, swipeData.endX + 20, swipeData.endY);
         }
 

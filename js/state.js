@@ -56,12 +56,19 @@ export const game = {
   bladeContactOffset: new THREE.Vector3(),
   bladeContactAxis: new THREE.Vector3(1, 0, 0),
 
-  // Target Practice Mode additions
-  mode: 'free', // 'free' or 'targets'
+  // Game Mode additions
+  mode: 'free', // 'free', 'targets', 'randomSpawn', 'oneTimer'
   targetStartTime: 0,
   targetTimeElapsed: 0,
   activeTargets: [],
   particles: [],
+
+  // One Timer / Slapshot state
+  isSlapshot: false,
+  slapshotWindup: 0,
+  slapshotMaxAngle: 0,
+  slapshotIceHitTime: 380,
+  slapshotHitIceTriggered: false,
 
   // Scoreboard stats
   fastestRelease: 0,
@@ -84,5 +91,9 @@ export const swipeData = {
    power: 0, // speed
    accuracy: 0, // swipe-path error
    path: [],
-   triggered: false
+   triggered: false,
+   isSlapshot: false,
+   slapshotWindup: 0,
+   maxY: 0,
+   turnaroundPoint: null
 };

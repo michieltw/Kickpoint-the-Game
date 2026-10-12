@@ -255,8 +255,23 @@ export function updatePhysics() {
 
   let isReleased = false, currentBendDeg = 0, leverAngleDeg = 0, topPullDownMm = 0, pullProgress = 0;
 
+  const isSlapshot = Boolean(game?.isSlapshot && swipeData.triggered);
+  const slapshotIceHit = game?.slapshotIceHitTime ?? 380;
+
   if (state.holdMaxBend || t <= tPeak) {
-    currentBendDeg = netForceFactor * state.maxBendAngle * stiffnessDynamics.powerScale * powerBendFactor;
+    if (isSlapshot && !state.holdMaxBend) {
+      if (t < slapshotIceHit) {
+        // Crucial: Stick stays completely straight while in the air before hitting the ice
+        currentBendDeg = 0;
+      } else {
+        // Stick starts to bend exactly when hitting the ice
+        const loadProgress = Math.max(0, Math.min(1, (t - slapshotIceHit) / Math.max(1, tPeak - slapshotIceHit)));
+        const loadFactor = Math.sin(loadProgress * (Math.PI / 2));
+        currentBendDeg = peakBendDeg * loadFactor;
+      }
+    } else {
+      currentBendDeg = netForceFactor * state.maxBendAngle * stiffnessDynamics.powerScale * powerBendFactor;
+    }
     isReleased = false;
   } else {
     isReleased = true;
@@ -334,11 +349,14 @@ export function updatePhysics() {
     stickParams.stickMesh.geometry.computeBoundingBox();
     stickParams.stickMesh.geometry.computeBoundingSphere();
 
-    stickParams.stickGroup.position.y = stickParams.stickRestY;
-    stickParams.stickGroup.updateMatrixWorld(true);
-    const deformedBox = new THREE.Box3().setFromObject(stickParams.stickGroup, true);
-    const floorLift = Math.max(0, -deformedBox.min.y);
-    stickParams.stickGroup.position.y += floorLift;
+    let floorLift = 0;
+    if (!isSlapshot || t >= slapshotIceHit) {
+      stickParams.stickGroup.position.y = stickParams.stickRestY;
+      stickParams.stickGroup.updateMatrixWorld(true);
+      const deformedBox = new THREE.Box3().setFromObject(stickParams.stickGroup, true);
+      floorLift = Math.max(0, -deformedBox.min.y);
+      stickParams.stickGroup.position.y += floorLift;
+    }
 
     const y_bg = (state.bottomGlovePos / 100) * L_total;
     const d_bg = sampleDeformation(y_bg, profile);
@@ -478,7 +496,7 @@ export function getAimAdjustedLaunchVelocity(start, target, speed, speedMultipli
  * Bundelt schuttersenergie, timing-multiplier, flex mismatch/power-bonus,
  * kickpoint profielbonus en mechanica-bonussen conform bestaande physics.
  */
-export function calculateReleaseSpeed(power, timingQuality, stick, kickPoint, stateObj) {
+export function calculateReleaseSpeed(power, timingQuality, stick, kickPoint, stateObj, isSlapshot = false) {
   const normPower = typeof power === 'number'
     ? (power > 1 ? power / 100 : power)
     : (swipeData.power ? swipeData.power / 100 : 0.8);
@@ -497,7 +515,14 @@ export function calculateReleaseSpeed(power, timingQuality, stick, kickPoint, st
 
   const baseImpulse = physicsSettings?.baseShotSpeed ?? 5000;
   const whipBonus = physicsSettings?.whipBonusSpeed ?? 7000;
-  const swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * normPower) * flexScale;
+  let swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * normPower) * flexScale;
+
+  if (isSlapshot) {
+    // Slapshot mechanical leverage & windup boost: adds substantial speed and easily exceeds normal limits
+    const windupFactor = 1.0 + 0.15 * Math.min(1.2, game?.slapshotWindup || 1.0);
+    const slapshotMultiplier = 1.25 * windupFactor;
+    swipeDrivenSpeed *= slapshotMultiplier;
+  }
 
   return swipeDrivenSpeed * (modifiers.puckSpeed ?? 1.0);
 }
@@ -580,6 +605,7 @@ export function calculateLaunchVector(releaseSpeed, aimPoint, dispersion, shotTy
  */
 export function resolveShotPhysics(power, timingQuality, stick, kickPoint, stateObj, aimPoint, shotType) {
   let p = power, tq = timingQuality, st = stick, kp = kickPoint, sObj = stateObj, aim = aimPoint, stType = shotType;
+  let isSlapshot = Boolean(game && game.isSlapshot);
   if (typeof power === 'object' && power !== null && !Array.isArray(power) && ('power' in power || 'stick' in power || 'timingQuality' in power)) {
     ({
       power: p,
@@ -588,11 +614,12 @@ export function resolveShotPhysics(power, timingQuality, stick, kickPoint, state
       kickPoint: kp,
       state: sObj,
       aimPoint: aim,
-      shotType: stType
+      shotType: stType,
+      isSlapshot = Boolean(game && game.isSlapshot)
     } = power);
   }
 
-  const releaseSpeed = calculateReleaseSpeed(p, tq, st, kp, sObj);
+  const releaseSpeed = calculateReleaseSpeed(p, tq, st, kp, sObj, isSlapshot);
   const dispersion = calculateShotDispersion(tq, st, kp, sObj);
   const launchVector = calculateLaunchVector(releaseSpeed, aim, dispersion, stType);
 

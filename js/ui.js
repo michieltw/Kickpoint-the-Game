@@ -18,6 +18,8 @@ export function updateUiMode() {
   const intro = document.getElementById('intro-screen');
   const profile = document.getElementById('player-profile');
   const menu = document.getElementById('main-menu');
+  const mainMenuDefault = document.getElementById('main-menu-default');
+  const gameModesMenu = document.getElementById('game-modes-menu');
   const gameUi = document.getElementById('game-ui');
   const settings = document.getElementById('workbenchPanel');
   const gameSettingsMenu = document.getElementById('game-settings');
@@ -28,6 +30,7 @@ export function updateUiMode() {
   buildReview.hidden = appState.mode !== 'build-review';
 
   const targetHud = document.getElementById('target-hud');
+  const oneTimerHud = document.getElementById('one-timer-hud');
   const tutorialHud = document.getElementById('tutorial-hud');
   if (appState.mode !== 'game' && tutorialHud) {
     tutorialHud.style.display = 'none';
@@ -43,50 +46,76 @@ export function updateUiMode() {
 
   if (isSplash || isIntro || isProfile) {
     menu.classList.add('hidden');
+    if (mainMenuDefault) { mainMenuDefault.hidden = false; mainMenuDefault.style.display = 'flex'; }
+    if (gameModesMenu) { gameModesMenu.hidden = true; gameModesMenu.style.display = 'none'; }
     gameUi.classList.remove('visible');
     settings.classList.remove('visible');
     gameSettingsMenu.classList.remove('visible');
     customizerMenu.classList.remove('visible');
-    if(targetHud) targetHud.style.display = 'none';
+    if (targetHud) targetHud.style.display = 'none';
+    if (oneTimerHud) oneTimerHud.style.display = 'none';
   } else {
     if (appState.mode === 'menu') {
       menu.classList.remove('hidden');
+      if (mainMenuDefault) { mainMenuDefault.hidden = false; mainMenuDefault.style.display = 'flex'; }
+      if (gameModesMenu) { gameModesMenu.hidden = true; gameModesMenu.style.display = 'none'; }
       gameUi.classList.remove('visible');
       settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
-      btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Play Now';
-      if(targetHud) targetHud.style.display = 'none';
-    } else if (appState.mode === 'game') {
-      menu.classList.add('hidden');
-      gameUi.classList.add('visible');
-      settings.classList.remove('visible');
-      gameSettingsMenu.classList.remove('visible');
-      customizerMenu.classList.remove('visible');
-      if(targetHud) {
-          targetHud.style.display = game.mode === 'targets' ? 'flex' : 'none';
-      }
-    } else if (appState.mode === 'build-review') {
-      menu.classList.add('hidden');
+      btnPlayNow.textContent = game && game.shots > 0 ? 'Resume Game' : 'Free Play';
+      if (targetHud) targetHud.style.display = 'none';
+      if (oneTimerHud) oneTimerHud.style.display = 'none';
+    } else if (appState.mode === 'gameModes') {
+      menu.classList.remove('hidden');
+      if (mainMenuDefault) { mainMenuDefault.hidden = true; mainMenuDefault.style.display = 'none'; }
+      if (gameModesMenu) { gameModesMenu.hidden = false; gameModesMenu.style.display = 'flex'; }
       gameUi.classList.remove('visible');
       settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
       if (targetHud) targetHud.style.display = 'none';
+      if (oneTimerHud) oneTimerHud.style.display = 'none';
+    } else if (appState.mode === 'game') {
+      menu.classList.add('hidden');
+      if (mainMenuDefault) { mainMenuDefault.hidden = false; mainMenuDefault.style.display = 'flex'; }
+      if (gameModesMenu) { gameModesMenu.hidden = true; gameModesMenu.style.display = 'none'; }
+      gameUi.classList.add('visible');
+      settings.classList.remove('visible');
+      gameSettingsMenu.classList.remove('visible');
+      customizerMenu.classList.remove('visible');
+      if (targetHud) {
+          targetHud.style.display = game.mode === 'targets' ? 'flex' : 'none';
+      }
+      if (oneTimerHud) {
+          oneTimerHud.style.display = game.mode === 'oneTimer' ? 'flex' : 'none';
+      }
+    } else if (appState.mode === 'build-review') {
+      menu.classList.add('hidden');
+      if (gameModesMenu) gameModesMenu.classList.add('hidden');
+      gameUi.classList.remove('visible');
+      settings.classList.remove('visible');
+      gameSettingsMenu.classList.remove('visible');
+      customizerMenu.classList.remove('visible');
+      if (targetHud) targetHud.style.display = 'none';
+      if (oneTimerHud) oneTimerHud.style.display = 'none';
     } else if (appState.mode === 'gameSettings') {
       menu.classList.add('hidden');
+      if (gameModesMenu) gameModesMenu.classList.add('hidden');
       gameUi.classList.remove('visible');
       settings.classList.remove('visible');
       gameSettingsMenu.classList.add('visible');
       customizerMenu.classList.remove('visible');
     } else if (appState.mode === 'customizer') {
       menu.classList.add('hidden');
+      if (gameModesMenu) gameModesMenu.classList.add('hidden');
       gameUi.classList.remove('visible');
       settings.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.add('visible');
     } else if (appState.mode === 'settings') {
       menu.classList.add('hidden');
+      if (gameModesMenu) gameModesMenu.classList.add('hidden');
       gameUi.classList.remove('visible');
       gameSettingsMenu.classList.remove('visible');
       customizerMenu.classList.remove('visible');
@@ -1232,10 +1261,40 @@ export function initUiBindings(updatePhysics) {
 
     // Basic navigation
     document.getElementById('btnPlayNow').addEventListener('click', () => {
+        const prevMode = game.mode;
         game.mode = 'free';
         appState.mode = 'game';
         updateUiMode();
+        if (prevMode !== 'free' && typeof window.triggerPuckReset === 'function') {
+            window.triggerPuckReset();
+        }
     });
+
+    const btnGameModes = document.getElementById('btnGameModes');
+    if (btnGameModes) {
+        btnGameModes.addEventListener('click', () => {
+            appState.mode = 'gameModes';
+            updateUiMode();
+        });
+    }
+
+    const btnGameModesBack = document.getElementById('btnGameModesBack');
+    if (btnGameModesBack) {
+        btnGameModesBack.addEventListener('click', () => {
+            appState.mode = 'menu';
+            updateUiMode();
+        });
+    }
+
+    const btnOneTimer = document.getElementById('btnOneTimer');
+    if (btnOneTimer) {
+        btnOneTimer.addEventListener('click', () => {
+            game.mode = 'oneTimer';
+            appState.mode = 'game';
+            updateUiMode();
+            if (typeof window.triggerPuckReset === 'function') window.triggerPuckReset();
+        });
+    }
 
     document.getElementById('btnRandomSpawn').addEventListener('click', () => {
         game.mode = 'randomSpawn';
