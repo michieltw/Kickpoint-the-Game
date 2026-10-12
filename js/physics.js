@@ -53,12 +53,12 @@ export function getStiffnessDynamics() {
   const kickPosition = softZoneCenters.length
     ? softZoneCenters.reduce((sum, position) => sum + position, 0) / softZoneCenters.length
     : 0.5;
-  const stiffnessBias = ((average - 87.5) / 37.5) * 0.08;
-  const kickPositionBias = (kickPosition - 0.5) * 0.12 * gameSettings.kickpointEffect;
-  const timingScale = Math.max(0.84, Math.min(1.16, 1 + stiffnessBias + kickPositionBias));
-  const powerScale = Math.max(0.7, Math.min(1.5, 1 + ((average - 87.5) / 37.5) * 0.08 + kickPositionBias * 2.0));
+  const stiffnessBias = ((average - 87.5) / 37.5) * 0.05;
+  const kickPositionBias = (kickPosition - 0.5) * 0.08 * (gameSettings?.kickpointEffect ?? 1);
+  const timingScale = Math.max(0.88, Math.min(1.12, 1 + stiffnessBias + kickPositionBias));
+  const powerScale = Math.max(0.85, Math.min(1.18, 1 + ((average - 87.5) / 37.5) * 0.05 + kickPositionBias * 0.8));
 
-  cachedStiffnessDynamics = { average, timingScale, powerScale };
+  cachedStiffnessDynamics = { average, timingScale, powerScale, kickPosition };
   return cachedStiffnessDynamics;
 }
 
@@ -77,7 +77,8 @@ export function computeBeamProfile(currentBendDeg, bgPercent, isReleased, leverA
     const hoselStiff = (physicsSettings?.hoselStiffness ?? 0.8) * Math.pow(Math.max(0, (0.08 - u) / 0.08), 2);
     const baseEI = 1.0 + handleStiff + hoselStiff;
     const localStiffness = getStiffnessAt(u);
-    const EI = baseEI * (localStiffness / 87.5);
+    const stiffnessRatio = Math.max(0.4, localStiffness / 87.5);
+    const EI = baseEI * Math.pow(stiffnessRatio, 1.15);
     const k = M / EI;
     kappa[i] = k;
     referenceCurvature += (M / baseEI) * ds;
@@ -247,12 +248,15 @@ export function updatePhysics() {
   const fBottom = bgAmpMag * bgPulse;
   const fTop = thAmpMag * thPulse;
   const netForceFactor = (fBottom + fTop) / 1.6;
-  const peakBendDeg = state.maxBendAngle * ((bgAmpMag + thAmpMag) / 1.6) * stiffnessDynamics.powerScale;
+  const powerBendFactor = swipeData.triggered
+    ? (0.82 + 0.18 * ((swipeData.power || 80) / 100))
+    : 1.0;
+  const peakBendDeg = state.maxBendAngle * ((bgAmpMag + thAmpMag) / 1.6) * stiffnessDynamics.powerScale * powerBendFactor;
 
   let isReleased = false, currentBendDeg = 0, leverAngleDeg = 0, topPullDownMm = 0, pullProgress = 0;
 
   if (state.holdMaxBend || t <= tPeak) {
-    currentBendDeg = netForceFactor * state.maxBendAngle * stiffnessDynamics.powerScale;
+    currentBendDeg = netForceFactor * state.maxBendAngle * stiffnessDynamics.powerScale * powerBendFactor;
     isReleased = false;
   } else {
     isReleased = true;
@@ -483,16 +487,17 @@ export function calculateReleaseSpeed(power, timingQuality, stick, kickPoint, st
   const whip = (activeState?.bladeWhipStrength ?? 100) / 100;
 
   const dynamics = timingQuality || getStiffnessDynamics();
-  const powerScale = dynamics?.powerScale ?? 1.0;
+  const flexScale = Math.max(0.85, Math.min(1.18, 1 + ((dynamics?.average ?? 87.5) - 87.5) / 37.5 * 0.05));
 
   const stickConfig = stick || StickCustomizerState;
-  const modifiers = (stickConfig && typeof stickConfig.puckSpeed === 'number')
-    ? stickConfig
-    : getStickShotModifiers(stickConfig);
+  const effectiveStick = kickPoint ? { ...stickConfig, kickpoint: kickPoint } : stickConfig;
+  const modifiers = (effectiveStick && typeof effectiveStick.puckSpeed === 'number' && !kickPoint)
+    ? effectiveStick
+    : getStickShotModifiers(effectiveStick);
 
   const baseImpulse = physicsSettings?.baseShotSpeed ?? 5000;
   const whipBonus = physicsSettings?.whipBonusSpeed ?? 7000;
-  const swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * normPower) * powerScale;
+  const swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * normPower) * flexScale;
 
   return swipeDrivenSpeed * (modifiers.puckSpeed ?? 1.0);
 }

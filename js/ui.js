@@ -1,5 +1,14 @@
 import { appState, state, game } from './state.js';
-import { gameSettings, physicsSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE, KICKPOINT_STIFFNESS_CURVES } from './config.js';
+import {
+  gameSettings,
+  physicsSettings,
+  StickCustomizerState,
+  DEFAULT_STIFFNESS_CURVE,
+  KICKPOINT_STIFFNESS_CURVES,
+  kickpointSpeedBoosts,
+  KICKPOINT_ORDER,
+  getKickpointCumulativeBoost
+} from './config.js';
 import { getStickShotModifiers } from './stick-effects.js';
 import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js';
 import { camera, renderer, updateGoalSpeedDisplay } from './scene.js';
@@ -916,8 +925,53 @@ function syncCustomizerControlsFromState() {
   syncAdvancedSettingsUi();
 }
 
+export function updateKickpointBoostsLivePreview() {
+  const container = document.getElementById('advKickpointSpeedLadder');
+  const badge = document.getElementById('advKickpointMidLowDiffBadge');
+  if (!container) return;
+
+  const order = ['ultra-low', 'low', 'mid-low', 'hybrid', 'mid', 'amplified-mid', 'high'];
+  const labels = {
+    'ultra-low': 'Ultra-Low',
+    'low': 'Low',
+    'mid-low': 'Mid-Low',
+    'hybrid': 'Hybrid',
+    'mid': 'Mid',
+    'amplified-mid': 'Amp-Mid',
+    'high': 'High'
+  };
+
+  const baseKmh = 76.8;
+  const speeds = {};
+  let cum = 0;
+  speeds['ultra-low'] = baseKmh;
+  for (let i = 1; i < order.length; i++) {
+    const k = order[i];
+    cum += (kickpointSpeedBoosts[k] ?? 0);
+    speeds[k] = baseKmh + cum;
+  }
+
+  const currentKp = StickCustomizerState.kickpoint || 'mid';
+  container.innerHTML = order.map(k => {
+    const isCurrent = currentKp === k;
+    const border = isCurrent ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.12)';
+    const bg = isCurrent ? 'rgba(56,189,248,0.22)' : 'rgba(255,255,255,0.04)';
+    const textColor = isCurrent ? '#38bdf8' : '#e2e8f0';
+    const speedStr = speeds[k].toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return `<div style="padding: 4px 8px; border-radius: 4px; font-size: 0.78rem; background: ${bg}; border: ${border}; color: ${textColor}; display: flex; gap: 4px; align-items: center;">
+      <span>${labels[k]}:</span>
+      <strong>${speedStr} km/u</strong>
+    </div>`;
+  }).join('');
+
+  if (badge) {
+    const midLowDiff = speeds['mid'] - speeds['low'];
+    badge.textContent = `Mid vs Low: +${midLowDiff.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/u`;
+  }
+}
+
 export function syncAdvancedSettingsUi() {
-  const setRangeVal = (idInput, idOutput, val, suffix = '', factor = 1, decimals = 0) => {
+  const setRangeVal = (idInput, idOutput, val, suffix = '', factor = 1, decimals = 0, prefix = '') => {
     const el = document.getElementById(idInput);
     const out = document.getElementById(idOutput);
     if (el && val !== undefined && val !== null) el.value = val;
@@ -927,7 +981,7 @@ export function syncAdvancedSettingsUi() {
         maximumFractionDigits: decimals,
         useGrouping: false
       });
-      out.textContent = `${displayVal}${suffix}`;
+      out.textContent = `${prefix}${displayVal}${suffix}`;
     }
   };
 
@@ -951,6 +1005,15 @@ export function syncAdvancedSettingsUi() {
   if (advKickpoint && StickCustomizerState.kickpoint) advKickpoint.value = StickCustomizerState.kickpoint;
   setRangeVal('advFlex', 'advFlexVal', StickCustomizerState.flex, '');
   setRangeVal('advKickpointEffect', 'advKickpointEffectVal', Math.round((gameSettings.kickpointEffect ?? 1) * 100), '%');
+
+  // Kickpoint Speed Boosts
+  setRangeVal('advBoostLow', 'advBoostLowVal', kickpointSpeedBoosts.low ?? 2.2, ' km/u', 1, 1, '+');
+  setRangeVal('advBoostMidLow', 'advBoostMidLowVal', kickpointSpeedBoosts['mid-low'] ?? 1.8, ' km/u', 1, 1, '+');
+  setRangeVal('advBoostHybrid', 'advBoostHybridVal', kickpointSpeedBoosts.hybrid ?? 1.2, ' km/u', 1, 1, '+');
+  setRangeVal('advBoostMid', 'advBoostMidVal', kickpointSpeedBoosts.mid ?? 4.5, ' km/u', 1, 1, '+');
+  setRangeVal('advBoostAmpMid', 'advBoostAmpMidVal', kickpointSpeedBoosts['amplified-mid'] ?? 2.5, ' km/u', 1, 1, '+');
+  setRangeVal('advBoostHigh', 'advBoostHighVal', kickpointSpeedBoosts.high ?? 2.5, ' km/u', 1, 1, '+');
+  updateKickpointBoostsLivePreview();
 
   // Group 3: Release Dynamics, Recoil & Vibration
   setRangeVal('advTopPullStart', 'advTopPullStartVal', state.topHandPullStartMs ?? 600, ' ms');
@@ -1492,6 +1555,30 @@ export function initUiBindings(updatePhysics) {
         updatePhysics();
       });
     }
+
+    const boostBindings = [
+      ['advBoostLow', 'advBoostLowVal', 'low'],
+      ['advBoostMidLow', 'advBoostMidLowVal', 'mid-low'],
+      ['advBoostHybrid', 'advBoostHybridVal', 'hybrid'],
+      ['advBoostMid', 'advBoostMidVal', 'mid'],
+      ['advBoostAmpMid', 'advBoostAmpMidVal', 'amplified-mid'],
+      ['advBoostHigh', 'advBoostHighVal', 'high']
+    ];
+
+    boostBindings.forEach(([idInput, idOutput, kpKey]) => {
+      const el = document.getElementById(idInput);
+      const out = document.getElementById(idOutput);
+      if (!el) return;
+      el.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        kickpointSpeedBoosts[kpKey] = val;
+        if (out) {
+          out.textContent = `+${val.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km/u`;
+        }
+        updateKickpointBoostsLivePreview();
+        updatePhysics();
+      });
+    });
 
     const advBladeCurve = document.getElementById('advBladeCurve');
     if (advBladeCurve) {

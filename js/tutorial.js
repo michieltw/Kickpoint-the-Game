@@ -1,6 +1,7 @@
 import { appState } from './state.js';
 import { updateUiMode, applyKickpointPreset } from './ui.js';
 import { StickCustomizerState } from './config.js';
+import { recordTrialShot, showTrialRankingModal, initTrialRankingModal } from './tutorial-ranking.js';
 
 // Helper to trigger the main model load since handleStickModelChange is private in main.js
 // but we can trigger it via firing the change event on custKickpoint
@@ -31,8 +32,16 @@ function beginTutorialPhases() {
         phase: 1, // 1: Low Kick, 2: Mid Kick, 3: Hybrid Kick, 4: Crossbar challenge
         shotsTaken: 0,
         hits: 0,
-        maxShotsPerPhase: 3
+        maxShotsPerPhase: 3,
+        trialShots: []
     };
+
+    // Initialize ranking modal hooks
+    initTrialRankingModal(setupCrossbarChallenge, endTutorial);
+
+    // Hide ranking button until all trial shots are completed
+    const btnRanking = document.getElementById('btnShowTrialRanking');
+    if (btnRanking) btnRanking.style.display = 'none';
 
     // Start with low kick
     triggerStickUpdate('low');
@@ -78,7 +87,8 @@ export function skipTutorial() {
         phase: 0,
         shotsTaken: 0,
         hits: 0,
-        maxShotsPerPhase: 3
+        maxShotsPerPhase: 3,
+        trialShots: []
     };
     appState.mode = 'menu';
     updateUiMode();
@@ -91,8 +101,12 @@ window.selectTutorialHandedness = selectTutorialHandedness;
 window.skipTutorial = skipTutorial;
 window.skipTutorialHandedness = skipTutorial;
 
-export function handleTutorialShotComplete() {
+export function handleTutorialShotComplete(shotData) {
     if (!appState.tutorial || !appState.tutorial.isActive) return;
+
+    if (shotData) {
+        recordTrialShot(shotData);
+    }
 
     if (appState.tutorial.phase < 4) {
         appState.tutorial.shotsTaken++;
@@ -117,8 +131,13 @@ export function handleTutorialShotComplete() {
                 document.getElementById('tutorial-instruction').innerText = 'A balance between quick release and power.';
                 triggerStickUpdate('hybrid');
             } else if (appState.tutorial.phase === 4) {
-                // Move to crossbar challenge
-                setupCrossbarChallenge();
+                // Completed all 3 sticks (3 shots each, 9 shots total)!
+                // Enable HUD ranking button so player can re-open results anytime
+                const btnRanking = document.getElementById('btnShowTrialRanking');
+                if (btnRanking) btnRanking.style.display = 'inline-flex';
+
+                // Display the Stick Trial Ranking modal with rankings, averages, and shot distribution graph
+                showTrialRankingModal();
             }
         }
     } else if (appState.tutorial.phase === 4) {
@@ -126,7 +145,7 @@ export function handleTutorialShotComplete() {
     }
 }
 
-function setupCrossbarChallenge() {
+export function setupCrossbarChallenge() {
     document.getElementById('tutorial-phase').innerText = 'Phase 4: Crossbar Challenge';
     document.getElementById('tutorial-instruction').innerText = 'Choose your preferred stick and hit the crossbar from the blue line!';
 
@@ -136,6 +155,9 @@ function setupCrossbarChallenge() {
         crossbar.hidden = false;
         crossbar.style.display = 'flex';
     }
+
+    const btnRanking = document.getElementById('btnShowTrialRanking');
+    if (btnRanking) btnRanking.style.display = 'inline-flex';
 
     // The puck reset logic in main.js handles placing it at the blue line
 }

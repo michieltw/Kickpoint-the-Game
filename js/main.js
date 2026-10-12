@@ -19,7 +19,8 @@ import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve, appl
 import { spawnTargets, shatterTarget } from './targets.js';
 import { bindInput } from './input.js';
 import { getStickShotModifiers } from './stick-effects.js';
-import { handleTutorialShotComplete, endTutorial } from './tutorial.js';
+import { handleTutorialShotComplete, setupCrossbarChallenge, endTutorial } from './tutorial.js';
+import { initTrialRankingModal } from './tutorial-ranking.js';
 
 const STICK_MODEL_URLS = Object.freeze({
   P02: {
@@ -908,8 +909,11 @@ function animate() {
     const shotQuickness = swipeData.triggered || ['shot', 'goal', 'missed'].includes(game.puckState)
       ? game.shotQuickness * relSpeedMult
       : 1;
+    const swipeAnimBonus = swipeData.triggered
+      ? (0.88 + 0.22 * ((swipeData.power || 80) / 100))
+      : 1;
     const animMultiplier = physicsSettings?.animPlaybackMultiplier ?? 1.0;
-    const stepRate = 800 * animMultiplier * delta * shotQuickness;
+    const stepRate = 800 * animMultiplier * delta * shotQuickness * swipeAnimBonus;
     let next = state.timeline + stepRate * playDirection;
     if (next >= 1200) {
       next = 1200;
@@ -1010,12 +1014,20 @@ function animate() {
       const rollOffBlade = (game.bladeContactProgress + (1.05 - game.bladeContactProgress) * Math.max(0, Math.min(1, (state.timeline - game.contactTime) / (game.releaseTime - game.contactTime)))) >= 1.0;
 
       if (bladeHasStartedSlowing || releaseSafetyLimitReached || rollOffBlade) {
+        let currentKp = StickCustomizerState.kickpoint || 'mid';
+        if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
+          if (appState.tutorial.phase === 1) currentKp = 'low';
+          else if (appState.tutorial.phase === 2) currentKp = 'mid';
+          else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
+          StickCustomizerState.kickpoint = currentKp;
+        }
+
         const swipePower = swipeData.power ? swipeData.power / 100 : 0.8;
         const shotPhysics = resolveShotPhysics({
           power: swipeData.power,
           timingQuality: getStiffnessDynamics(),
           stick: StickCustomizerState,
-          kickPoint: StickCustomizerState.kickpoint,
+          kickPoint: currentKp,
           state: state,
           aimPoint: game.shotAim || new THREE.Vector3(0, 300, game.net.position.z)
         });
@@ -1033,12 +1045,6 @@ function animate() {
         updateGoalSpeedDisplay(speedVal, gameSettings.speedUnit === 'kmh' ? 'KM/H' : 'MPH');
 
         // Track Scoreboard Record Stats (Fastest Release and Hardest Shot)
-        let currentKp = StickCustomizerState.kickpoint || 'mid';
-        if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
-          if (appState.tutorial.phase === 1) currentKp = 'low';
-          else if (appState.tutorial.phase === 2) currentKp = 'mid';
-          else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
-        }
         const shotReleaseMs = Math.max(10, state.timeline - game.contactTime);
         if (game.fastestRelease === 0 || shotReleaseMs < game.fastestRelease) {
           game.fastestRelease = shotReleaseMs;
@@ -1061,6 +1067,22 @@ function animate() {
           hardestShotKp: game.hardestShotKp,
           unit: gameSettings.speedUnit === 'mph' ? 'MPH' : 'KM/H'
         });
+
+        // Store shot record for tutorial trial ranking & analysis
+        game.lastShotRecord = {
+          kickpoint: currentKp,
+          speedKmh: speedKmh,
+          speedMph: speedMph,
+          releaseMs: shotReleaseMs,
+          pathError: Math.abs(game.shotDeviationX || 0),
+          aimX: game.shotAim ? game.shotAim.x : 0,
+          aimY: game.shotAim ? game.shotAim.y : 300,
+          flightTargetX: shotPhysics.flightTarget ? shotPhysics.flightTarget.x : (game.shotAim ? game.shotAim.x : 0),
+          flightTargetY: shotPhysics.flightTarget ? shotPhysics.flightTarget.y : (game.shotAim ? game.shotAim.y : 300),
+          crossingX: null,
+          crossingY: null,
+          isGoal: false
+        };
 
         game.flightStart.copy(game.puck.position);
         game.flightDuration = shotPhysics.flightDuration;
@@ -1180,8 +1202,14 @@ function animate() {
             game.replayRecording = false;
             document.getElementById('btnInstantReplay').disabled = game.replayFrames.length < 2;
 
+            if (game.lastShotRecord) {
+              game.lastShotRecord.crossingX = crossingX;
+              game.lastShotRecord.crossingY = crossingY;
+              game.lastShotRecord.isGoal = true;
+            }
+
             if (appState.tutorial && appState.tutorial.isActive) {
-              handleTutorialShotComplete();
+              handleTutorialShotComplete(game.lastShotRecord);
             }
 
             schedulePuckReset(2000);
@@ -1193,9 +1221,14 @@ function animate() {
          (game.puckVelocity.lengthSq() < 1000 && game.puck.position.z < -20600) ||
          game.shotElapsed > 8
        )) {
+          if (game.lastShotRecord) {
+            game.lastShotRecord.crossingX = game.lastShotRecord.flightTargetX;
+            game.lastShotRecord.crossingY = game.lastShotRecord.flightTargetY;
+            game.lastShotRecord.isGoal = false;
+          }
           finishMissedShot();
          if (appState.tutorial && appState.tutorial.isActive) {
-           handleTutorialShotComplete();
+           handleTutorialShotComplete(game.lastShotRecord);
          }
        }
     }
@@ -1465,6 +1498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const unit = gameSettings.speedUnit === 'mph' ? 'MPH' : 'KM/H';
     updateScoreboard({ unit });
   });
+  initTrialRankingModal(setupCrossbarChallenge, endTutorial);
   updateScoreboard();
   handleStickModelChange();
 });

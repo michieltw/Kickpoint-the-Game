@@ -75,6 +75,38 @@ export const KICKPOINT_STIFFNESS_CURVES = Object.freeze({
 
 export const DEFAULT_STIFFNESS_CURVE = KICKPOINT_STIFFNESS_CURVES.mid;
 
+export const KICKPOINT_ORDER = Object.freeze([
+  'ultra-low',
+  'low',
+  'mid-low',
+  'hybrid',
+  'mid',
+  'amplified-mid',
+  'high'
+]);
+
+export const kickpointSpeedBoosts = {
+  low: 2.2,          // km/h boost t.o.v. ultra-low bij max power
+  'mid-low': 1.8,    // km/h boost t.o.v. low bij max power
+  hybrid: 1.2,       // km/h boost t.o.v. mid-low bij max power
+  mid: 4.5,          // km/h boost t.o.v. hybrid bij max power (Low -> Mid totaal: ~7.5 km/h)
+  'amplified-mid': 2.5,// km/h boost t.o.v. mid bij max power
+  high: 2.5          // km/h boost t.o.v. amplified-mid bij max power
+};
+
+export function getKickpointCumulativeBoost(kickpoint) {
+  let kp = kickpoint || 'mid';
+  if (kp === 'neutral' || kp === 'custom') kp = 'hybrid';
+  const index = KICKPOINT_ORDER.indexOf(kp);
+  if (index <= 0) return 0;
+  let cum = 0;
+  for (let i = 1; i <= index; i++) {
+    const key = KICKPOINT_ORDER[i];
+    cum += (kickpointSpeedBoosts[key] ?? 0);
+  }
+  return cum;
+}
+
 export const gameSettings = {
   shotSpeed: 1.9,
   swipeRange: 1,

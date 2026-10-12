@@ -252,6 +252,54 @@
             <input id="advKickpointEffect" type="range" min="0" max="200" step="5" value="100">
             <span class="setting-hint">Mate waarin het kickpointprofiel timing en afvuursnelheid beïnvloedt.</span>
           </div>
+
+          <!-- Kickpoint Snelheid Boosts (Ladder t.o.v. onderliggend niveau bij max power) -->
+          <div class="adv-subgroup-box" style="margin-top: 18px; padding: 14px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
+              <strong style="color: #f8fafc; font-size: 0.95rem;">Kickpoint Snelheid Boosts (t.o.v. onderliggend kickpoint)</strong>
+              <span id="advKickpointMidLowDiffBadge" style="font-size: 0.8rem; font-weight: 600; color: #38bdf8; background: rgba(56, 189, 248, 0.12); padding: 2px 8px; border-radius: 4px;">Mid vs Low: +7,5 km/u</span>
+            </div>
+            <p class="setting-hint" style="margin-top: 0; margin-bottom: 12px;">De absolute snelheidswinst in km/u van elk kickpoint ten opzichte van degene net eronder bij een maximaal schot.</p>
+
+            <!-- Live max speed preview chips -->
+            <div id="advKickpointSpeedLadder" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px;"></div>
+
+            <div class="game-setting-row">
+              <label for="advBoostLow">Low Kick Boost <span class="setting-sublabel">(t.o.v. Ultra-Low)</span> <output id="advBoostLowVal">+2,2 km/u</output></label>
+              <input id="advBoostLow" type="range" min="0.0" max="10.0" step="0.1" value="2.2">
+              <span class="setting-hint">Snelheidswinst van Low Kick t.o.v. Ultra-Low Kick bij een max swipe.</span>
+            </div>
+
+            <div class="game-setting-row">
+              <label for="advBoostMidLow">Mid-Low Kick Boost <span class="setting-sublabel">(t.o.v. Low)</span> <output id="advBoostMidLowVal">+1,8 km/u</output></label>
+              <input id="advBoostMidLow" type="range" min="0.0" max="10.0" step="0.1" value="1.8">
+              <span class="setting-hint">Snelheidswinst van Mid-Low Kick t.o.v. Low Kick bij een max swipe.</span>
+            </div>
+
+            <div class="game-setting-row">
+              <label for="advBoostHybrid">Hybrid Kick Boost <span class="setting-sublabel">(t.o.v. Mid-Low)</span> <output id="advBoostHybridVal">+1,2 km/u</output></label>
+              <input id="advBoostHybrid" type="range" min="0.0" max="10.0" step="0.1" value="1.2">
+              <span class="setting-hint">Snelheidswinst van Hybrid Kick t.o.v. Mid-Low Kick bij een max swipe.</span>
+            </div>
+
+            <div class="game-setting-row">
+              <label for="advBoostMid">Mid Kick Boost <span class="setting-sublabel">(t.o.v. Hybrid)</span> <output id="advBoostMidVal">+4,5 km/u</output></label>
+              <input id="advBoostMid" type="range" min="0.0" max="10.0" step="0.1" value="4.5">
+              <span class="setting-hint">Snelheidswinst van Mid Kick t.o.v. Hybrid Kick bij een max swipe (Low → Mid totaal: ~7,5 km/u).</span>
+            </div>
+
+            <div class="game-setting-row">
+              <label for="advBoostAmpMid">Amplified Mid Kick Boost <span class="setting-sublabel">(t.o.v. Mid)</span> <output id="advBoostAmpMidVal">+2,5 km/u</output></label>
+              <input id="advBoostAmpMid" type="range" min="0.0" max="10.0" step="0.1" value="2.5">
+              <span class="setting-hint">Snelheidswinst van Amplified Mid Kick t.o.v. Mid Kick bij een max swipe.</span>
+            </div>
+
+            <div class="game-setting-row">
+              <label for="advBoostHigh">High Kick Boost <span class="setting-sublabel">(t.o.v. Amplified Mid)</span> <output id="advBoostHighVal">+2,5 km/u</output></label>
+              <input id="advBoostHigh" type="range" min="0.0" max="10.0" step="0.1" value="2.5">
+              <span class="setting-hint">Snelheidswinst van High Kick t.o.v. Amplified Mid Kick bij een max swipe.</span>
+            </div>
+          </div>
         </div>
 
         <!-- 3. Release Dynamiek, Recoil & Trillingen -->
@@ -804,6 +852,7 @@
       <button onclick="selectCrossbarStick('mid')">Mid Kick</button>
       <button onclick="selectCrossbarStick('hybrid')">Hybrid Kick</button>
     </div>
+    <button type="button" id="btnShowTrialRanking" class="tutorial-hud-ranking-btn" style="display: none;">📊 Resultaten &amp; Ranking</button>
     <button type="button" id="btnHideTutorialHud" class="tutorial-hud-hide-btn">Hide</button>
   </div>
 
@@ -1023,6 +1072,88 @@
           <button class="btn-jump" data-time="750">750</button>
           <button class="btn-jump" data-time="1000">1000</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stick Trial Ranking Modal Backdrop & Container -->
+  <div id="stick-trial-ranking-backdrop" class="modal-backdrop" hidden></div>
+  <div id="stick-trial-ranking-modal" class="ranking-modal glass-panel" hidden role="dialog" aria-label="Stick Trial Resultaten">
+    <div class="ranking-modal-header">
+      <button type="button" id="btnCloseTrialRanking" class="modal-close-btn" aria-label="Sluiten">✕</button>
+    </div>
+
+    <!-- 1. Kickpoint Averages Section -->
+    <div class="ranking-section-block">
+      <div id="rankingAveragesGrid" class="ranking-averages-grid">
+        <!-- Rendered dynamically by tutorial-ranking.js -->
+      </div>
+    </div>
+
+    <!-- 2. Interactive Ranking & Shot Distribution Section -->
+    <div class="ranking-main-split">
+      <!-- Left: Filter, Sort & Ranked Shots Table -->
+      <div class="ranking-table-panel">
+        <div class="ranking-controls-bar">
+          <div class="ranking-sort-group">
+            <span class="ranking-control-label">Sorteer op:</span>
+            <button type="button" id="btnSortBySpeed" class="ranking-toggle-btn active">⚡ Schotsnelheid</button>
+            <button type="button" id="btnSortByRelease" class="ranking-toggle-btn">⏱️ Release Snelheid</button>
+          </div>
+          <div class="ranking-filter-group">
+            <button type="button" class="ranking-filter-chip active" data-filter="all">Alle</button>
+            <button type="button" class="ranking-filter-chip" data-filter="low">Low</button>
+            <button type="button" class="ranking-filter-chip" data-filter="hybrid">Hybrid</button>
+            <button type="button" class="ranking-filter-chip" data-filter="mid">Mid</button>
+          </div>
+        </div>
+
+        <div class="ranking-table-container">
+          <div class="ranking-table-header-row">
+            <span class="col-rank">Rang</span>
+            <span class="col-stick">Stick</span>
+            <span class="col-speed">Snelheid</span>
+            <span class="col-release">Release</span>
+            <span class="col-acc">Precisie</span>
+          </div>
+          <div id="rankingTableBody" class="ranking-table-body">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: 2D Shot Distribution Canvas with Accuracy Dots -->
+      <div class="ranking-graph-panel">
+        <div class="ranking-graph-header">
+          <div>
+            <h3 class="ranking-section-title">Schotspreiding</h3>
+            <p class="ranking-graph-legend-desc">
+              <span class="legend-dot-sample small-sample"></span> Kleine stip = Hoge precisie
+              <span class="legend-dot-sample large-sample" style="margin-left: 10px;"></span> Grote stip = Afwijking
+            </p>
+          </div>
+          <div class="ranking-graph-kp-legend">
+            <span class="legend-chip"><span class="legend-color-box" style="background: #38bdf8;"></span> Low</span>
+            <span class="legend-chip"><span class="legend-color-box" style="background: #ef4444;"></span> Hybrid</span>
+            <span class="legend-chip"><span class="legend-color-box" style="background: #eab308;"></span> Mid</span>
+          </div>
+        </div>
+
+        <div class="ranking-canvas-container">
+          <canvas id="trialShotDistributionCanvas" width="600" height="380"></canvas>
+          <div id="trialGraphTooltip" class="graph-tooltip" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="ranking-modal-footer">
+      <div class="ranking-footer-note">
+        💡 <em>Beweeg over de stippen voor details</em>
+      </div>
+      <div class="ranking-footer-buttons">
+        <button type="button" id="btnRankingToCustomizer" class="menu-btn secondary">Stick Customizer</button>
+        <button type="button" id="btnRankingContinueCrossbar" class="menu-btn primary ranking-cta-btn">Crossbar Challenge (Fase 4) →</button>
       </div>
     </div>
   </div>

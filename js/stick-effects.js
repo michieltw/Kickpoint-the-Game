@@ -1,3 +1,5 @@
+import { getKickpointCumulativeBoost, gameSettings } from './config.js';
+
 export const STICK_EFFECT_LIMITS = Object.freeze({
   quickness: Object.freeze({ min: 0.65, max: 1.5 }),
   puckSpeed: Object.freeze({ min: 0.65, max: 1.5 }),
@@ -92,15 +94,15 @@ export const STICK_MODIFIER_RULES = Object.freeze({
   },
   kickpoint: {
     presets: {
-      'ultra-low': { quickness: 1.25, puckSpeed: 0.90 },
-      low: { quickness: 1.18, puckSpeed: 0.94 },
-      'mid-low': { quickness: 1.10, puckSpeed: 0.98 },
-      hybrid: { quickness: 1.02, puckSpeed: 1.02 },
-      mid: { quickness: 0.88, puckSpeed: 1.10 },
-      'amplified-mid': { quickness: 0.82, puckSpeed: 1.14 },
-      high: { quickness: 0.78, puckSpeed: 1.18 },
-      neutral: { quickness: 1.00, puckSpeed: 1.00 },
-      custom: { quickness: 1.00, puckSpeed: 1.00 }
+      'ultra-low': { quickness: 1.15 },
+      low: { quickness: 1.10 },
+      'mid-low': { quickness: 1.05 },
+      hybrid: { quickness: 1.00 },
+      mid: { quickness: 0.92 },
+      'amplified-mid': { quickness: 0.88 },
+      high: { quickness: 0.85 },
+      neutral: { quickness: 1.00 },
+      custom: { quickness: 1.00 }
     },
     effects: {}
   },
@@ -209,6 +211,12 @@ export function getStickShotModifiers(customizer = {}) {
       }
     }
   }
+
+  // Apply dynamic kickpoint speed boost ratio (relative to ultra-low baseline)
+  const kp = customizer.kickpoint || 'mid';
+  const kpBoostKmh = getKickpointCumulativeBoost(kp) * (gameSettings?.kickpointEffect ?? 1);
+  const kpSpeedRatio = (76.78 + kpBoostKmh) / 82.08;
+  totals.puckSpeed *= kpSpeedRatio;
 
   totals.quickness = clamp(totals.quickness, STICK_EFFECT_LIMITS.quickness);
   totals.puckSpeed = clamp(totals.puckSpeed, STICK_EFFECT_LIMITS.puckSpeed);

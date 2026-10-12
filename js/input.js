@@ -26,6 +26,76 @@ export function getGoalAim(clientX, clientY, pathErrorX = 0) {
   return new THREE.Vector3(point.x, point.y, game.net.position.z);
 }
 
+export function calculateSwipeKinematics(path, startTime, endTime, startY, endY) {
+  const totalForwardDist = startY - endY;
+  if (totalForwardDist <= 0 || !path || path.length < 2) {
+    return { rawCompositeSpeed: 0, normalizedSpeed: 0, power: 25 };
+  }
+
+  // 1. Vind wanneer de vinger daadwerkelijk begon te bewegen (filter pre-touch aarzeling/dwell)
+  const startPt = path[0];
+  let motionStartIndex = 0;
+  for (let i = 1; i < path.length; i++) {
+    const distFromStart = Math.hypot(path[i].x - startPt.x, path[i].y - startPt.y);
+    if (distFromStart > 8) {
+      motionStartIndex = Math.max(0, i - 1);
+      break;
+    }
+  }
+  const motionStart = path[motionStartIndex];
+  const activeDuration = Math.max(30, endTime - (motionStart.t || startTime));
+  const activeForwardDist = motionStart.y - endY;
+  const activeSpeed = Math.max(0, activeForwardDist / activeDuration); // px/ms
+
+  // 2. Bereken pieksnelheid via een rolling sliding window van ~30-90ms
+  let peakSpeed = activeSpeed;
+  for (let i = motionStartIndex; i < path.length; i++) {
+    for (let j = i + 1; j < path.length; j++) {
+      const dt = (path[j].t || endTime) - (path[i].t || startTime);
+      if (dt >= 30 && dt <= 90) {
+        const dy = path[i].y - path[j].y; // voorwaartse afstand
+        if (dy > 0) {
+          const v = dy / dt;
+          if (v > peakSpeed) peakSpeed = v;
+        }
+      }
+    }
+  }
+
+  // 3. Bereken release/eindsnelheid (laatste 65ms van de swipe vóór liftoff)
+  let releaseSpeed = activeSpeed;
+  const releaseThresholdTime = endTime - 65;
+  for (let i = path.length - 1; i >= motionStartIndex; i--) {
+    if ((path[i].t || endTime) <= releaseThresholdTime) {
+      const dt = endTime - (path[i].t || startTime);
+      const dy = path[i].y - endY;
+      if (dt > 15 && dy > 0) {
+        releaseSpeed = dy / dt;
+      }
+      break;
+    }
+  }
+
+  // 4. Gewogen samengestelde snelheid: beloont sustained drive (45%), explosieve flick (40%) en release (15%)
+  const rawCompositeSpeed = activeSpeed * 0.45 + peakSpeed * 0.40 + releaseSpeed * 0.15;
+
+  // 5. Schermresolutie-normalisatie (gebaseerd op 1000px virtuele hoogte voor consistent gevoel mobiel/desktop)
+  const viewportScale = 1000 / Math.max(400, window.innerHeight);
+  const normalizedSpeed = rawCompositeSpeed * viewportScale;
+
+  // 6. Dynamische power mapping van 25% tot 100%
+  // Realistisch referentie-plafond (8.8 px/ms) zodat opeenvolgende swipes natuurlijk variëren
+  const speedProgress = Math.max(0, (normalizedSpeed - 0.40) / 8.8);
+  const rawPower = 30 + 70 * Math.pow(Math.min(1.0, speedProgress), 0.78);
+  const finalPower = Math.max(25, Math.min(100, Math.round(rawPower * (gameSettings.swipeRange ?? 1.0) * 10) / 10));
+
+  return {
+    rawCompositeSpeed,
+    normalizedSpeed,
+    power: finalPower
+  };
+}
+
 export function bindInput(controls, syncUiFromState) {
   const swipeZone = document.getElementById('swipeZone');
   const aimCanvas = document.getElementById('aimTracerCanvas');
@@ -42,13 +112,15 @@ export function bindInput(controls, syncUiFromState) {
     if (e.target.closest('#btnResetAll')) return;
     aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
     if (game.puckState !== 'idle' || state.isPlaying) return;
+    const now = performance.now();
     swipeData.isSwiping = true;
+    swipeData.power = 0;
     swipeData.startY = e.clientY;
     swipeData.startX = e.clientX;
-    swipeData.startTime = performance.now();
+    swipeData.startTime = now;
     swipeData.triggered = false;
     swipeData.puckHitTime = 0;
-    swipeData.path = [{ x: e.clientX, y: e.clientY }];
+    swipeData.path = [{ x: e.clientX, y: e.clientY, t: now }];
 
     controls.enabled = false;
     e.stopPropagation();
@@ -56,11 +128,19 @@ export function bindInput(controls, syncUiFromState) {
 
   window.addEventListener('pointermove', (e) => {
     if (!swipeData.isSwiping) return;
-    swipeData.path.push({ x: e.clientX, y: e.clientY });
+    const now = performance.now();
+    const coalesced = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : null;
+    if (coalesced && coalesced.length > 0) {
+      for (const ce of coalesced) {
+        swipeData.path.push({ x: ce.clientX, y: ce.clientY, t: ce.timeStamp || now });
+      }
+    } else {
+      swipeData.path.push({ x: e.clientX, y: e.clientY, t: now });
+    }
     const puckScreenY = window.innerHeight * 0.75;
-    if (swipeData.startY > puckScreenY && e.clientY <= puckScreenY && swipeData.puckHitTime === 0) {
+    if (e.clientY <= puckScreenY && swipeData.puckHitTime === 0) {
         swipeData.puckHitY = e.clientY;
-        swipeData.puckHitTime = performance.now();
+        swipeData.puckHitTime = now;
     }
   });
 
@@ -69,23 +149,26 @@ export function bindInput(controls, syncUiFromState) {
         controls.enabled = true;
         return;
     }
+    const now = performance.now();
     swipeData.isSwiping = false;
     controls.enabled = true;
     swipeData.endY = e.clientY;
     swipeData.endX = e.clientX;
-    swipeData.endTime = performance.now();
+    swipeData.endTime = now;
+    swipeData.path.push({ x: e.clientX, y: e.clientY, t: now });
 
     const minSwipeDist = physicsSettings?.minSwipeDistance ?? 100;
     if (swipeData.startY - swipeData.endY > minSwipeDist) {
-        let timeToPuck = swipeData.puckHitTime > 0 ? (swipeData.puckHitTime - swipeData.startTime) : (swipeData.endTime - swipeData.startTime) / 2;
-        if (timeToPuck < 50) timeToPuck = 50;
+        const kinematics = calculateSwipeKinematics(
+          swipeData.path,
+          swipeData.startTime,
+          swipeData.endTime,
+          swipeData.startY,
+          swipeData.endY
+        );
 
-        let distToPuck = swipeData.puckHitY > 0 ? (swipeData.startY - swipeData.puckHitY) : (swipeData.startY - swipeData.endY) / 2;
-
-        const speed = distToPuck / timeToPuck;
-        if (speed < gameSettings.minSwipeSpeed) return;
-        const powerMultiplier = physicsSettings?.swipePowerMultiplier ?? 28;
-        swipeData.power = Math.max(20, Math.min(100, speed * powerMultiplier * gameSettings.swipeRange));
+        if (kinematics.rawCompositeSpeed < gameSettings.minSwipeSpeed) return;
+        swipeData.power = kinematics.power;
 
         let maxPathErrorX = 0;
         let maxPathErrorMagnitude = 0;
