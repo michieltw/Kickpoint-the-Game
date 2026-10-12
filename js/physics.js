@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { L_total, Z_center, X_center, SEGMENTS, gameSettings } from './config.js';
+import { L_total, Z_center, X_center, SEGMENTS, gameSettings, physicsSettings } from './config.js';
 import { state, game } from './state.js';
 import { bgMarker, thMarker, stickParams } from './scene.js';
 
@@ -62,17 +62,18 @@ export function getStiffnessDynamics() {
 }
 
 export function computeBeamProfile(currentBendDeg, bgPercent, isReleased, leverAngleDeg, topPullDownMm, followProgress, peakBendDeg) {
-  const ds = L_total / (SEGMENTS - 1);
-  const s_bg = Math.max(0.12 * L_total, Math.min(0.88 * L_total, (bgPercent / 100) * L_total));
+  const currentL = physicsSettings?.stickLength ?? L_total;
+  const ds = currentL / (SEGMENTS - 1);
+  const s_bg = Math.max(0.12 * currentL, Math.min(0.88 * currentL, (bgPercent / 100) * currentL));
   const kappa = new Float64Array(SEGMENTS);
   let referenceCurvature = 0;
 
   for (let i = 0; i < SEGMENTS; i++) {
     const s = i * ds;
-    const u = s / L_total;
-    let M = (s <= s_bg) ? Math.sin((Math.PI / 2) * (s / s_bg)) : Math.cos((Math.PI / 2) * ((s - s_bg) / (L_total - s_bg)));
-    const handleStiff = 1.5 * Math.pow(Math.max(0, (u - 0.88) / 0.12), 2);
-    const hoselStiff = 0.8 * Math.pow(Math.max(0, (0.08 - u) / 0.08), 2);
+    const u = s / currentL;
+    let M = (s <= s_bg) ? Math.sin((Math.PI / 2) * (s / s_bg)) : Math.cos((Math.PI / 2) * ((s - s_bg) / (currentL - s_bg)));
+    const handleStiff = (physicsSettings?.handleStiffness ?? 1.5) * Math.pow(Math.max(0, (u - 0.88) / 0.12), 2);
+    const hoselStiff = (physicsSettings?.hoselStiffness ?? 0.8) * Math.pow(Math.max(0, (0.08 - u) / 0.08), 2);
     const baseEI = 1.0 + handleStiff + hoselStiff;
     const localStiffness = getStiffnessAt(u);
     const EI = baseEI * (localStiffness / 87.5);
@@ -134,7 +135,7 @@ export function computeBeamProfile(currentBendDeg, bgPercent, isReleased, leverA
 
     const progress = Math.max(0, Math.min(1, followProgress || 0));
     const upperCurvature = 1 - progress;
-    const maxSwingAngle = (78 * Math.PI) / 180;
+    const maxSwingAngle = ((physicsSettings?.maxSwingAngleDeg ?? 78) * Math.PI) / 180;
     const peakTopAngle = peakRawTheta[SEGMENTS - 1] + peakTh;
     const requestedTopAngle = peakTopAngle + (leverAngleDeg * Math.PI / 180) * progress;
     let minRelativeAngle = Infinity, maxRelativeAngle = -Infinity;
@@ -206,7 +207,8 @@ export function computeBeamProfile(currentBendDeg, bgPercent, isReleased, leverA
 }
 
 export function sampleDeformation(origY, profile) {
-  const u = Math.max(0, Math.min(1, origY / L_total));
+  const currentL = physicsSettings?.stickLength ?? L_total;
+  const u = Math.max(0, Math.min(1, origY / currentL));
   const segs = profile.cumulativeZ.length;
   const idx = u * (segs - 1);
   const i0 = Math.floor(idx);
@@ -253,11 +255,13 @@ export function updatePhysics() {
     isReleased = false;
   } else {
     isReleased = true;
-    const releaseDuration = (1000 - 600) * recoveryTimeScale;
+    const relSpeedMult = Math.max(0.1, physicsSettings?.releaseSpeedMultiplier ?? 1.0);
+    const baseReleaseDuration = physicsSettings?.releaseDuration ?? 400;
+    const releaseDuration = (baseReleaseDuration / relSpeedMult) * recoveryTimeScale;
     const tau = Math.max(0, Math.min(1, (t - tPeak) / releaseDuration));
-    const decay = Math.exp(-2.2 * tau);
+    const decay = Math.exp(-(physicsSettings?.recoilDamping ?? 2.2) * tau);
     const whipScale = (state.bladeWhipStrength ?? 100) / 100;
-    const whipPhase = 2.2 * Math.PI * tau;
+    const whipPhase = (physicsSettings?.recoilFrequency ?? 2.2) * Math.PI * tau;
     const osc = Math.cos(whipPhase) + (1 / Math.PI) * Math.sin(whipPhase) + (whipScale - 1) * Math.sin(whipPhase) ** 2;
     const window = Math.cos((Math.PI / 2) * Math.pow(tau, 1.3));
     currentBendDeg = peakBendDeg * decay * osc * window;
@@ -266,7 +270,7 @@ export function updatePhysics() {
     const topScale = Math.max(0.2, thAmpMag / 0.8);
     const configuredPullStart = state.topHandPullStartMs ?? 600;
     const pullStartMs = tPeak + (configuredPullStart - 600);
-    const pullDuration = Math.max(1, (850 - configuredPullStart) * recoveryTimeScale);
+    const pullDuration = Math.max(1, ((850 - configuredPullStart) / relSpeedMult) * recoveryTimeScale);
     const pullTau = Math.max(0, Math.min(1, (t - pullStartMs) / pullDuration));
     pullProgress = 0.5 * (1 - Math.cos(pullTau * Math.PI));
 
@@ -404,6 +408,6 @@ export function getBladeContactProgress() {
     0, 1
   );
   const closestPoint = heel.addScaledVector(bladeAxis, progress);
-  const contactDistance = 250;
+  const contactDistance = physicsSettings?.bladeCatchDistance ?? 250;
   return closestPoint.distanceToSquared(game.puck.position) <= contactDistance ** 2 ? progress : null;
 }

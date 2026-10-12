@@ -1,8 +1,8 @@
 import { appState, state, game } from './state.js';
-import { gameSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE } from './config.js';
+import { gameSettings, physicsSettings, StickCustomizerState, DEFAULT_STIFFNESS_CURVE, KICKPOINT_STIFFNESS_CURVES } from './config.js';
 import { getStickShotModifiers } from './stick-effects.js';
 import { getStiffnessAt, refreshStiffnessCurveCache, sortedStiffnessCurve } from './physics.js';
-import { camera, renderer } from './scene.js';
+import { camera, renderer, updateGoalSpeedDisplay } from './scene.js';
 
 export function updateUiMode() {
   const splash = document.getElementById('splash-screen');
@@ -19,6 +19,10 @@ export function updateUiMode() {
   buildReview.hidden = appState.mode !== 'build-review';
 
   const targetHud = document.getElementById('target-hud');
+  const tutorialHud = document.getElementById('tutorial-hud');
+  if (appState.mode !== 'game' && tutorialHud) {
+    tutorialHud.style.display = 'none';
+  }
   const isSplash = appState.mode === 'splash';
   const isIntro = appState.mode === 'intro';
   const isProfile = appState.mode === 'profile';
@@ -114,28 +118,37 @@ export function analyzeStiffnessProfile() {
     'Ultra-Low Kick', 'Low-Kick', 'Mid-Low Kick',
     'Mid Kick', 'Amplified Mid Kick', 'High Kick'
   ];
-  const kickpoint = softZones.length >= 2
+  const detectedKickpoint = softZones.length >= 2
     ? 'Hybrid Kick'
-    : labels[Math.min(5, Math.floor((softZones[0] ?? 0.5) * 6))];
+    : (softZones.length === 0 ? 'Neutraal' : labels[Math.min(5, Math.floor((softZones[0] ?? 0.5) * 6))]);
+  const isCustom = StickCustomizerState.kickpoint === 'custom';
+  const displayKickpoint = isCustom
+    ? `Custom Kick (${detectedKickpoint})`
+    : (StickCustomizerState.kickpoint === 'neutral' ? 'Neutraal' : detectedKickpoint);
   const flexValue = Math.round(average / 5) * 5;
 
   const kickpointReadout = document.getElementById('kickpointReadout');
   const flexReadout = document.getElementById('flexReadout');
-  if (kickpointReadout) kickpointReadout.textContent = kickpoint;
+  if (kickpointReadout) kickpointReadout.textContent = displayKickpoint;
   if (flexReadout) flexReadout.textContent = `Flex ${flexValue}`;
+
+  const advKickpointReadout = document.getElementById('advKickpointReadout');
+  const advFlexReadout = document.getElementById('advFlexReadout');
+  if (advKickpointReadout) advKickpointReadout.textContent = displayKickpoint;
+  if (advFlexReadout) advFlexReadout.textContent = `Flex ${flexValue}`;
 }
 
-export function drawStiffnessCurve() {
-  const stiffnessCanvas = document.getElementById('stiffnessCurve');
-  if (!stiffnessCanvas) return;
-  const stiffnessCtx = stiffnessCanvas.getContext('2d');
-  const rect = stiffnessCanvas.getBoundingClientRect();
-  if(rect.width === 0) return; // Hidden
+function renderStiffnessToCanvas(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return; // Hidden
 
   const dpr = window.devicePixelRatio || 1;
-  stiffnessCanvas.width = Math.round(rect.width * dpr);
-  stiffnessCanvas.height = Math.round(rect.height * dpr);
-  stiffnessCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const width = rect.width;
   const height = rect.height;
   const plotWidth = width - stiffnessPlot.left - stiffnessPlot.right;
@@ -143,42 +156,56 @@ export function drawStiffnessCurve() {
   const px = x => stiffnessPlot.left + x * plotWidth;
   const py = y => stiffnessPlot.top + (1 - y) * plotHeight;
 
-  stiffnessCtx.clearRect(0, 0, width, height);
-  stiffnessCtx.font = '10px sans-serif';
-  stiffnessCtx.textBaseline = 'middle';
-  stiffnessCtx.lineWidth = 1;
-  stiffnessCtx.strokeStyle = 'rgba(255,255,255,0.1)';
-  stiffnessCtx.fillStyle = '#888888';
+  ctx.clearRect(0, 0, width, height);
+  ctx.font = '10px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.fillStyle = '#888888';
   for (let i = 0; i <= 3; i++) {
     const x = i / 3;
     const y = i / 3;
     const gx = px(x);
     const gy = py(y);
-    stiffnessCtx.beginPath(); stiffnessCtx.moveTo(gx, stiffnessPlot.top); stiffnessCtx.lineTo(gx, height - stiffnessPlot.bottom); stiffnessCtx.stroke();
-    stiffnessCtx.beginPath(); stiffnessCtx.moveTo(stiffnessPlot.left, gy); stiffnessCtx.lineTo(width - stiffnessPlot.right, gy); stiffnessCtx.stroke();
-    stiffnessCtx.fillText(String(Math.round(50 + x * 75)), gx - 10, height - 10);
-    stiffnessCtx.fillText(y.toFixed(2), 3, gy);
+    ctx.beginPath(); ctx.moveTo(gx, stiffnessPlot.top); ctx.lineTo(gx, height - stiffnessPlot.bottom); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(stiffnessPlot.left, gy); ctx.lineTo(width - stiffnessPlot.right, gy); ctx.stroke();
+    ctx.fillText(String(Math.round(50 + x * 75)), gx - 10, height - 10);
+    ctx.fillText(y.toFixed(2), 3, gy);
   }
-  stiffnessCtx.strokeStyle = '#ffffff';
-  stiffnessCtx.lineWidth = 2;
-  stiffnessCtx.beginPath();
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
   sortedStiffnessCurve.forEach((point, index) => {
     const x = px(point.x);
     const y = py(point.y);
-    if (index === 0) stiffnessCtx.moveTo(x, y);
-    else stiffnessCtx.lineTo(x, y);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
-  stiffnessCtx.stroke();
+  ctx.stroke();
   state.stiffnessCurve.forEach(point => {
-    stiffnessCtx.beginPath();
-    stiffnessCtx.arc(px(point.x), py(point.y), 5, 0, Math.PI * 2);
-    stiffnessCtx.fillStyle = '#000000';
-    stiffnessCtx.fill();
-    stiffnessCtx.strokeStyle = '#ffffff';
-    stiffnessCtx.lineWidth = 2;
-    stiffnessCtx.stroke();
+    ctx.beginPath();
+    ctx.arc(px(point.x), py(point.y), 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffeb3b';
+    ctx.fill();
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.stroke();
   });
+}
+
+export function drawStiffnessCurve() {
+  renderStiffnessToCanvas('stiffnessCurve');
+  renderStiffnessToCanvas('advStiffnessCurve');
   analyzeStiffnessProfile();
+}
+
+export function applyKickpointPreset(kickpoint) {
+  const curve = KICKPOINT_STIFFNESS_CURVES[kickpoint] || KICKPOINT_STIFFNESS_CURVES.mid;
+  if (curve) {
+    state.stiffnessCurve = curve.map(p => ({ ...p }));
+    refreshStiffnessCurveCache();
+    drawStiffnessCurve();
+  }
 }
 
 export function stiffnessPointFromEvent(event, canvas) {
@@ -886,6 +913,133 @@ function syncCustomizerControlsFromState() {
   }
   document.getElementById('custFlex').value = StickCustomizerState.flex;
   document.getElementById('custFlexValue').textContent = StickCustomizerState.flex;
+  syncAdvancedSettingsUi();
+}
+
+export function syncAdvancedSettingsUi() {
+  const setRangeVal = (idInput, idOutput, val, suffix = '', factor = 1, decimals = 0) => {
+    const el = document.getElementById(idInput);
+    const out = document.getElementById(idOutput);
+    if (el && val !== undefined && val !== null) el.value = val;
+    if (out && val !== undefined && val !== null) {
+      const displayVal = (Number(val) * factor).toLocaleString('nl-NL', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+        useGrouping: false
+      });
+      out.textContent = `${displayVal}${suffix}`;
+    }
+  };
+
+  // Group 1: Shaft & Fulcrum Mechanics
+  setRangeVal('advBottomGlovePos', 'advBottomGlovePosVal', state.bottomGlovePos, '%');
+  setRangeVal('advBottomGloveAmp', 'advBottomGloveAmpVal', state.bottomGloveAmp, '%');
+  setRangeVal('advBottomGloveTimeframe', 'advBottomGloveTimeframeVal', state.bottomGloveTimeframe ?? 250, ' ms');
+  setRangeVal('advTopHandAmp', 'advTopHandAmpVal', state.topHandAmp, '%');
+  setRangeVal('advTopHandTimeframe', 'advTopHandTimeframeVal', state.topHandTimeframe ?? 250, ' ms');
+  setRangeVal('advMaxBend', 'advMaxBendVal', state.maxBendAngle, '°');
+  const advBendAxis = document.getElementById('advBendAxis');
+  if (advBendAxis && state.bendAxis) advBendAxis.value = state.bendAxis;
+  const advAnchorMode = document.getElementById('advAnchorMode');
+  if (advAnchorMode && state.anchorMode) advAnchorMode.value = state.anchorMode;
+  setRangeVal('advStickLength', 'advStickLengthVal', physicsSettings?.stickLength ?? 1400, ' mm');
+  setRangeVal('advHandleStiffness', 'advHandleStiffnessVal', physicsSettings?.handleStiffness ?? 1.5, '×', 1, 1);
+  setRangeVal('advHoselStiffness', 'advHoselStiffnessVal', physicsSettings?.hoselStiffness ?? 0.8, '×', 1, 1);
+
+  // Group 2: Flex & Kickpoint Properties
+  const advKickpoint = document.getElementById('advKickpoint');
+  if (advKickpoint && StickCustomizerState.kickpoint) advKickpoint.value = StickCustomizerState.kickpoint;
+  setRangeVal('advFlex', 'advFlexVal', StickCustomizerState.flex, '');
+  setRangeVal('advKickpointEffect', 'advKickpointEffectVal', Math.round((gameSettings.kickpointEffect ?? 1) * 100), '%');
+
+  // Group 3: Release Dynamics, Recoil & Vibration
+  setRangeVal('advTopPullStart', 'advTopPullStartVal', state.topHandPullStartMs ?? 600, ' ms');
+  setRangeVal('advTopPullDown', 'advTopPullDownVal', state.topHandPullDownMm ?? 100, ' mm');
+  setRangeVal('advFollowAngle', 'advFollowAngleVal', state.followThroughAngle ?? 50, '°');
+  setRangeVal('advBladeWhip', 'advBladeWhipVal', state.bladeWhipStrength ?? 100, '%');
+  setRangeVal('advReleaseSpeed', 'advReleaseSpeedVal', Math.round((physicsSettings?.releaseSpeedMultiplier ?? 1.0) * 100), '%');
+  setRangeVal('advReleaseDuration', 'advReleaseDurationVal', physicsSettings?.releaseDuration ?? 400, ' ms');
+  setRangeVal('advRecoilDamping', 'advRecoilDampingVal', physicsSettings?.recoilDamping ?? 2.2, '', 1, 1);
+  setRangeVal('advRecoilFrequency', 'advRecoilFrequencyVal', physicsSettings?.recoilFrequency ?? 2.2, '', 1, 1);
+  setRangeVal('advMaxSwingAngleDeg', 'advMaxSwingAngleDegVal', physicsSettings?.maxSwingAngleDeg ?? 78, '°');
+
+  // Group 4: Puck Contact, Launch & Flight Physics
+  setRangeVal('advBaseShotSpeed', 'advBaseShotSpeedVal', physicsSettings?.baseShotSpeed ?? 5000, ' mm/s');
+  setRangeVal('advWhipBonusSpeed', 'advWhipBonusSpeedVal', physicsSettings?.whipBonusSpeed ?? 7000, ' mm/s');
+  setRangeVal('advPuckDwellTime', 'advPuckDwellTimeVal', physicsSettings?.puckDwellTime ?? 180, ' ms');
+  setRangeVal('advBladeClearance', 'advBladeClearanceVal', physicsSettings?.bladeClearance ?? 54, ' mm');
+  setRangeVal('advBladeCatchDistance', 'advBladeCatchDistanceVal', physicsSettings?.bladeCatchDistance ?? 250, ' mm');
+  setRangeVal('advBladeDecelThreshold', 'advBladeDecelThresholdVal', physicsSettings?.bladeDecelThreshold ?? 300, ' mm/s');
+  setRangeVal('advReleaseSafetyLimit', 'advReleaseSafetyLimitVal', physicsSettings?.releaseSafetyLimit ?? 420, ' ms');
+  setRangeVal('advPuckWobbleFactor', 'advPuckWobbleFactorVal', physicsSettings?.puckWobbleFactor ?? 1.0, '×', 1, 1);
+  setRangeVal('advGravityValue', 'advGravityValueVal', physicsSettings?.gravityValue ?? 9810, ' mm/s²');
+
+  // Group 5: Shot Velocity, Aim & Swipe Mechanics
+  setRangeVal('advShotSpeed', 'advShotSpeedVal', Math.round((gameSettings.shotSpeed ?? 1.9) * 100), '%');
+  setRangeVal('advSwipeRange', 'advSwipeRangeVal', Math.round((gameSettings.swipeRange ?? 1) * 100), '%');
+  setRangeVal('advMinSwipeSpeed', 'advMinSwipeSpeedVal', gameSettings.minSwipeSpeed ?? 0.3, ' px/ms', 1, 1);
+  setRangeVal('advMinSwipeDistance', 'advMinSwipeDistanceVal', physicsSettings?.minSwipeDistance ?? 100, ' px');
+  setRangeVal('advSwipePowerMultiplier', 'advSwipePowerMultiplierVal', physicsSettings?.swipePowerMultiplier ?? 52, '');
+  setRangeVal('advAimSensitivity', 'advAimSensitivityVal', physicsSettings?.aimSensitivity ?? 1.5, '×', 1, 1);
+  setRangeVal('advPrecisionTolerance', 'advPrecisionToleranceVal', gameSettings.precisionTolerance ?? 12, ' px');
+  setRangeVal('advDeviationPenalty', 'advDeviationPenaltyVal', Math.round((gameSettings.deviationPenalty ?? 1) * 100), '%');
+
+  // Group 6: Blade Profile, Construction & Modifiers
+  const selectSyncMap = {
+    advBladeCurve: StickCustomizerState.bladeCurve,
+    advBladeTexture: StickCustomizerState.bladeTexture,
+    advShaftWall: StickCustomizerState.shaftWall,
+    advShaftSurface: StickCustomizerState.shaftSurface,
+    advShaft3dGrip: StickCustomizerState.shaft3dGrip,
+    advShaftShape: StickCustomizerState.shaftShape,
+    advAgeCategory: StickCustomizerState.ageCategory,
+    advHandedness: StickCustomizerState.handedness
+  };
+  for (const [id, val] of Object.entries(selectSyncMap)) {
+    const el = document.getElementById(id);
+    if (el && val) el.value = val;
+  }
+  setRangeVal('advShaftThickness', 'advShaftThicknessVal', StickCustomizerState.shaftThickness ?? 2.0, ' mm', 1, 1);
+
+  const chkShaftGrip = document.getElementById('advShaftGrip');
+  if (chkShaftGrip) chkShaftGrip.checked = Boolean(StickCustomizerState.shaftGrip);
+  const chkBladeGrip = document.getElementById('advBladeGrip');
+  if (chkBladeGrip) chkBladeGrip.checked = Boolean(StickCustomizerState.bladeGrip);
+  const chkStickTape = document.getElementById('advStickTape');
+  if (chkStickTape) chkStickTape.checked = Boolean(StickCustomizerState.stickTape);
+
+  // Compute live stick shot modifiers and update stat badges
+  const mods = getStickShotModifiers(StickCustomizerState);
+  const statWeight = document.getElementById('advStatWeight');
+  if (statWeight) statWeight.textContent = `${Math.round(mods.stickWeight)} g`;
+  const statPuckSpeed = document.getElementById('advStatPuckSpeed');
+  if (statPuckSpeed) statPuckSpeed.textContent = `${Math.round(mods.puckSpeed * 100)}%`;
+  const statQuickness = document.getElementById('advStatQuickness');
+  if (statQuickness) statQuickness.textContent = `${Math.round(mods.quickness * 100)}%`;
+  const statAccuracy = document.getElementById('advStatAccuracy');
+  if (statAccuracy) statAccuracy.textContent = `${Math.round(mods.accuracy * 100)}%`;
+  const statTendency = document.getElementById('advStatTendency');
+  if (statTendency) statTendency.textContent = `${mods.shotTendencyY >= 0 ? '+' : ''}${(mods.shotTendencyY * 100).toFixed(1)}%`;
+
+  // Group 7: Timeline & Simulation Preview
+  const advTimeline = document.getElementById('advTimeline');
+  const advTimelineVal = document.getElementById('advTimelineVal');
+  if (advTimeline) advTimeline.value = state.timeline;
+  if (advTimelineVal) advTimelineVal.textContent = `${state.timeline} ms`;
+  setRangeVal('advAnimPlaybackSpeed', 'advAnimPlaybackSpeedVal', Math.round((physicsSettings?.animPlaybackMultiplier ?? 1.0) * 100), '%');
+  const btnAdvHold = document.getElementById('btnAdvHoldMax');
+  if (btnAdvHold) {
+    btnAdvHold.classList.toggle('active', Boolean(state.holdMaxBend));
+    btnAdvHold.textContent = state.holdMaxBend ? '✓ Vasthouden (600 ms)' : 'Dynamische Schotcyclus';
+  }
+  const btnAdvPlay = document.getElementById('btnAdvPlay');
+  if (btnAdvPlay) {
+    btnAdvPlay.textContent = state.isPlaying ? '❚❚ Pauze' : '▶ Play';
+  }
+  document.querySelectorAll('.adv-btn-jump').forEach(btn => {
+    const t = parseInt(btn.getAttribute('data-time'), 10);
+    btn.classList.toggle('active', t === state.timeline && !state.holdMaxBend);
+  });
 }
 
 export function syncUiFromState() {
@@ -928,6 +1082,8 @@ export function syncUiFromState() {
       btn.classList.remove('active');
     }
   });
+
+  syncAdvancedSettingsUi();
 }
 
 export function initUiBindings(updatePhysics) {
@@ -1043,7 +1199,11 @@ export function initUiBindings(updatePhysics) {
         updateUiMode();
     });
 
-    document.getElementById('btnSettings').addEventListener('click', () => { appState.mode = 'gameSettings'; updateUiMode(); });
+    document.getElementById('btnSettings').addEventListener('click', () => {
+        appState.mode = 'gameSettings';
+        updateUiMode();
+        syncAdvancedSettingsUi();
+    });
     document.getElementById('btnCustomizer').addEventListener('click', () => { appState.mode = 'customizer'; updateUiMode(); });
     document.getElementById('btnSettingsPlay').addEventListener('click', () => { appState.mode = 'game'; updateUiMode(); });
     document.getElementById('btnPhysicsSettings').addEventListener('click', () => {
@@ -1053,31 +1213,67 @@ export function initUiBindings(updatePhysics) {
     });
     document.getElementById('btnGameSettingsBack').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
     document.getElementById('btnMenu').addEventListener('click', () => { appState.mode = 'menu'; updateUiMode(); });
+    const btnHints = document.getElementById('btnHints');
+    if (btnHints) {
+        btnHints.addEventListener('click', () => {
+            const hud = document.getElementById('tutorial-hud');
+            if (!hud) return;
+            const isHidden = hud.style.display === 'none' || getComputedStyle(hud).display === 'none';
+            hud.style.display = isHidden ? 'flex' : 'none';
+        });
+    }
+    const btnHideTutorialHud = document.getElementById('btnHideTutorialHud');
+    if (btnHideTutorialHud) {
+        btnHideTutorialHud.addEventListener('click', () => {
+            const hud = document.getElementById('tutorial-hud');
+            if (hud) hud.style.display = 'none';
+        });
+    }
     document.getElementById('btnSettingsBack').addEventListener('click', (e) => {
         e.stopPropagation();
         appState.mode = 'gameSettings';
         updateUiMode();
+        syncAdvancedSettingsUi();
     });
 
     // Customizer Hookings
     document.getElementById('custHandedness').addEventListener('change', (e) => {
         StickCustomizerState.handedness = e.target.value;
+        syncAdvancedSettingsUi();
     });
     document.getElementById('custColor').addEventListener('change', (e) => {
         StickCustomizerState.color = e.target.value;
     });
-    document.getElementById('custBladePattern').addEventListener('change', (e) => StickCustomizerState.bladeCurve = e.target.value);
-    document.getElementById('custShaftShape').addEventListener('change', (e) => StickCustomizerState.shaftShape = e.target.value);
-    document.getElementById('custShaftSurface').addEventListener('change', (e) => StickCustomizerState.shaftSurface = e.target.value);
-    document.getElementById('custShaft3dGrip').addEventListener('change', (e) => StickCustomizerState.shaft3dGrip = e.target.value);
-    document.getElementById('custBladeTexture').addEventListener('change', (e) => StickCustomizerState.bladeTexture = e.target.value);
+    document.getElementById('custBladePattern').addEventListener('change', (e) => {
+        StickCustomizerState.bladeCurve = e.target.value;
+        syncAdvancedSettingsUi();
+    });
+    document.getElementById('custShaftShape').addEventListener('change', (e) => {
+        StickCustomizerState.shaftShape = e.target.value;
+        syncAdvancedSettingsUi();
+    });
+    document.getElementById('custShaftSurface').addEventListener('change', (e) => {
+        StickCustomizerState.shaftSurface = e.target.value;
+        syncAdvancedSettingsUi();
+    });
+    document.getElementById('custShaft3dGrip').addEventListener('change', (e) => {
+        StickCustomizerState.shaft3dGrip = e.target.value;
+    });
+    document.getElementById('custBladeTexture').addEventListener('change', (e) => {
+        StickCustomizerState.bladeTexture = e.target.value;
+        syncAdvancedSettingsUi();
+    });
     document.getElementById('custFlex').addEventListener('input', (e) => {
         StickCustomizerState.flex = e.target.value;
         document.getElementById('custFlexValue').textContent = e.target.value;
+        syncAdvancedSettingsUi();
     });
     document.getElementById('custKickpoint').addEventListener('change', (e) => {
         StickCustomizerState.kickpoint = e.target.value;
+        applyKickpointPreset(e.target.value);
         window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
+        syncAdvancedSettingsUi();
+        updatePhysics();
     });
 
     const shaftWallThicknesses = {
@@ -1092,12 +1288,14 @@ export function initUiBindings(updatePhysics) {
         const thickness = shaftWallThicknesses[e.target.value];
         StickCustomizerState.shaftWall = e.target.value;
         StickCustomizerState.shaftThickness = thickness;
+        syncAdvancedSettingsUi();
     });
 
     // Game settings bindings
     document.getElementById('settingSpeedUnit').addEventListener('change', (e) => {
         gameSettings.speedUnit = e.target.value;
         document.getElementById('speed-unit-lbl').textContent = e.target.value === 'kmh' ? 'km/h' : 'mp/h';
+        updateGoalSpeedDisplay(undefined, e.target.value === 'kmh' ? 'KM/H' : 'MPH');
     });
     document.getElementById('settingShowShotTracer').addEventListener('change', (e) => {
         gameSettings.showShotTracer = e.target.checked;
@@ -1123,8 +1321,422 @@ export function initUiBindings(updatePhysics) {
             output.textContent = format(input.value);
             if (key === 'kickpointEffect') refreshStiffnessCurveCache();
             updatePhysics();
+            syncAdvancedSettingsUi();
         });
     });
+
+    // --- Settings Tab Navigation ---
+    const tabBtnGeneral = document.getElementById('tabBtnGeneral');
+    const tabBtnAdvanced = document.getElementById('tabBtnAdvanced');
+    const tabGeneral = document.getElementById('settingsTabGeneral');
+    const tabAdvanced = document.getElementById('settingsTabAdvanced');
+
+    function switchSettingsTab(tabName) {
+      if (tabName === 'advanced') {
+        tabBtnAdvanced?.classList.add('active');
+        tabBtnGeneral?.classList.remove('active');
+        if (tabGeneral) tabGeneral.hidden = true;
+        if (tabAdvanced) tabAdvanced.hidden = false;
+        syncAdvancedSettingsUi();
+        requestAnimationFrame(() => {
+          drawStiffnessCurve();
+        });
+      } else {
+        tabBtnGeneral?.classList.add('active');
+        tabBtnAdvanced?.classList.remove('active');
+        if (tabGeneral) tabGeneral.hidden = false;
+        if (tabAdvanced) tabAdvanced.hidden = true;
+      }
+    }
+
+    tabBtnGeneral?.addEventListener('click', () => switchSettingsTab('general'));
+    tabBtnAdvanced?.addEventListener('click', () => switchSettingsTab('advanced'));
+
+    // --- Advanced Settings Tab Bindings ---
+    // 1. Shaft & Fulcrum State Controls
+    const advStateBindings = [
+      ['advBottomGlovePos', 'advBottomGlovePosVal', 'bottomGlovePos', v => `${v}%`, ['slBottomGlovePos', 'numBottomGlovePos']],
+      ['advBottomGloveAmp', 'advBottomGloveAmpVal', 'bottomGloveAmp', v => `${v}%`, ['slBottomGloveAmp', 'numBottomGloveAmp']],
+      ['advBottomGloveTimeframe', 'advBottomGloveTimeframeVal', 'bottomGloveTimeframe', v => `${v} ms`, []],
+      ['advTopHandAmp', 'advTopHandAmpVal', 'topHandAmp', v => `${v}%`, ['slTopHandAmp', 'numTopHandAmp']],
+      ['advTopHandTimeframe', 'advTopHandTimeframeVal', 'topHandTimeframe', v => `${v} ms`, []],
+      ['advMaxBend', 'advMaxBendVal', 'maxBendAngle', v => `${v}°`, ['slMaxBend', 'numMaxBend']],
+      ['advTopPullStart', 'advTopPullStartVal', 'topHandPullStartMs', v => `${v} ms`, ['slTopPullStart', 'numTopPullStart']],
+      ['advTopPullDown', 'advTopPullDownVal', 'topHandPullDownMm', v => `${v} mm`, ['slTopPullDown', 'numTopPullDown']],
+      ['advFollowAngle', 'advFollowAngleVal', 'followThroughAngle', v => `${v}°`, ['slFollowAngle', 'numFollowAngle']],
+      ['advBladeWhip', 'advBladeWhipVal', 'bladeWhipStrength', v => `${v}%`, ['slBladeWhip', 'numBladeWhip']]
+    ];
+
+    advStateBindings.forEach(([advId, advOutId, stateKey, format, workbenchIds]) => {
+      const advInput = document.getElementById(advId);
+      const advOut = document.getElementById(advOutId);
+      if (!advInput) return;
+      advInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        state[stateKey] = val;
+        if (advOut) advOut.textContent = format(val);
+        workbenchIds.forEach(id => {
+          const wb = document.getElementById(id);
+          if (wb) wb.value = val;
+        });
+        updatePhysics();
+      });
+    });
+
+    const advBendAxis = document.getElementById('advBendAxis');
+    if (advBendAxis) {
+      advBendAxis.addEventListener('change', (e) => {
+        state.bendAxis = e.target.value;
+        updatePhysics();
+      });
+    }
+
+    const advAnchorMode = document.getElementById('advAnchorMode');
+    if (advAnchorMode) {
+      advAnchorMode.addEventListener('change', (e) => {
+        state.anchorMode = e.target.value;
+        updatePhysics();
+      });
+    }
+
+    // 2. PhysicsSettings Controls (Simulation, Dwell, Recoil, Flight & Swipe Constants)
+    const advPhysicsBindings = [
+      ['advStickLength', 'advStickLengthVal', 'stickLength', v => `${v} mm`, v => parseFloat(v)],
+      ['advHandleStiffness', 'advHandleStiffnessVal', 'handleStiffness', v => `${Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`, v => parseFloat(v)],
+      ['advHoselStiffness', 'advHoselStiffnessVal', 'hoselStiffness', v => `${Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`, v => parseFloat(v)],
+      ['advRecoilDamping', 'advRecoilDampingVal', 'recoilDamping', v => Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }), v => parseFloat(v)],
+      ['advRecoilFrequency', 'advRecoilFrequencyVal', 'recoilFrequency', v => Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }), v => parseFloat(v)],
+      ['advReleaseSpeed', 'advReleaseSpeedVal', 'releaseSpeedMultiplier', v => `${v}%`, v => parseFloat(v) / 100],
+      ['advReleaseDuration', 'advReleaseDurationVal', 'releaseDuration', v => `${v} ms`, v => parseFloat(v)],
+      ['advAnimPlaybackSpeed', 'advAnimPlaybackSpeedVal', 'animPlaybackMultiplier', v => `${v}%`, v => parseFloat(v) / 100],
+      ['advMaxSwingAngleDeg', 'advMaxSwingAngleDegVal', 'maxSwingAngleDeg', v => `${v}°`, v => parseFloat(v)],
+      ['advBaseShotSpeed', 'advBaseShotSpeedVal', 'baseShotSpeed', v => `${v} mm/s`, v => parseFloat(v)],
+      ['advWhipBonusSpeed', 'advWhipBonusSpeedVal', 'whipBonusSpeed', v => `${v} mm/s`, v => parseFloat(v)],
+      ['advPuckDwellTime', 'advPuckDwellTimeVal', 'puckDwellTime', v => `${v} ms`, v => parseFloat(v)],
+      ['advBladeClearance', 'advBladeClearanceVal', 'bladeClearance', v => `${v} mm`, v => parseFloat(v)],
+      ['advBladeCatchDistance', 'advBladeCatchDistanceVal', 'bladeCatchDistance', v => `${v} mm`, v => parseFloat(v)],
+      ['advBladeDecelThreshold', 'advBladeDecelThresholdVal', 'bladeDecelThreshold', v => `${v} mm/s`, v => parseFloat(v)],
+      ['advReleaseSafetyLimit', 'advReleaseSafetyLimitVal', 'releaseSafetyLimit', v => `${v} ms`, v => parseFloat(v)],
+      ['advPuckWobbleFactor', 'advPuckWobbleFactorVal', 'puckWobbleFactor', v => `${Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`, v => parseFloat(v)],
+      ['advGravityValue', 'advGravityValueVal', 'gravityValue', v => `${v} mm/s²`, v => parseFloat(v)],
+      ['advMinSwipeDistance', 'advMinSwipeDistanceVal', 'minSwipeDistance', v => `${v} px`, v => parseFloat(v)],
+      ['advSwipePowerMultiplier', 'advSwipePowerMultiplierVal', 'swipePowerMultiplier', v => `${v}`, v => parseFloat(v)],
+      ['advAimSensitivity', 'advAimSensitivityVal', 'aimSensitivity', v => `${Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}×`, v => parseFloat(v)]
+    ];
+
+    advPhysicsBindings.forEach(([advId, advOutId, key, format, parse]) => {
+      const el = document.getElementById(advId);
+      const out = document.getElementById(advOutId);
+      if (!el) return;
+      el.addEventListener('input', (e) => {
+        const val = parse(e.target.value);
+        physicsSettings[key] = val;
+        if (out) out.textContent = format(e.target.value);
+        updatePhysics();
+      });
+    });
+
+    // 3. GameSettings Controls (Shot Speed, Swipe Range, Kickpoint Effect, Precision & Deviation)
+    const advGameSettingsBindings = [
+      ['advShotSpeed', 'advShotSpeedVal', 'shotSpeed', v => `${v}%`, v => v / 100, 'settingShotSpeed', 'settingShotSpeedValue'],
+      ['advSwipeRange', 'advSwipeRangeVal', 'swipeRange', v => `${v}%`, v => v / 100, 'settingSwipeRange', 'settingSwipeRangeValue'],
+      ['advKickpointEffect', 'advKickpointEffectVal', 'kickpointEffect', v => `${v}%`, v => v / 100, 'settingKickpointEffect', 'settingKickpointEffectValue'],
+      ['advMinSwipeSpeed', 'advMinSwipeSpeedVal', 'minSwipeSpeed', v => `${Number(v).toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} px/ms`, v => Number(v), 'settingMinSwipeSpeed', 'settingMinSwipeSpeedValue'],
+      ['advPrecisionTolerance', 'advPrecisionToleranceVal', 'precisionTolerance', v => `${v} px`, v => Number(v), 'settingPrecisionTolerance', 'settingPrecisionToleranceValue'],
+      ['advDeviationPenalty', 'advDeviationPenaltyVal', 'deviationPenalty', v => `${v}%`, v => v / 100, 'settingDeviationPenalty', 'settingDeviationPenaltyValue']
+    ];
+
+    advGameSettingsBindings.forEach(([advId, advOutId, key, format, parse, genInputId, genOutId]) => {
+      const advInput = document.getElementById(advId);
+      const advOut = document.getElementById(advOutId);
+      if (!advInput) return;
+      advInput.addEventListener('input', () => {
+        const val = parse(advInput.value);
+        gameSettings[key] = val;
+        if (advOut) advOut.textContent = format(advInput.value);
+        const genInput = document.getElementById(genInputId);
+        const genOut = document.getElementById(genOutId);
+        if (genInput) genInput.value = advInput.value;
+        if (genOut) genOut.textContent = format(advInput.value);
+        if (key === 'kickpointEffect') refreshStiffnessCurveCache();
+        updatePhysics();
+      });
+    });
+
+    // 4. StickCustomizerState Controls
+    const advFlex = document.getElementById('advFlex');
+    if (advFlex) {
+      advFlex.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        StickCustomizerState.flex = val;
+        const out = document.getElementById('advFlexVal');
+        if (out) out.textContent = val;
+        const custFl = document.getElementById('custFlex');
+        const custFlVal = document.getElementById('custFlexValue');
+        if (custFl) custFl.value = val;
+        if (custFlVal) custFlVal.textContent = val;
+        syncAdvancedSettingsUi();
+        updatePhysics();
+      });
+    }
+
+    const advKickpoint = document.getElementById('advKickpoint');
+    if (advKickpoint) {
+      advKickpoint.addEventListener('change', (e) => {
+        StickCustomizerState.kickpoint = e.target.value;
+        const custKp = document.getElementById('custKickpoint');
+        if (custKp) custKp.value = e.target.value;
+        applyKickpointPreset(e.target.value);
+        window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
+        syncAdvancedSettingsUi();
+        updatePhysics();
+      });
+    }
+
+    const advBladeCurve = document.getElementById('advBladeCurve');
+    if (advBladeCurve) {
+      advBladeCurve.addEventListener('change', (e) => {
+        StickCustomizerState.bladeCurve = e.target.value;
+        const custBp = document.getElementById('custBladePattern');
+        if (custBp) {
+          custBp.value = e.target.value;
+          custBp.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advBladeTexture = document.getElementById('advBladeTexture');
+    if (advBladeTexture) {
+      advBladeTexture.addEventListener('change', (e) => {
+        StickCustomizerState.bladeTexture = e.target.value;
+        const custBt = document.getElementById('custBladeTexture');
+        if (custBt) custBt.value = e.target.value;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advShaftWall = document.getElementById('advShaftWall');
+    if (advShaftWall) {
+      advShaftWall.addEventListener('change', (e) => {
+        const thickness = shaftWallThicknesses[e.target.value] ?? 2.0;
+        StickCustomizerState.shaftWall = e.target.value;
+        StickCustomizerState.shaftThickness = thickness;
+        const custSw = document.getElementById('custShaftWall');
+        if (custSw) custSw.value = e.target.value;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advShaftThickness = document.getElementById('advShaftThickness');
+    if (advShaftThickness) {
+      advShaftThickness.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        StickCustomizerState.shaftThickness = val;
+        const out = document.getElementById('advShaftThicknessVal');
+        if (out) out.textContent = `${val.toLocaleString('nl-NL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} mm`;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advShaftSurface = document.getElementById('advShaftSurface');
+    if (advShaftSurface) {
+      advShaftSurface.addEventListener('change', (e) => {
+        StickCustomizerState.shaftSurface = e.target.value;
+        const custSs = document.getElementById('custShaftSurface');
+        if (custSs) custSs.value = e.target.value;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advShaft3dGrip = document.getElementById('advShaft3dGrip');
+    if (advShaft3dGrip) {
+      advShaft3dGrip.addEventListener('change', (e) => {
+        StickCustomizerState.shaft3dGrip = e.target.value;
+        const cust = document.getElementById('custShaft3dGrip');
+        if (cust) cust.value = e.target.value;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advShaftShape = document.getElementById('advShaftShape');
+    if (advShaftShape) {
+      advShaftShape.addEventListener('change', (e) => {
+        StickCustomizerState.shaftShape = e.target.value;
+        const custSh = document.getElementById('custShaftShape');
+        if (custSh) custSh.value = e.target.value;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advAgeCategory = document.getElementById('advAgeCategory');
+    if (advAgeCategory) {
+      advAgeCategory.addEventListener('change', (e) => {
+        StickCustomizerState.ageCategory = e.target.value;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const advHandedness = document.getElementById('advHandedness');
+    if (advHandedness) {
+      advHandedness.addEventListener('change', (e) => {
+        StickCustomizerState.handedness = e.target.value;
+        const custHn = document.getElementById('custHandedness');
+        if (custHn) {
+          custHn.value = e.target.value;
+          custHn.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        const radio = document.querySelector(`input[name="handedness"][value="${e.target.value}"]`);
+        if (radio) radio.checked = true;
+        syncAdvancedSettingsUi();
+      });
+    }
+
+    const bindCheckbox = (id, prop) => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', (e) => {
+          StickCustomizerState[prop] = e.target.checked;
+          syncAdvancedSettingsUi();
+        });
+      }
+    };
+    bindCheckbox('advShaftGrip', 'shaftGrip');
+    bindCheckbox('advBladeGrip', 'bladeGrip');
+    bindCheckbox('advStickTape', 'stickTape');
+
+    // 5. Timeline Controls (Settings Tab)
+    const advTimeline = document.getElementById('advTimeline');
+    if (advTimeline) {
+      advTimeline.addEventListener('input', (e) => {
+        state.timeline = parseInt(e.target.value, 10);
+        state.holdMaxBend = false;
+        syncUiFromState();
+        updatePhysics();
+      });
+    }
+
+    const btnAdvHoldMax = document.getElementById('btnAdvHoldMax');
+    if (btnAdvHoldMax) {
+      btnAdvHoldMax.addEventListener('click', () => {
+        state.holdMaxBend = !state.holdMaxBend;
+        if (state.holdMaxBend) state.timeline = 600;
+        syncUiFromState();
+        updatePhysics();
+      });
+    }
+
+    const btnAdvPlay = document.getElementById('btnAdvPlay');
+    if (btnAdvPlay) {
+      btnAdvPlay.addEventListener('click', () => {
+        state.isPlaying = !state.isPlaying;
+        state.holdMaxBend = false;
+        btnAdvPlay.textContent = state.isPlaying ? '❚❚ Pauze' : '▶ Play';
+        syncUiFromState();
+      });
+    }
+
+    document.querySelectorAll('.adv-btn-jump').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.timeline = parseInt(btn.getAttribute('data-time'), 10);
+        state.holdMaxBend = false;
+        syncUiFromState();
+        updatePhysics();
+      });
+    });
+
+    // 6. Reset Advanced Settings to Defaults
+    const btnResetAdv = document.getElementById('btnResetAdvSettings');
+    if (btnResetAdv) {
+      btnResetAdv.addEventListener('click', () => {
+        state.bottomGlovePos = 50;
+        state.bottomGloveAmp = 100;
+        state.bottomGloveTimeframe = 250;
+        state.topHandAmp = 100;
+        state.topHandTimeframe = 250;
+        state.maxBendAngle = 45;
+        state.topHandPullStartMs = 600;
+        state.topHandPullDownMm = 100;
+        state.followThroughAngle = 50;
+        state.bladeWhipStrength = 100;
+        state.bendAxis = 'forwards';
+        state.anchorMode = 'bow';
+        state.timeline = 600;
+        state.holdMaxBend = false;
+        state.isPlaying = false;
+        state.stiffnessCurve = DEFAULT_STIFFNESS_CURVE.map(point => ({ ...point }));
+
+        gameSettings.shotSpeed = 1.9;
+        gameSettings.swipeRange = 1.0;
+        gameSettings.kickpointEffect = 1.0;
+        gameSettings.minSwipeSpeed = 0.3;
+        gameSettings.precisionTolerance = 12;
+        gameSettings.deviationPenalty = 1.0;
+
+        physicsSettings.baseShotSpeed = 5000;
+        physicsSettings.whipBonusSpeed = 7000;
+        physicsSettings.puckDwellTime = 180;
+        physicsSettings.bladeClearance = 54;
+        physicsSettings.bladeCatchDistance = 250;
+        physicsSettings.bladeDecelThreshold = 300;
+        physicsSettings.releaseSafetyLimit = 420;
+        physicsSettings.recoilDamping = 2.2;
+        physicsSettings.recoilFrequency = 2.2;
+        physicsSettings.handleStiffness = 1.5;
+        physicsSettings.hoselStiffness = 0.8;
+        physicsSettings.maxSwingAngleDeg = 78;
+        physicsSettings.stickLength = 1400;
+        physicsSettings.minSwipeDistance = 100;
+        physicsSettings.swipePowerMultiplier = 28;
+        physicsSettings.aimSensitivity = 1.5;
+        physicsSettings.gravityValue = 9810;
+        physicsSettings.puckWobbleFactor = 1.0;
+        physicsSettings.animPlaybackMultiplier = 1.0;
+        physicsSettings.releaseSpeedMultiplier = 1.0;
+        physicsSettings.releaseDuration = 400;
+
+        StickCustomizerState.flex = 90;
+        StickCustomizerState.kickpoint = 'mid';
+        StickCustomizerState.bladeCurve = 'P28';
+        StickCustomizerState.bladeTexture = '3d-texture';
+        StickCustomizerState.shaftWall = 'very-thin';
+        StickCustomizerState.shaftThickness = 2.0;
+        StickCustomizerState.shaftSurface = 'mat-without-grip';
+        StickCustomizerState.shaft3dGrip = 'fully-covered';
+        StickCustomizerState.shaftShape = 'micro-concaaf';
+        StickCustomizerState.ageCategory = 'SR';
+        StickCustomizerState.handedness = 'right';
+        StickCustomizerState.shaftGrip = false;
+        StickCustomizerState.bladeGrip = false;
+        StickCustomizerState.stickTape = false;
+
+        const genMap = {
+          settingShotSpeed: ['190', '190%'],
+          settingSwipeRange: ['100', '100%'],
+          settingKickpointEffect: ['100', '100%'],
+          settingMinSwipeSpeed: ['0.3', '0,3 px/ms'],
+          settingPrecisionTolerance: ['12', '12 px'],
+          settingDeviationPenalty: ['100', '100%']
+        };
+        for (const [id, [val, display]] of Object.entries(genMap)) {
+          const inp = document.getElementById(id);
+          const out = document.getElementById(id + 'Value');
+          if (inp) inp.value = val;
+          if (out) out.textContent = display;
+        }
+
+        syncCustomizerControlsFromState();
+        const custPattern = document.getElementById('custBladePattern');
+        if (custPattern) custPattern.dispatchEvent(new Event('change', { bubbles: true }));
+        window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
+
+        refreshStiffnessCurveCache();
+        syncUiFromState();
+        syncAdvancedSettingsUi();
+        drawStiffnessCurve();
+        updatePhysics();
+      });
+    }
 
     // Two-way bindings for physics workbench
     function bindTwoWay(idSlider, idNum, key) {
@@ -1134,10 +1746,11 @@ export function initUiBindings(updatePhysics) {
             sl.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
                 state[key] = val; num.value = val; updatePhysics();
+                syncAdvancedSettingsUi();
             });
             num.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
-                if (!isNaN(val)) { state[key] = val; sl.value = val; updatePhysics(); }
+                if (!isNaN(val)) { state[key] = val; sl.value = val; updatePhysics(); syncAdvancedSettingsUi(); }
             });
         }
     }
@@ -1150,63 +1763,67 @@ export function initUiBindings(updatePhysics) {
     bindTwoWay('slFollowAngle', 'numFollowAngle', 'followThroughAngle');
     bindTwoWay('slBladeWhip', 'numBladeWhip', 'bladeWhipStrength');
 
-    const stiffnessCanvas = document.getElementById('stiffnessCurve');
-    if (stiffnessCanvas) {
-        stiffnessCanvas.addEventListener('pointerdown', event => {
-            const point = stiffnessPointFromEvent(event, stiffnessCanvas);
-            const rect = stiffnessCanvas.getBoundingClientRect();
-            const plotWidth = rect.width - stiffnessPlot.left - stiffnessPlot.right;
-            const plotHeight = rect.height - stiffnessPlot.top - stiffnessPlot.bottom;
-            let draggedStiffnessPoint = state.stiffnessCurve.findIndex(item =>
-                Math.hypot((item.x - point.x) * plotWidth, (item.y - point.y) * plotHeight) < 14
-            );
-            if (draggedStiffnessPoint < 0) {
-                if (point.px < stiffnessPlot.left || point.px > rect.width - stiffnessPlot.right ||
-                    point.py < stiffnessPlot.top || point.py > rect.height - stiffnessPlot.bottom) return;
-                state.stiffnessCurve.push({ x: point.x, y: point.y });
-                state.stiffnessCurve.sort((a, b) => a.y - b.y);
-                refreshStiffnessCurveCache();
-            }
-            stiffnessCanvas.setPointerCapture(event.pointerId);
-            stiffnessCanvas.dataset.dragIndex = draggedStiffnessPoint;
-            drawStiffnessCurve();
-            updatePhysics();
-        });
-
-        stiffnessCanvas.addEventListener('pointermove', event => {
-            let dragIndex = parseInt(stiffnessCanvas.dataset.dragIndex);
-            if (isNaN(dragIndex) || dragIndex < 0) return;
-            const point = stiffnessPointFromEvent(event, stiffnessCanvas);
-            const item = state.stiffnessCurve[dragIndex];
-            item.x = point.x;
-            const epsilon = 0.005;
-            item.y = dragIndex === 0 ? 0 :
-                dragIndex === state.stiffnessCurve.length - 1 ? 1 :
-                Math.max(state.stiffnessCurve[dragIndex - 1].y + epsilon,
-                Math.min(state.stiffnessCurve[dragIndex + 1].y - epsilon, point.y));
-            state.stiffnessCurve.sort((a, b) => a.y - b.y);
-            refreshStiffnessCurveCache();
-            stiffnessCanvas.dataset.dragIndex = state.stiffnessCurve.indexOf(item);
-            drawStiffnessCurve();
-            updatePhysics();
-        });
-
-        const endDrag = () => stiffnessCanvas.dataset.dragIndex = -1;
-        stiffnessCanvas.addEventListener('pointerup', endDrag);
-        stiffnessCanvas.addEventListener('pointercancel', endDrag);
-    }
-
-    document.getElementById('btnResetStiffness').addEventListener('click', () => {
-        state.stiffnessCurve = DEFAULT_STIFFNESS_CURVE.map(point => ({ ...point }));
-        refreshStiffnessCurveCache();
+    function bindStiffnessCanvasInteractions(canvasId) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      canvas.addEventListener('pointerdown', event => {
+        const point = stiffnessPointFromEvent(event, canvas);
+        const rect = canvas.getBoundingClientRect();
+        const plotWidth = rect.width - stiffnessPlot.left - stiffnessPlot.right;
+        const plotHeight = rect.height - stiffnessPlot.top - stiffnessPlot.bottom;
+        let dragIndex = state.stiffnessCurve.findIndex(item =>
+          Math.hypot((item.x - point.x) * plotWidth, (item.y - point.y) * plotHeight) < 16
+        );
+        if (dragIndex < 0) {
+          if (point.px < stiffnessPlot.left || point.px > rect.width - stiffnessPlot.right ||
+              point.py < stiffnessPlot.top || point.py > rect.height - stiffnessPlot.bottom) return;
+          state.stiffnessCurve.push({ x: point.x, y: point.y });
+          state.stiffnessCurve.sort((a, b) => a.y - b.y);
+          refreshStiffnessCurveCache();
+        }
+        canvas.setPointerCapture(event.pointerId);
+        canvas.dataset.dragIndex = dragIndex;
         drawStiffnessCurve();
         updatePhysics();
-    });
+      });
+
+      canvas.addEventListener('pointermove', event => {
+        let dragIndex = parseInt(canvas.dataset.dragIndex, 10);
+        if (isNaN(dragIndex) || dragIndex < 0) return;
+        const point = stiffnessPointFromEvent(event, canvas);
+        const item = state.stiffnessCurve[dragIndex];
+        if (!item) return;
+        item.x = point.x;
+        const epsilon = 0.005;
+        item.y = dragIndex === 0 ? 0 :
+          dragIndex === state.stiffnessCurve.length - 1 ? 1 :
+          Math.max(state.stiffnessCurve[dragIndex - 1].y + epsilon,
+          Math.min(state.stiffnessCurve[dragIndex + 1].y - epsilon, point.y));
+        state.stiffnessCurve.sort((a, b) => a.y - b.y);
+        refreshStiffnessCurveCache();
+        canvas.dataset.dragIndex = state.stiffnessCurve.indexOf(item);
+        drawStiffnessCurve();
+        updatePhysics();
+      });
+
+      const endDrag = () => { canvas.dataset.dragIndex = -1; };
+      canvas.addEventListener('pointerup', endDrag);
+      canvas.addEventListener('pointercancel', endDrag);
+    }
+    bindStiffnessCanvasInteractions('stiffnessCurve');
+    bindStiffnessCanvasInteractions('advStiffnessCurve');
+
+    const onResetStiffness = () => {
+      applyKickpointPreset(StickCustomizerState.kickpoint || 'mid');
+      updatePhysics();
+    };
+    document.getElementById('btnResetStiffness')?.addEventListener('click', onResetStiffness);
+    document.getElementById('btnResetAdvStiffness')?.addEventListener('click', onResetStiffness);
 
     const slTimeline = document.getElementById('slTimeline');
     if (slTimeline) {
       slTimeline.addEventListener('input', (e) => {
-        state.timeline = parseInt(e.target.value);
+        state.timeline = parseInt(e.target.value, 10);
         state.holdMaxBend = false;
         syncUiFromState();
         updatePhysics();
@@ -1235,24 +1852,12 @@ export function initUiBindings(updatePhysics) {
 
     document.querySelectorAll('.btn-jump').forEach(btn => {
       btn.addEventListener('click', () => {
-        state.timeline = parseInt(btn.getAttribute('data-time'));
+        state.timeline = parseInt(btn.getAttribute('data-time'), 10);
         state.holdMaxBend = false;
         syncUiFromState();
         updatePhysics();
       });
     });
-
-    const btnResetAll = document.getElementById('btnResetAll');
-    if (btnResetAll) {
-      btnResetAll.addEventListener('click', () => {
-        Object.assign(state, {"bottomGlovePos":50,"bottomGloveAmp":100,"bottomGloveTimeframe":250,"topHandAmp":100,"topHandTimeframe":250,"maxBendAngle":40,"topHandPullStartMs":600,"topHandPullDownMm":130,"followThroughAngle":35,"bladeWhipStrength":100,"timeline":500,"isPlaying":false,"holdMaxBend":true,"bendAxis":"forwards","anchorMode":"bow"});
-        state.stiffnessCurve = DEFAULT_STIFFNESS_CURVE.map(point => ({ ...point }));
-        refreshStiffnessCurveCache();
-        drawStiffnessCurve();
-        syncUiFromState();
-        updatePhysics();
-      });
-    }
 
     const panelHeader = document.querySelector('.panel-header');
     const panel = document.getElementById('workbenchPanel');

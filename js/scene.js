@@ -1,4 +1,4 @@
-import { GOAL } from "./config.js";
+import { GOAL, gameSettings, StickCustomizerState } from "./config.js";
 import * as THREE from 'three';
 import { game } from './state.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -172,6 +172,64 @@ projectedArrow.rotation.x = -Math.PI / 2;
 projectedArrow.position.set(0, 5, -22000);
 scene.add(projectedArrow);
 
+// 3D Animated Swipe-up Chevrons directly on ice behind puck
+function createPuckSwipeTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 26;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+  ctx.shadowBlur = 14;
+
+  function drawChevron(y) {
+    ctx.beginPath();
+    ctx.moveTo(40, y + 50);
+    ctx.lineTo(128, y);
+    ctx.lineTo(216, y + 50);
+    ctx.stroke();
+  }
+
+  drawChevron(60);
+  drawChevron(200);
+  drawChevron(340);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.anisotropy = 8;
+  return tex;
+}
+
+const puckSwipeGeo = new THREE.PlaneGeometry(300, 600);
+const puckSwipeMat = new THREE.MeshBasicMaterial({
+  map: createPuckSwipeTexture(),
+  transparent: true,
+  opacity: 0.85,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  side: THREE.DoubleSide
+});
+export const puckSwipeMesh = new THREE.Mesh(puckSwipeGeo, puckSwipeMat);
+puckSwipeMesh.rotation.x = -Math.PI / 2;
+puckSwipeMesh.position.set(95, 8, -19600);
+scene.add(puckSwipeMesh);
+
+export function updateProjectedArrow(puckPos) {
+  if (!puckPos) return;
+  const puckX = puckPos.x;
+  const puckZ = puckPos.z;
+  const goalZ = -26000;
+  const length = Math.max(1000, Math.abs(goalZ - puckZ));
+  projectedArrow.scale.set(1, length / 8000, 1);
+  projectedArrow.position.set(puckX, 5, puckZ - length / 2);
+  if (puckSwipeMesh) {
+    puckSwipeMesh.position.set(puckX, 8, puckZ + 650);
+  }
+}
+
 // Boarding
 const boardGroup = new THREE.Group();
 
@@ -247,14 +305,18 @@ logoPlane.position.set(0, logoCenterY, -rinkDepth + 15);
 boardGroup.add(logoPlane);
 
 // Add dynamic kickpoint logos on left and right side of main logo
+// Once a logo image has loaded, re-fit the planes if that logo is the one currently shown.
+function onKickpointLogoLoaded(texture) {
+    if (kpLogoMatLeft.map === texture) fitKickpointLogos(texture);
+}
 export const kickpointLogos = {
-    low: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Lowkplogo.png?v=1790252741'),
-    mid: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Midkplogo.png?v=1790253037'),
-    hybrid: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Hybridkplogo.png?v=1790252741')
+    low: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Lowkplogo.png?v=1790252741', onKickpointLogoLoaded),
+    mid: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Midkplogo.png?v=1790253037', onKickpointLogoLoaded),
+    hybrid: textureLoader.load('https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Hybridkplogo.png?v=1790252741', onKickpointLogoLoaded)
 };
 
 const kpLogoHeight = 600;
-const kpLogoWidth = kpLogoHeight * 1.5; // Approximate aspect ratio, can adjust if needed
+const kpLogoGap = 1000; // gap between the main logo and each kickpoint logo
 const kpLogoMatLeft = new THREE.MeshBasicMaterial({
     map: kickpointLogos.mid,
     transparent: true,
@@ -266,13 +328,22 @@ const kpLogoMatRight = new THREE.MeshBasicMaterial({
     depthWrite: false
 });
 
-export const kpLogoPlaneLeft = new THREE.Mesh(new THREE.PlaneGeometry(kpLogoWidth, kpLogoHeight), kpLogoMatLeft);
-kpLogoPlaneLeft.position.set(-logoWidth/2 - kpLogoWidth/2 - 1000, logoCenterY, -rinkDepth + 15);
-boardGroup.add(kpLogoPlaneLeft);
+// Unit plane, scaled to the actual image aspect ratio so the logos are never stretched or squashed.
+export const kpLogoPlaneLeft = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), kpLogoMatLeft);
+export const kpLogoPlaneRight = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), kpLogoMatRight);
+boardGroup.add(kpLogoPlaneLeft, kpLogoPlaneRight);
 
-export const kpLogoPlaneRight = new THREE.Mesh(new THREE.PlaneGeometry(kpLogoWidth, kpLogoHeight), kpLogoMatRight);
-kpLogoPlaneRight.position.set(logoWidth/2 + kpLogoWidth/2 + 1000, logoCenterY, -rinkDepth + 15);
-boardGroup.add(kpLogoPlaneRight);
+function fitKickpointLogos(texture) {
+    const image = texture && texture.image;
+    const aspect = image && image.width && image.height ? image.width / image.height : 1.5;
+    const width = kpLogoHeight * aspect;
+    for (const [plane, side] of [[kpLogoPlaneLeft, -1], [kpLogoPlaneRight, 1]]) {
+        plane.scale.set(width, kpLogoHeight, 1);
+        plane.position.set(side * (logoWidth / 2 + kpLogoGap + width / 2), logoCenterY, -rinkDepth + 15);
+    }
+}
+fitKickpointLogos(kickpointLogos.mid);
+
 
 
 scene.add(boardGroup);
@@ -600,9 +671,255 @@ for (const side of [-1, 1]) {
         sideNetPosition(side, depthProgress, heightProgress), netLineMat));
 }
 game.net.position.set(0, 0, -26000);
+
+// Radar Speed Box on Tripod next to Goal
+let lastDisplayedSpeed = 0;
+let radarCanvas = null;
+let radarCtx = null;
+let radarTexture = null;
+
+export function updateGoalSpeedDisplay(speedVal = lastDisplayedSpeed, unitStr) {
+  if (typeof speedVal === 'number') {
+    lastDisplayedSpeed = speedVal;
+  }
+  if (!unitStr) {
+    unitStr = gameSettings?.speedUnit === 'mph' ? 'MPH' : 'KM/H';
+  }
+  if (!radarCtx || !radarTexture) return;
+
+  const ctx = radarCtx;
+  const w = 1024;
+  const h = 512;
+
+  // Solid black background
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, w, h);
+
+  const val = Number(lastDisplayedSpeed) || 0;
+  const unit = (unitStr || 'KM/H').toUpperCase();
+  const numStr = val > 0 ? (val >= 100 ? Math.round(val).toString() : val.toFixed(1)) : '0';
+
+  // Bright red numbers and unit
+  ctx.fillStyle = '#ff0000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Big red speed number
+  ctx.font = 'bold 300px monospace';
+  ctx.fillText(numStr, w / 2 - 120, h / 2);
+
+  // Red unit beside it
+  ctx.font = 'bold 100px monospace';
+  ctx.fillText(unit, w - 160, h / 2 + 30);
+
+  radarTexture.needsUpdate = true;
+}
+
+export function createSpeedRadarBox() {
+  const radarAssembly = new THREE.Group();
+
+  const boxW = 750;
+  const boxH = 420;
+  const boxD = 120;
+  const boxY = 750;
+
+  const boxGroup = new THREE.Group();
+  boxGroup.position.set(0, boxY, 0);
+
+  // Black box casing
+  const casingGeo = new THREE.BoxGeometry(boxW, boxH, boxD);
+  const casingMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
+  const casing = new THREE.Mesh(casingGeo, casingMat);
+  boxGroup.add(casing);
+
+  // Screen on front of box
+  radarCanvas = document.createElement('canvas');
+  radarCanvas.width = 1024;
+  radarCanvas.height = 512;
+  radarCtx = radarCanvas.getContext('2d');
+  radarTexture = new THREE.CanvasTexture(radarCanvas);
+
+  const screenGeo = new THREE.PlaneGeometry(boxW - 20, boxH - 20);
+  const screenMat = new THREE.MeshBasicMaterial({
+    map: radarTexture,
+    toneMapped: false,
+    side: THREE.DoubleSide
+  });
+  const screenMesh = new THREE.Mesh(screenGeo, screenMat);
+  screenMesh.position.set(0, 0, boxD / 2 + 2);
+  boxGroup.add(screenMesh);
+
+  radarAssembly.add(boxGroup);
+
+  // Tripod stand
+  const tripodMat = new THREE.MeshBasicMaterial({ color: 0x181818 });
+  const poleGeo = new THREE.CylinderGeometry(16, 16, 520, 8);
+  const pole = new THREE.Mesh(poleGeo, tripodMat);
+  pole.position.set(0, 480, 0);
+  radarAssembly.add(pole);
+
+  // 3 tripod legs down to ice
+  const legAngles = [Math.PI / 6, 5 * Math.PI / 6, 3 * Math.PI / 2];
+  const legSpread = 280;
+  for (let i = 0; i < 3; i++) {
+    const angle = legAngles[i];
+    const footX = legSpread * Math.cos(angle);
+    const footZ = legSpread * Math.sin(angle);
+    const topPos = new THREE.Vector3(0, 360, 0);
+    const botPos = new THREE.Vector3(footX, 0, footZ);
+    const dir = new THREE.Vector3().subVectors(botPos, topPos);
+    const len = dir.length();
+    const mid = new THREE.Vector3().addVectors(topPos, botPos).multiplyScalar(0.5);
+
+    const legGeo = new THREE.CylinderGeometry(12, 12, len, 8);
+    const legMesh = new THREE.Mesh(legGeo, tripodMat);
+    legMesh.position.copy(mid);
+    legMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+    radarAssembly.add(legMesh);
+  }
+
+  // Placed to the side of the goal (right post is at X=915), behind the red line (Z=-26000)
+  radarAssembly.position.set(1600, 0, -26100);
+  radarAssembly.rotation.y = Math.atan2(-1600, 8400);
+
+  // Initialize display
+  updateGoalSpeedDisplay(0, gameSettings?.speedUnit === 'mph' ? 'MPH' : 'KM/H');
+
+  return radarAssembly;
+}
+
+export const speedRadarBox = createSpeedRadarBox();
+scene.add(speedRadarBox);
 scene.add(game.net);
 
-// Markers
+// ==========================================
+// Scorebug UI Updater (Broadcast Ticker)
+// ==========================================
+const KP_STICK_INFO = {
+  low: {
+    label: 'Low Kick',
+    src: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Lowkplogo.png?v=1790252741'
+  },
+  mid: {
+    label: 'Mid Kick',
+    src: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Midkplogo.png?v=1790253037'
+  },
+  hybrid: {
+    label: 'Hybrid Kick',
+    src: 'https://cdn.shopify.com/s/files/1/1038/7203/7203/files/Hybridkplogo.png?v=1790252741'
+  }
+};
+
+export function getStickInfo(kp) {
+  if (!kp) return KP_STICK_INFO.mid;
+  const k = String(kp).toLowerCase().trim();
+  if (k.includes('low')) return KP_STICK_INFO.low;
+  if (k.includes('hybrid')) return KP_STICK_INFO.hybrid;
+  if (k.includes('mid') || k.includes('high')) return KP_STICK_INFO.mid;
+  return KP_STICK_INFO[k] || KP_STICK_INFO.mid;
+}
+
+let lastScoreboardData = {
+  score: 0,
+  shots: 0,
+  fastestRelease: 0,
+  fastestReleaseKp: null,
+  hardestShot: 0,
+  hardestShotKp: null,
+  unit: 'KM/H'
+};
+
+export function updateScoreboard(data = {}) {
+  const score = data.score !== undefined ? data.score : (game.score ?? lastScoreboardData.score ?? 0);
+  const shots = data.shots !== undefined ? data.shots : (game.shots ?? lastScoreboardData.shots ?? 0);
+
+  const fastestRelease = Number(data.fastestRelease || game.fastestRelease || lastScoreboardData.fastestRelease || 0);
+  const fastestReleaseKp = data.fastestReleaseKp || game.fastestReleaseKp || lastScoreboardData.fastestReleaseKp || StickCustomizerState?.kickpoint || 'mid';
+
+  const unit = (data.unit || (gameSettings?.speedUnit === 'mph' ? 'MPH' : 'KM/H') || lastScoreboardData.unit || 'KM/H').toUpperCase();
+
+  let hardestShot = Number(data.hardestShot || game.hardestShot || lastScoreboardData.hardestShot || 0);
+  if (game.hardestShotKmh && game.hardestShotKmh > 0) {
+    hardestShot = unit === 'MPH' ? (game.hardestShotKmh * 0.621371) : game.hardestShotKmh;
+  }
+  const hardestShotKp = data.hardestShotKp || game.hardestShotKp || lastScoreboardData.hardestShotKp || StickCustomizerState?.kickpoint || 'mid';
+
+  lastScoreboardData = {
+    score,
+    shots,
+    fastestRelease,
+    fastestReleaseKp,
+    hardestShot,
+    hardestShotKp,
+    unit
+  };
+
+  if (fastestRelease > 0) {
+    game.fastestRelease = fastestRelease;
+    game.fastestReleaseKp = fastestReleaseKp;
+  }
+  if (hardestShot > 0) {
+    game.hardestShot = hardestShot;
+    game.hardestShotKp = hardestShotKp;
+  }
+
+  const elScore = document.getElementById('scorebug-val-score');
+  if (elScore) elScore.textContent = lastScoreboardData.score;
+
+  const elShots = document.getElementById('scorebug-val-shots');
+  if (elShots) elShots.textContent = lastScoreboardData.shots;
+
+  const elRelease = document.getElementById('scorebug-val-release');
+  const elReleaseUnit = document.getElementById('scorebug-unit-release');
+  const elReleaseStick = document.getElementById('scorebug-stick-release');
+  const elReleaseImg = document.getElementById('scorebug-stick-img-release');
+  const elReleaseLbl = document.getElementById('scorebug-stick-lbl-release');
+
+  if (elRelease) {
+    if (lastScoreboardData.fastestRelease > 0) {
+      elRelease.textContent = Math.round(lastScoreboardData.fastestRelease);
+      if (elReleaseUnit) elReleaseUnit.style.display = 'inline';
+      const stickInfo = getStickInfo(lastScoreboardData.fastestReleaseKp);
+      if (elReleaseStick && elReleaseImg) {
+        elReleaseImg.src = stickInfo.src;
+        if (elReleaseLbl) elReleaseLbl.textContent = stickInfo.label;
+        elReleaseStick.style.display = 'flex';
+      }
+    } else {
+      elRelease.textContent = '—';
+      if (elReleaseUnit) elReleaseUnit.style.display = 'none';
+      if (elReleaseStick) elReleaseStick.style.display = 'none';
+    }
+  }
+
+  const elSpeed = document.getElementById('scorebug-val-speed');
+  const elSpeedUnit = document.getElementById('scorebug-unit-speed');
+  const elSpeedStick = document.getElementById('scorebug-stick-speed');
+  const elSpeedImg = document.getElementById('scorebug-stick-img-speed');
+  const elSpeedLbl = document.getElementById('scorebug-stick-lbl-speed');
+
+  if (elSpeed) {
+    if (elSpeedUnit) elSpeedUnit.textContent = unit;
+
+    if (lastScoreboardData.hardestShot > 0) {
+      elSpeed.textContent = lastScoreboardData.hardestShot >= 100
+        ? Math.round(lastScoreboardData.hardestShot)
+        : lastScoreboardData.hardestShot.toFixed(1);
+      if (elSpeedUnit) elSpeedUnit.style.display = 'inline';
+      const stickInfo = getStickInfo(lastScoreboardData.hardestShotKp);
+      if (elSpeedStick && elSpeedImg) {
+        elSpeedImg.src = stickInfo.src;
+        if (elSpeedLbl) elSpeedLbl.textContent = stickInfo.label;
+        elSpeedStick.style.display = 'flex';
+      }
+    } else {
+      elSpeed.textContent = '—';
+      if (elSpeedUnit) elSpeedUnit.style.display = 'none';
+      if (elSpeedStick) elSpeedStick.style.display = 'none';
+    }
+  }
+}
+
 export function createMarker(colorHex) {
   const geom = new THREE.TorusGeometry(26, 4, 16, 32);
   const mat = new THREE.MeshBasicMaterial({ color: colorHex });
@@ -673,6 +990,7 @@ export function updateBoardLogos(kickpoint) {
         kpLogoPlaneLeft.material.needsUpdate = true;
         kpLogoPlaneRight.material.map = kickpointLogos[kickpoint];
         kpLogoPlaneRight.material.needsUpdate = true;
+        fitKickpointLogos(kickpointLogos[kickpoint]);
     }
 }
 

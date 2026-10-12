@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appState, state, game, swipeData } from './state.js';
-import { gameSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius, GOAL, flightMinTime, flightMaxTime } from './config.js';
+import { gameSettings, physicsSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius, GOAL, flightMinTime, flightMaxTime } from './config.js';
 import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
-import { scene, camera, renderer, controls, ghostPuck, projectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, updateBoardLogos } from './scene.js';
-import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve } from './ui.js';
+import { scene, camera, renderer, controls, ghostPuck, projectedArrow, puckSwipeMesh, updateProjectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, updateBoardLogos, updateGoalSpeedDisplay, updateScoreboard } from './scene.js';
+import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve, applyKickpointPreset } from './ui.js';
 import { spawnTargets, shatterTarget } from './targets.js';
 import { bindInput } from './input.js';
 import { getStickShotModifiers } from './stick-effects.js';
@@ -104,11 +104,66 @@ function updateStickIndicator() {
   }
 }
 
+function applyCarbonPattern(material, geometry) {
+  if (!geometry) return;
+  if (!geometry.boundingBox) geometry.computeBoundingBox();
+  if (!geometry.attributes?.normal) geometry.computeVertexNormals();
+
+  const boxSize = geometry.boundingBox?.getSize(new THREE.Vector3()) || new THREE.Vector3(20, 1500, 20);
+  const minDim = Math.min(boxSize.x || 20, boxSize.z || 20);
+  const shaftThickness = (minDim > 1 && Number.isFinite(minDim)) ? minDim : 20;
+  const cellSize = Math.max(shaftThickness * 0.35, 3.0);
+
+  material.userData = material.userData || {};
+  material.userData.checkerCellSize = { value: cellSize };
+  material.onBeforeCompile = shader => {
+    shader.uniforms.customizerCheckerCellSize = material.userData.checkerCellSize;
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;'
+      )
+      .replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\nvCustomizerCheckerPosition = position;\nvCustomizerCheckerNormal = normal;'
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;\nuniform float customizerCheckerCellSize;'
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        vec3 checkerNormal = abs(normalize(vCustomizerCheckerNormal));
+        vec2 checkerCoordinates = checkerNormal.x > checkerNormal.y && checkerNormal.x > checkerNormal.z
+          ? vCustomizerCheckerPosition.yz
+          : checkerNormal.y > checkerNormal.z
+            ? vCustomizerCheckerPosition.xz
+            : vCustomizerCheckerPosition.xy;
+        vec2 cellCoord = checkerCoordinates / max(customizerCheckerCellSize, 0.001);
+        float checkerParity = mod(floor(cellCoord.x) + floor(cellCoord.y), 2.0);
+        vec2 cellFract = fract(cellCoord);
+        float fiberLine = checkerParity > 0.5 ? sin(cellFract.y * 18.8495) : sin(cellFract.x * 18.8495);
+        float fiberGrain = 1.0 + fiberLine * 0.08;
+
+        float stickBrightness = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 rawCarbon = mix(vec3(0.045, 0.045, 0.05), vec3(0.18, 0.18, 0.20), checkerParity) * fiberGrain;
+        vec3 tintedCarbon = diffuseColor.rgb * mix(0.70, 1.22, checkerParity) * fiberGrain;
+
+        float colorMix = clamp(stickBrightness / 0.12, 0.0, 1.0);
+        diffuseColor.rgb = mix(rawCarbon, tintedCarbon, colorMix);`
+      );
+  };
+  material.customProgramCacheKey = () => 'carbon-weave-v3';
+}
+
 function applyStickColor(material, color = StickCustomizerState.color) {
   const normalizedColor = (color || '#ffffff').toLowerCase();
   const isBlack = normalizedColor === '#000000';
   const isMetallic = ['#c0c0c0', '#d4af37', '#bfc7ce'].includes(normalizedColor);
 
+  let activeColor = color;
   if (appState.tutorial && appState.tutorial.isActive) {
     const tutorialColors = { 'low': '#0000ff', 'mid': '#ffff00', 'hybrid': '#ff0000' };
     let currentKp = StickCustomizerState.kickpoint;
@@ -116,30 +171,20 @@ function applyStickColor(material, color = StickCustomizerState.color) {
     else if (appState.tutorial.phase === 2) currentKp = 'mid';
     else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
 
-    const tutColor = tutorialColors[currentKp] || tutorialColors['low'];
-    if (tutColor) {
-      updateStickIndicator();
-      material.color?.set(tutColor);
-      material.map = null; // Remove checkered pattern
-      if (material.emissive) {
-         material.emissive.set(tutColor);
-         // Don't set full emissive to let shading happen, but give it a solid base
-         material.emissiveIntensity = 0.2;
-      }
-      material.needsUpdate = true;
-      return;
-    }
+    activeColor = tutorialColors[currentKp] || tutorialColors['low'];
   }
 
-  material.color?.set(color);
+  updateStickIndicator();
+  material.color?.set(activeColor);
   if (material.emissive) {
-    material.emissive.set(isBlack ? '#3b414a' : '#000000');
-    material.emissiveIntensity = isBlack ? 0.9 : 0;
+    material.emissive.set('#000000');
+    material.emissiveIntensity = 0;
   }
   if ('metalness' in material) {
     material.metalness = isMetallic ? 0.65 : 0.08;
     material.roughness = normalizedColor === '#bfc7ce' ? 0.18 : isMetallic ? 0.28 : 0.48;
   }
+  material.needsUpdate = true;
 }
 
 function updateStickColors(color = StickCustomizerState.color) {
@@ -199,40 +244,8 @@ function createPreviewModel(root) {
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     const previewMaterials = materials.map(material => {
       const previewMaterial = material.clone();
+      applyCarbonPattern(previewMaterial, child.geometry);
       applyStickColor(previewMaterial, StickCustomizerState.color);
-      previewMaterial.onBeforeCompile = shader => {
-        const checkerCellSize = Math.max(
-          Math.min(child.geometry.boundingBox?.getSize(new THREE.Vector3()).x ?? 1,
-            child.geometry.boundingBox?.getSize(new THREE.Vector3()).z ?? 1) * 0.375,
-          0.00001
-        ) * customizerPreviewScale;
-        shader.uniforms.customizerCheckerCellSize = { value: checkerCellSize };
-        shader.vertexShader = shader.vertexShader
-          .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;')
-          .replace(
-            '#include <begin_vertex>',
-            '#include <begin_vertex>\nvCustomizerCheckerPosition = (modelMatrix * vec4(position, 1.0)).xyz;\nvCustomizerCheckerNormal = normalize(mat3(modelMatrix) * normal);'
-          );
-        shader.fragmentShader = shader.fragmentShader
-          .replace('#include <common>', '#include <common>\nvarying vec3 vCustomizerCheckerPosition;\nvarying vec3 vCustomizerCheckerNormal;\nuniform float customizerCheckerCellSize;')
-          .replace(
-            '#include <color_fragment>',
-            `#include <color_fragment>
-            vec3 checkerNormal = abs(normalize(vCustomizerCheckerNormal));
-            vec2 checkerCoordinates = checkerNormal.x > checkerNormal.y && checkerNormal.x > checkerNormal.z
-              ? vCustomizerCheckerPosition.yz
-              : checkerNormal.y > checkerNormal.z
-                ? vCustomizerCheckerPosition.xz
-                : vCustomizerCheckerPosition.xy;
-            float checkerParity = mod(
-              floor(checkerCoordinates.x / customizerCheckerCellSize)
-              + floor(checkerCoordinates.y / customizerCheckerCellSize),
-              2.0
-            );
-            diffuseColor.rgb *= mix(0.94, 1.0, checkerParity);`
-          );
-      };
-      previewMaterial.customProgramCacheKey = () => 'customizer-subtle-checker-v2';
       previewMaterial.depthTest = false;
       previewMaterial.depthWrite = false;
       return previewMaterial;
@@ -286,8 +299,12 @@ function installStickModel(root) {
 
   if (!stickParams.stickGroup) {
     stickParams.stickGroup = new THREE.Group();
-    stickParams.stickGroup.rotation.y = 0.22;
-    stickParams.stickGroup.rotation.z = 0.40 + (20 * Math.PI / 180);
+    scene.add(stickParams.stickGroup);
+  }
+
+  {
+    // Always compute the right-handed placement first.
+    stickParams.stickGroup.rotation.set(0, 0.22, 0.40 + (20 * Math.PI / 180));
     stickParams.stickGroup.position.set(0, 0, -20500);
 
     const topHandLocal = new THREE.Vector3(X_center, L_total, Z_center);
@@ -298,7 +315,15 @@ function installStickModel(root) {
     const rotatedTopHand = topHandLocal.clone().applyQuaternion(stickParams.stickGroup.quaternion);
     stickParams.stickGroup.position.x = topHandWorld.x - rotatedTopHand.x;
     stickParams.stickGroup.position.z = topHandWorld.z - rotatedTopHand.z;
-    scene.add(stickParams.stickGroup);
+
+    // Left-handed: exact mirror image of the right-handed placement, reflected across
+    // the vertical plane through the puck start (x = 95) so the blade stays at the puck.
+    if (StickCustomizerState.handedness === 'left') {
+      const PUCK_START_X = 95;
+      stickParams.stickGroup.position.x = 2 * PUCK_START_X - stickParams.stickGroup.position.x;
+      stickParams.stickGroup.rotation.y = -stickParams.stickGroup.rotation.y;
+      stickParams.stickGroup.rotation.z = -stickParams.stickGroup.rotation.z;
+    }
   }
 
   if (stickModelRoot) {
@@ -313,9 +338,11 @@ function installStickModel(root) {
   stickModelRoot = root;
   root.traverse(child => {
     if (!child.isMesh) return;
+    child.geometry.computeBoundingBox();
     const sourceMaterials = Array.isArray(child.material) ? child.material : [child.material];
     const materials = sourceMaterials.map(material => {
       const clonedMaterial = material.clone();
+      applyCarbonPattern(clonedMaterial, child.geometry);
       applyStickColor(clonedMaterial, StickCustomizerState.color);
       return clonedMaterial;
     });
@@ -369,9 +396,12 @@ function installStickModel(root) {
   stickParams.ghostStickGroup.traverse(child => {
     if (!child.isMesh) return;
     child.geometry = child.geometry.clone();
+    child.geometry.computeBoundingBox();
     const materials = Array.isArray(child.material) ? child.material : [child.material];
     const ghostMaterials = materials.map(material => {
       const ghostMaterial = material.clone();
+      applyCarbonPattern(ghostMaterial, child.geometry);
+      applyStickColor(ghostMaterial, StickCustomizerState.color);
       ghostMaterial.transparent = true;
       ghostMaterial.opacity = 0.32;
       ghostMaterial.depthWrite = false;
@@ -399,9 +429,10 @@ let replayDirection = 1;
 function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bladeVelocity) {
   const delta = target.clone().sub(start);
   // Find the flight time at the requested speed that compensates for gravity.
+  const activeGravity = physicsSettings?.gravityValue ?? gravity;
   const getVelocityAtTime = (time) => new THREE.Vector3(
     delta.x / (speedMultiplier * time),
-    delta.y / (speedMultiplier * time) + gravity * time / (2 * speedMultiplier),
+    delta.y / (speedMultiplier * time) + activeGravity * time / (2 * speedMultiplier),
     delta.z / (speedMultiplier * time)
   );
   const getSpeedError = (time) => getVelocityAtTime(time).length() - speed;
@@ -452,11 +483,22 @@ function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bla
 }
 
 function updateGameScore() {
-  document.getElementById('score-val').textContent = game.score;
-  document.getElementById('shots-val').textContent = game.shots;
+  const scoreVal = document.getElementById('score-val');
+  if (scoreVal) scoreVal.textContent = game.score;
+  const shotsVal = document.getElementById('shots-val');
+  if (shotsVal) shotsVal.textContent = game.shots;
   if (game.shots > 0 && projectedArrow.visible) {
     projectedArrow.visible = false;
   }
+  updateScoreboard({
+    score: game.score,
+    shots: game.shots,
+    fastestRelease: game.fastestRelease,
+    fastestReleaseKp: game.fastestReleaseKp,
+    hardestShot: game.hardestShot,
+    hardestShotKp: game.hardestShotKp,
+    unit: gameSettings.speedUnit === 'mph' ? 'MPH' : 'KM/H'
+  });
 }
 
 function captureReplayFrame() {
@@ -641,6 +683,29 @@ function resolveGoalCollisions(previousPosition) {
     }
   }
 
+  // Radar tripod & box collision (next to right goal post, behind red line at x = 1600, z = -26100)
+  const radarAssemblyX = 1600;
+  const radarAssemblyZ = -26100;
+  const radarRadius = 300;
+  const dx = game.puck.position.x - radarAssemblyX;
+  const dz = game.puck.position.z - radarAssemblyZ;
+  if (dx * dx + dz * dz < (radarRadius + puckRadius) * (radarRadius + puckRadius) &&
+      game.puck.position.y < 1000 + puckRadius) {
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist > 0.001) {
+      const nx = dx / dist;
+      const nz = dz / dist;
+      game.puck.position.x = radarAssemblyX + nx * (radarRadius + puckRadius);
+      game.puck.position.z = radarAssemblyZ + nz * (radarRadius + puckRadius);
+      const dot = game.puckVelocity.x * nx + game.puckVelocity.z * nz;
+      if (dot < 0) {
+        game.puckVelocity.x -= 1.4 * dot * nx;
+        game.puckVelocity.z -= 1.4 * dot * nz;
+        game.puckVelocity.multiplyScalar(0.6);
+      }
+    }
+  }
+
   const depth = netZ - game.puck.position.z;
   if (depth < 0 || depth > GOAL.depth) return;
 
@@ -749,6 +814,7 @@ function resetPuck() {
       camera.position.set(0, 1000, -17700);
       controls.target.set(0, 600, -20700);
   }
+  updateProjectedArrow(game.puck.position);
 
   game.puck.rotation.set(0, 0, 0);
   game.puckVelocity.set(0, 0, 0);
@@ -843,6 +909,21 @@ window.addEventListener('startTargetPractice', () => {
 
 // Animation Loop
 function animate() {
+  const resetBtn = document.getElementById('btnResetAll');
+  if (resetBtn) {
+    // Only offer Reset between shots; hide it while the puck lies ready to be shot.
+    const betweenShots = game.puckState === 'shot' || game.puckState === 'goal' || game.puckState === 'missed';
+    if (resetBtn.hidden === betweenShots) resetBtn.hidden = !betweenShots;
+  }
+  const isReadyToShoot = appState.mode === 'game' && game.puckState === 'idle' && !state.isPlaying && !swipeData.isSwiping;
+  if (puckSwipeMesh) {
+    puckSwipeMesh.visible = isReadyToShoot;
+    if (isReadyToShoot) {
+      // Pulse & float on ice behind puck towards the goal
+      const animTime = performance.now() * 0.003;
+      puckSwipeMesh.material.opacity = 0.5 + 0.4 * Math.sin(animTime * 2);
+    }
+  }
   if (stickParams.indicatorMesh && stickParams.indicatorStartTime > 0) {
     const now = performance.now();
     const elapsed = now - stickParams.indicatorStartTime;
@@ -868,10 +949,12 @@ function animate() {
   }
 
   if (state.isPlaying && !state.holdMaxBend) {
+    const relSpeedMult = Math.max(0.1, physicsSettings?.releaseSpeedMultiplier ?? 1.0);
     const shotQuickness = swipeData.triggered || ['shot', 'goal', 'missed'].includes(game.puckState)
-      ? game.shotQuickness
+      ? game.shotQuickness * relSpeedMult
       : 1;
-    const stepRate = 800 * delta * shotQuickness;
+    const animMultiplier = physicsSettings?.animPlaybackMultiplier ?? 1.0;
+    const stepRate = 800 * animMultiplier * delta * shotQuickness;
     let next = state.timeline + stepRate * playDirection;
     if (next >= 1200) {
       next = 1200;
@@ -901,7 +984,9 @@ function animate() {
 
       game.contactTime = state.timeline;
       const stiffnessDynamics = getStiffnessDynamics();
-      game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;
+      const relSpeedMult = Math.max(0.1, physicsSettings?.releaseSpeedMultiplier ?? 1.0);
+      const quickness = Math.max(0.1, game.shotQuickness || 1);
+      game.releaseTime = game.contactTime + ((physicsSettings?.puckDwellTime ?? 180) * stiffnessDynamics.timingScale) / (relSpeedMult * quickness);
 
       const contactHeel = getBladePoint(game.bladeHeelIndex);
       const contactTip = getBladePoint(game.bladeTipIndex);
@@ -914,7 +999,7 @@ function animate() {
 
       if (frontNormal.z > 0) frontNormal.negate();
 
-      const bladeClearance = 54;
+      const bladeClearance = physicsSettings?.bladeClearance ?? 54;
       game.bladeContactOffset.copy(frontNormal).multiplyScalar(bladeClearance);
 
       game.bladeVelocity.set(0, 0, 0);
@@ -945,7 +1030,7 @@ function animate() {
           if (game.bladeForwardSpeed > game.peakBladeForwardSpeed) {
             game.peakBladeForwardSpeed = game.bladeForwardSpeed;
             game.bladeDecelerationFrames = 0;
-          } else if (game.peakBladeForwardSpeed > 300 && game.bladeForwardSpeed < game.peakBladeForwardSpeed * 0.92) {
+          } else if (game.peakBladeForwardSpeed > (physicsSettings?.bladeDecelThreshold ?? 300) && game.bladeForwardSpeed < game.peakBladeForwardSpeed * 0.92) {
             game.bladeDecelerationFrames++;
           } else {
             game.bladeDecelerationFrames = 0;
@@ -963,8 +1048,10 @@ function animate() {
         game.puck.rotation.set(0, rollProgress * Math.PI * 1.2, 0);
       }
 
-      const bladeHasStartedSlowing = game.peakBladeForwardSpeed > 300 && game.bladeDecelerationFrames >= 3;
-      const releaseSafetyLimitReached = state.timeline >= game.contactTime + 420;
+      const bladeHasStartedSlowing = game.peakBladeForwardSpeed > (physicsSettings?.bladeDecelThreshold ?? 300) && game.bladeDecelerationFrames >= 3;
+      const relSpeedMult = Math.max(0.1, physicsSettings?.releaseSpeedMultiplier ?? 1.0);
+      const quickness = Math.max(0.1, game.shotQuickness || 1);
+      const releaseSafetyLimitReached = state.timeline >= game.contactTime + ((physicsSettings?.releaseSafetyLimit ?? 420) / (relSpeedMult * quickness));
       const rollOffBlade = (game.bladeContactProgress + (1.05 - game.bladeContactProgress) * Math.max(0, Math.min(1, (state.timeline - game.contactTime) / (game.releaseTime - game.contactTime)))) >= 1.0;
 
       if (bladeHasStartedSlowing || releaseSafetyLimitReached || rollOffBlade) {
@@ -977,7 +1064,9 @@ function animate() {
         const whip = state.bladeWhipStrength / 100;
         const shotModifiers = getStickShotModifiers(StickCustomizerState);
 
-        const swipeDrivenSpeed = (5000 + 7000 * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale;
+        const baseImpulse = physicsSettings?.baseShotSpeed ?? 5000;
+        const whipBonus = physicsSettings?.whipBonusSpeed ?? 7000;
+        const swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale;
         const aimAdjustedLaunch = getAimAdjustedLaunchVelocity(
           game.puck.position,
           flightTarget,
@@ -989,22 +1078,52 @@ function animate() {
         game.puckVelocity.addScaledVector(game.bladeVelocity, gameSettings.shotSpeed);
         const speed = game.puckVelocity.length();
 
-        // Calculate and show speed in km/h or mph.
+        // Calculate and show speed on the in-goal digital radar display.
         // speed is in mm/s. Convert to m/s by dividing by 1000.
         const speedMs = speed / 1000;
         const speedKmh = speedMs * 3.6;
         const speedMph = speedKmh * 0.621371;
         const speedVal = gameSettings.speedUnit === 'kmh' ? speedKmh : speedMph;
 
-        document.getElementById('speed-val').textContent = speedVal.toFixed(1);
-        document.getElementById('speed-overlay').style.display = 'block';
+        updateGoalSpeedDisplay(speedVal, gameSettings.speedUnit === 'kmh' ? 'KM/H' : 'MPH');
+
+        // Track Scoreboard Record Stats (Fastest Release and Hardest Shot)
+        let currentKp = StickCustomizerState.kickpoint || 'mid';
+        if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
+          if (appState.tutorial.phase === 1) currentKp = 'low';
+          else if (appState.tutorial.phase === 2) currentKp = 'mid';
+          else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
+        }
+        const shotReleaseMs = Math.max(10, state.timeline - game.contactTime);
+        if (game.fastestRelease === 0 || shotReleaseMs < game.fastestRelease) {
+          game.fastestRelease = shotReleaseMs;
+          game.fastestReleaseKp = currentKp;
+        }
+
+        if (!game.hardestShotKmh || speedKmh > game.hardestShotKmh) {
+          game.hardestShotKmh = speedKmh;
+          game.hardestShotKp = currentKp;
+        }
+        const currentHardestShot = gameSettings.speedUnit === 'mph' ? (game.hardestShotKmh * 0.621371) : game.hardestShotKmh;
+        game.hardestShot = currentHardestShot;
+
+        updateScoreboard({
+          score: game.score,
+          shots: game.shots,
+          fastestRelease: game.fastestRelease,
+          fastestReleaseKp: game.fastestReleaseKp,
+          hardestShot: game.hardestShot,
+          hardestShotKp: game.hardestShotKp,
+          unit: gameSettings.speedUnit === 'mph' ? 'MPH' : 'KM/H'
+        });
 
         game.flightStart.copy(game.puck.position);
         game.flightDuration = aimAdjustedLaunch.flightTime;
 
         game.shotElapsed = 0;
         game.shotWobbleOffset = 0;
-        game.shotWobble = THREE.MathUtils.clamp((1 - swipePower) * 90 + Math.abs(swipeData.accuracy) * 1000, 0, 240);
+        const wobbleFactor = physicsSettings?.puckWobbleFactor ?? 1.0;
+        game.shotWobble = THREE.MathUtils.clamp(((1 - swipePower) * 90 + Math.abs(swipeData.accuracy) * 1000) * wobbleFactor, 0, 240);
         game.puckState = 'shot';
         document.getElementById('btnInstantReplay').disabled = true;
         swipeData.triggered = false;
@@ -1020,14 +1139,15 @@ function animate() {
 
   // Puck Physics
   if (game.puckState === 'shot' || game.puckState === 'goal') {
+    const activeGravity = physicsSettings?.gravityValue ?? gravity;
     const previousPuckPosition = game.puck.position.clone();
     if (game.puckState === 'goal') game.puckVelocity.y -= 3800 * delta;
     if (game.puckState === 'shot') {
       game.shotElapsed += delta;
       game.puck.position.x += game.puckVelocity.x * delta;
-      game.puck.position.y += game.puckVelocity.y * delta - 0.5 * gravity * delta * delta;
+      game.puck.position.y += game.puckVelocity.y * delta - 0.5 * activeGravity * delta * delta;
       game.puck.position.z += game.puckVelocity.z * delta;
-      game.puckVelocity.y -= gravity * delta;
+      game.puckVelocity.y -= activeGravity * delta;
       const wobbleAmount = THREE.MathUtils.clamp(game.shotWobble / 240, 0, 1);
       const turbulence = Math.sin(game.shotElapsed * 24) * wobbleAmount * 0.12;
       game.puck.rotation.set(turbulence, game.shotElapsed * 8, Math.sin(game.shotElapsed * 19 + 0.8) * wobbleAmount * 0.08);
@@ -1272,7 +1392,15 @@ function animate() {
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('tutorialKickpointSwitched', () => {
-    updateBoardLogos(StickCustomizerState.kickpoint);
+    let currentKp = StickCustomizerState.kickpoint;
+    if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
+      if (appState.tutorial.phase === 1) currentKp = 'low';
+      else if (appState.tutorial.phase === 2) currentKp = 'mid';
+      else if (appState.tutorial.phase === 3) currentKp = 'hybrid';
+      StickCustomizerState.kickpoint = currentKp;
+    }
+    applyKickpointPreset(currentKp);
+    updateBoardLogos(currentKp);
     updateStickColors();
     if (stickParams.indicatorMesh) {
       if (appState.tutorial && appState.tutorial.isActive && appState.tutorial.phase < 4) {
@@ -1285,6 +1413,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('canvas-container').appendChild(renderer.domElement);
   initUiBindings(updatePhysics);
+  applyKickpointPreset(StickCustomizerState.kickpoint || 'mid');
   bindInput(controls, syncUiFromState);
   let customizerDragStart = null;
   renderer.domElement.addEventListener('pointerdown', event => {
@@ -1378,10 +1507,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  // Reset (between shots): put the puck back in the shooting position, ready for another shot.
+  document.getElementById('btnResetAll').addEventListener('click', () => {
+    if (game.puckState === 'shot' || game.puckState === 'goal' || game.puckState === 'missed') resetPuck();
+  });
   document.getElementById('custBladePattern').addEventListener('change', handleStickModelChange);
   document.getElementById('custHandedness').addEventListener('change', handleStickModelChange);
   document.getElementById('custColor').addEventListener('change', event => {
     updateStickColors(event.target.value);
   });
+  document.getElementById('settingSpeedUnit')?.addEventListener('change', () => {
+    const unit = gameSettings.speedUnit === 'mph' ? 'MPH' : 'KM/H';
+    updateScoreboard({ unit });
+  });
+  updateScoreboard();
   handleStickModelChange();
 });

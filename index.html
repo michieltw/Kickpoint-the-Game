@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Hockey Physics Workbench</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=swipe-indicator-v3">
 
   <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
   <script type="importmap">
@@ -76,47 +76,543 @@
     <div class="game-settings-card glass-panel game-settings-relative">
       <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/BOLOGOBLACK_bff2f2f3-1fd7-42f8-b264-c169a15dafc7.png?v=1791454014" class="menu-logo-small" alt="Blackout Hockey">
       <h2>Spelinstellingen</h2>
-      <p>Configureer de gameplay mechanics.</p>
+      <p>Configureer de gameplay mechanics en het stickgedrag.</p>
 
-      <!-- Gameplay Settings -->
-      <div class="game-setting-row">
-        <label for="settingShotSpeed">Schotsnelheid <output id="settingShotSpeedValue">190%</output></label>
-        <input id="settingShotSpeed" type="range" min="50" max="400" step="5" value="190">
-      </div>
-      <div class="game-setting-row">
-        <label for="settingSwipeRange">Invloed sleepsnelheid op schot <output id="settingSwipeRangeValue">100%</output></label>
-        <input id="settingSwipeRange" type="range" min="50" max="200" step="5" value="100">
-      </div>
-      <div class="game-setting-row">
-        <label for="settingKickpointEffect">Effect van kickpoint <output id="settingKickpointEffectValue">100%</output></label>
-        <input id="settingKickpointEffect" type="range" min="0" max="200" step="5" value="100">
-      </div>
-      <div class="game-setting-row">
-        <label for="settingMinSwipeSpeed">Minimale sleepsnelheid <output id="settingMinSwipeSpeedValue">0,3 px/ms</output></label>
-        <input id="settingMinSwipeSpeed" type="range" min="0.1" max="1.5" step="0.1" value="0.3">
-      </div>
-      <div class="game-setting-row">
-        <label for="settingPrecisionTolerance">Swipeprecisie-tolerantie <output id="settingPrecisionToleranceValue">12 px</output></label>
-        <input id="settingPrecisionTolerance" type="range" min="0" max="60" step="2" value="12">
-      </div>
-      <div class="game-setting-row">
-        <label for="settingDeviationPenalty">Straf voor afwijking <output id="settingDeviationPenaltyValue">100%</output></label>
-        <input id="settingDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
+      <!-- Settings Navigation Tabs -->
+      <nav class="settings-tab-nav" aria-label="Instellingen tabbladen">
+        <button type="button" class="settings-tab-btn active" id="tabBtnGeneral" data-tab="general">Algemeen</button>
+        <button type="button" class="settings-tab-btn" id="tabBtnAdvanced" data-tab="advanced">Geavanceerd (Stick &amp; Shot)</button>
+      </nav>
+
+      <!-- Tab 1: Algemeen (Gameplay & Display) -->
+      <div id="settingsTabGeneral" class="settings-tab-content">
+        <div class="game-setting-row">
+          <label for="settingShotSpeed">Schotsnelheid <output id="settingShotSpeedValue">190%</output></label>
+          <input id="settingShotSpeed" type="range" min="50" max="400" step="5" value="190">
+        </div>
+        <div class="game-setting-row">
+          <label for="settingSwipeRange">Invloed sleepsnelheid op schot <output id="settingSwipeRangeValue">100%</output></label>
+          <input id="settingSwipeRange" type="range" min="50" max="200" step="5" value="100">
+        </div>
+        <div class="game-setting-row">
+          <label for="settingKickpointEffect">Effect van kickpoint <output id="settingKickpointEffectValue">100%</output></label>
+          <input id="settingKickpointEffect" type="range" min="0" max="200" step="5" value="100">
+        </div>
+        <div class="game-setting-row">
+          <label for="settingMinSwipeSpeed">Minimale sleepsnelheid <output id="settingMinSwipeSpeedValue">0,3 px/ms</output></label>
+          <input id="settingMinSwipeSpeed" type="range" min="0.1" max="1.5" step="0.1" value="0.3">
+        </div>
+        <div class="game-setting-row">
+          <label for="settingPrecisionTolerance">Swipeprecisie-tolerantie <output id="settingPrecisionToleranceValue">12 px</output></label>
+          <input id="settingPrecisionTolerance" type="range" min="0" max="60" step="2" value="12">
+        </div>
+        <div class="game-setting-row">
+          <label for="settingDeviationPenalty">Straf voor afwijking <output id="settingDeviationPenaltyValue">100%</output></label>
+          <input id="settingDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
+        </div>
+
+        <div class="customizer-section compact-customizer-section">
+            <h3 class="display-options-heading">Display Options</h3>
+
+            <div class="game-setting-row">
+                <label>Snelheidsweergave (Speed Unit)</label>
+                <select id="settingSpeedUnit" class="customizer-select">
+                    <option value="kmh">km/h</option>
+                    <option value="mph">mp/h</option>
+                </select>
+            </div>
+
+            <label class="customizer-checkbox-label"><input type="checkbox" id="settingShowShotTracer" checked> Toon Shot Tracer (3D Lijn)</label>
+            <label class="customizer-checkbox-label"><input type="checkbox" id="settingShowAimTracer" checked> Toon Aim Tracer & Accuracy (2D Swipe)</label>
+        </div>
       </div>
 
-      <div class="customizer-section compact-customizer-section">
-          <h3 class="display-options-heading">Display Options</h3>
+      <!-- Tab 2: Geavanceerd (Stick Behavior & Shot Mechanics) -->
+      <div id="settingsTabAdvanced" class="settings-tab-content" hidden>
+        <!-- 1. Schacht & Fulcrum Geometrie -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Mechanica</span>
+          <h3 class="advanced-group-title">1. Schacht &amp; Fulcrum Geometrie</h3>
+          <p class="advanced-group-desc">Krachten, draaipunt-locatie, buigas en constructiestijfheid van de stick.</p>
 
           <div class="game-setting-row">
-              <label>Snelheidsweergave (Speed Unit)</label>
-              <select id="settingSpeedUnit" class="customizer-select">
-                  <option value="kmh">km/h</option>
-                  <option value="mph">mp/h</option>
-              </select>
+            <label for="advBottomGlovePos">Onderhandschoen Positie (Fulcrum) <output id="advBottomGlovePosVal">50%</output></label>
+            <input id="advBottomGlovePos" type="range" min="10" max="90" step="1" value="50">
+            <span class="setting-hint">Plaatsing van de onderste hand langs de schacht (bepaalt het hefboompunt).</span>
           </div>
 
-          <label class="customizer-checkbox-label"><input type="checkbox" id="settingShowShotTracer" checked> Toon Shot Tracer (3D Lijn)</label>
-          <label class="customizer-checkbox-label"><input type="checkbox" id="settingShowAimTracer" checked> Toon Aim Tracer & Accuracy (2D Swipe)</label>
+          <div class="game-setting-row">
+            <label for="advBottomGloveAmp">Onderhand Duwkracht <output id="advBottomGloveAmpVal">100%</output></label>
+            <input id="advBottomGloveAmp" type="range" min="-100" max="100" step="1" value="100">
+            <span class="setting-hint">Voorwaartse laadkracht uitgeoefend door de onderste hand.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBottomGloveTimeframe">Onderhand Laadvenster <output id="advBottomGloveTimeframeVal">250 ms</output></label>
+            <input id="advBottomGloveTimeframe" type="range" min="20" max="500" step="10" value="250">
+            <span class="setting-hint">Tijdsduur waarin de duwkracht opbouwt vóór de release.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advTopHandAmp">Bovenhand Trekkracht <output id="advTopHandAmpVal">100%</output></label>
+            <input id="advTopHandAmp" type="range" min="-100" max="100" step="1" value="100">
+            <span class="setting-hint">Trekamplitude van de bovenhand als tegenkracht voor de hefboom.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advTopHandTimeframe">Bovenhand Tijdvenster <output id="advTopHandTimeframeVal">250 ms</output></label>
+            <input id="advTopHandTimeframe" type="range" min="20" max="500" step="10" value="250">
+            <span class="setting-hint">Tijdsduur van de bovenhandse tegenimpuls.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advMaxBend">Maximale Buigingshoek <output id="advMaxBendVal">45°</output></label>
+            <input id="advMaxBend" type="range" min="5" max="60" step="1" value="45">
+            <span class="setting-hint">Maximale elastische buighoek van de stickschacht.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBendAxis">Buigas (Deformation Axis)</label>
+            <select id="advBendAxis" class="customizer-select">
+              <option value="forwards" selected>Voorwaarts (In schotrichting / Snap)</option>
+              <option value="sideways">Zijwaarts (Laterale schachtbelasting)</option>
+              <option value="natural">Natuurlijk Diagonaal (3D Composietbuiging)</option>
+            </select>
+            <span class="setting-hint">Richting waarin de elastische doorbuiging zich primair opbouwt.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advAnchorMode">Verankeringsmodus (Anchor Mode)</label>
+            <select id="advAnchorMode" class="customizer-select">
+              <option value="bow" selected>Boogspanning (Klassiek 2-punts fulcrum buigmodel)</option>
+              <option value="fulcrum">Gefixeerd Fulcrum (Onderhandschoen draaipunt)</option>
+              <option value="topHand">Vaste Bovenhand (Scharnier vanuit pols)</option>
+            </select>
+            <span class="setting-hint">Kinematische verankering van de schacht tijdens doorbuiging.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advStickLength">Stick Lengte <output id="advStickLengthVal">1400 mm</output></label>
+            <input id="advStickLength" type="range" min="1000" max="1800" step="10" value="1400">
+            <span class="setting-hint">Totale lengte van de stickschacht (bepaalt hefboomarm en buigstraal).</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advHandleStiffness">Handvat Stijfheidsfactor <output id="advHandleStiffnessVal">1,5×</output></label>
+            <input id="advHandleStiffness" type="range" min="0.5" max="3.0" step="0.1" value="1.5">
+            <span class="setting-hint">Extra versterking van de bovenste schachtzone bij de tophand.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advHoselStiffness">Hosel Overgangsstijfheid <output id="advHoselStiffnessVal">0,8×</output></label>
+            <input id="advHoselStiffness" type="range" min="0.2" max="2.5" step="0.1" value="0.8">
+            <span class="setting-hint">Stijfheidsversterking bij de overgang van schacht naar blad.</span>
+          </div>
+        </div>
+
+        <!-- 2. Lokaal Stijfheidsprofiel & Kickpoint -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Stijfheid &amp; Kickpoint</span>
+          <h3 class="advanced-group-title">2. Lokaal Stijfheidsprofiel &amp; Kickpoint</h3>
+          <p class="advanced-group-desc">Interactieve stijfheidscurve langs de schacht (sleep punten om het kickpoint dynamisch vorm te geven).</p>
+
+          <div class="adv-stiffness-card">
+            <div class="adv-stiffness-readouts">
+              <div class="adv-readout-pill">Afgeleid kickpoint: <strong id="advKickpointReadout">—</strong></div>
+              <div class="adv-readout-pill">Gemiddelde flex: <strong id="advFlexReadout">—</strong></div>
+            </div>
+            <canvas id="advStiffnessCurve" class="stiffness-editor adv-stiffness-editor"></canvas>
+            <button type="button" id="btnResetAdvStiffness" class="btn-toggle adv-curve-reset-btn">↺ Reset Stijfheidsprofiel naar Standaard</button>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advKickpoint">Kickpoint Preset</label>
+            <select id="advKickpoint" class="customizer-select">
+              <option value="ultra-low">Ultra Low Kick (Extreem snelle snap, laagste buigpunt)</option>
+              <option value="low">Low Kick (Snelle release, laag buigpunt)</option>
+              <option value="mid-low">Mid-Low Kick (Snel met iets meer laadvermogen)</option>
+              <option value="hybrid">Hybrid Kick (Veelzijdig, dubbel flexpunt)</option>
+              <option value="mid" selected>Mid Kick (Maximale laadkracht, hoger buigpunt)</option>
+              <option value="amplified-mid">Amplified Mid Kick (Versterkte mid-kick, zwaar schot)</option>
+              <option value="high">High Kick (Hoge laadzone, maximale hefboomkracht)</option>
+              <option value="neutral">Neutraal (Gelijkmatige flex, geen specifiek kickpoint)</option>
+              <option value="custom">Custom Kick (Vrij aanpasbaar stijfheidsprofiel)</option>
+            </select>
+            <span class="setting-hint">Beïnvloedt de timing, schothoogte en ontladingscurve.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advFlex">Stick Flex Waarde <output id="advFlexVal">90</output></label>
+            <input id="advFlex" type="range" min="20" max="125" step="5" value="90">
+            <span class="setting-hint">Schachtstijfheid; lagere flex buigt makkelijker, hogere flex slaat stijver terug.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advKickpointEffect">Kickpoint Gevoeligheid / Effect <output id="advKickpointEffectVal">100%</output></label>
+            <input id="advKickpointEffect" type="range" min="0" max="200" step="5" value="100">
+            <span class="setting-hint">Mate waarin het kickpointprofiel timing en afvuursnelheid beïnvloedt.</span>
+          </div>
+        </div>
+
+        <!-- 3. Release Dynamiek, Recoil & Trillingen -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Dynamiek &amp; Recoil</span>
+          <h3 class="advanced-group-title">3. Release Dynamiek &amp; Recoil</h3>
+          <p class="advanced-group-desc">Snap, zweepslag, demping en elastische terugvering bij het ontladen.</p>
+
+          <div class="game-setting-row">
+            <label for="advTopPullStart">Tophand Pull Start Timing <output id="advTopPullStartVal">600 ms</output></label>
+            <input id="advTopPullStart" type="range" min="500" max="850" step="5" value="600">
+            <span class="setting-hint">Moment in de schotcyclus waarop de bovenhand terugtrekt voor de snap.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advTopPullDown">Tophand Neerwaartse Trek <output id="advTopPullDownVal">100 mm</output></label>
+            <input id="advTopPullDown" type="range" min="0" max="200" step="5" value="100">
+            <span class="setting-hint">Verticale verplaatsing van de bovenhand tijdens ontlading.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advFollowAngle">Follow-Through Hoek <output id="advFollowAngleVal">50°</output></label>
+            <input id="advFollowAngle" type="range" min="0" max="60" step="1" value="50">
+            <span class="setting-hint">Draaihoek van de schachtrotatie tijdens de doorzwaai.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBladeWhip">Blad Zwiepkracht (Recoil Whip) <output id="advBladeWhipVal">100%</output></label>
+            <input id="advBladeWhip" type="range" min="0" max="200" step="5" value="100">
+            <span class="setting-hint">Elastische recoil van het blad (geeft extra snelheid aan het schot).</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advReleaseSpeed">Release Snelheid / Snap Quickness <output id="advReleaseSpeedVal">100%</output></label>
+            <input id="advReleaseSpeed" type="range" min="50" max="250" step="5" value="100">
+            <span class="setting-hint">Schaalt de ontlaadsnelheid, tophand pull-quickness en versnelt de puckrelease van het blad.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advReleaseDuration">Schacht Ontlaadtijd (Release Duur) <output id="advReleaseDurationVal">400 ms</output></label>
+            <input id="advReleaseDuration" type="range" min="150" max="700" step="10" value="400">
+            <span class="setting-hint">Fysieke tijdsduur waarin de schacht van maximale buiging kaarsrecht veert.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advRecoilDamping">Recoil Dempingsfactor <output id="advRecoilDampingVal">2,2</output></label>
+            <input id="advRecoilDamping" type="range" min="0.5" max="5.0" step="0.1" value="2.2">
+            <span class="setting-hint">Hoe snel de naschok-trillingen in de schacht uitsterven na het lossen.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advRecoilFrequency">Recoil Trillingsfrequentie <output id="advRecoilFrequencyVal">2,2</output></label>
+            <input id="advRecoilFrequency" type="range" min="0.5" max="5.0" step="0.1" value="2.2">
+            <span class="setting-hint">Frequentie van de harmonische zweepslag-oscillatie tijdens de ontlading.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advMaxSwingAngleDeg">Maximale Zwaaihoek Begrenzing <output id="advMaxSwingAngleDegVal">78°</output></label>
+            <input id="advMaxSwingAngleDeg" type="range" min="30" max="110" step="1" value="78">
+            <span class="setting-hint">Fysieke rotatielimiet van de stick tijdens follow-through.</span>
+          </div>
+        </div>
+
+        <!-- 4. Puck Contact, Afvuur & Vlucht Fysica -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Launch &amp; Contact</span>
+          <h3 class="advanced-group-title">4. Puck Contact, Afvuur &amp; Vlucht Fysica</h3>
+          <p class="advanced-group-desc">Vrijloop, vangafstand, contacttijd en kogelbaanconstanten.</p>
+
+          <div class="game-setting-row">
+            <label for="advBaseShotSpeed">Basis Afvuursnelheid Impuls <output id="advBaseShotSpeedVal">5000 mm/s</output></label>
+            <input id="advBaseShotSpeed" type="range" min="2000" max="10000" step="200" value="5000">
+            <span class="setting-hint">Basis lineaire lanceersnelheid van de puck vóór whip-bonus.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advWhipBonusSpeed">Zweepslag Bonus Snelheid <output id="advWhipBonusSpeedVal">7000 mm/s</output></label>
+            <input id="advWhipBonusSpeed" type="range" min="2000" max="15000" step="200" value="7000">
+            <span class="setting-hint">Maximale toevoeging van snelheid via elastische energie-ontlading.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advPuckDwellTime">Puck Contacttijd op Blad <output id="advPuckDwellTimeVal">180 ms</output></label>
+            <input id="advPuckDwellTime" type="range" min="50" max="400" step="10" value="180">
+            <span class="setting-hint">Tijd waarin de puck aan het blad kleeft en over de curve rolt.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBladeCatchDistance">Blad Contactvangst Bereik <output id="advBladeCatchDistanceVal">250 mm</output></label>
+            <input id="advBladeCatchDistance" type="range" min="100" max="500" step="10" value="250">
+            <span class="setting-hint">Afstand waarin de puck contact zoekt met het blad tijdens de swipe.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBladeClearance">Blad Vrijloopafstand (Clearance) <output id="advBladeClearanceVal">54 mm</output></label>
+            <input id="advBladeClearance" type="range" min="10" max="120" step="2" value="54">
+            <span class="setting-hint">Afstand tussen blad-oppervlak en het zwaartepunt van de puck.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBladeDecelThreshold">Blad Vertragingsdrempel <output id="advBladeDecelThresholdVal">300 mm/s</output></label>
+            <input id="advBladeDecelThreshold" type="range" min="100" max="800" step="20" value="300">
+            <span class="setting-hint">Snelheidsdrempel waarbij de puck van het blad loskomt bij vertraging.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advReleaseSafetyLimit">Maximale Contacttijd Veiligheidsgrens <output id="advReleaseSafetyLimitVal">420 ms</output></label>
+            <input id="advReleaseSafetyLimit" type="range" min="200" max="800" step="10" value="420">
+            <span class="setting-hint">Maximale tijd waarna de puck geforceerd lanceert om vastplakken te voorkomen.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advPuckWobbleFactor">Puck Wankel &amp; Spin Afwijking <output id="advPuckWobbleFactorVal">1,0×</output></label>
+            <input id="advPuckWobbleFactor" type="range" min="0.0" max="3.0" step="0.1" value="1.0">
+            <span class="setting-hint">Mate van instabiliteit en zijdelingse schottrilling in de lucht.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advGravityValue">Vluchtzwaartekracht (Gravity) <output id="advGravityValueVal">9810 mm/s²</output></label>
+            <input id="advGravityValue" type="range" min="4000" max="16000" step="200" value="9810">
+            <span class="setting-hint">Neerwaartse versnelling op de puck tijdens de kogelbaanvlucht.</span>
+          </div>
+        </div>
+
+        <!-- 5. Schotkracht, Input & Swipe Interactie -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Snelheid &amp; Input</span>
+          <h3 class="advanced-group-title">5. Schotkracht, Input &amp; Swipe Interactie</h3>
+          <p class="advanced-group-desc">Koppeling tussen spelersinput, veegtraject en resulterende schotsnelheid.</p>
+
+          <div class="game-setting-row">
+            <label for="advShotSpeed">Schotsnelheid Multiplier <output id="advShotSpeedVal">190%</output></label>
+            <input id="advShotSpeed" type="range" min="50" max="400" step="5" value="190">
+            <span class="setting-hint">Snelheidsvermenigvuldiger op de uiteindelijke puckvlucht.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advSwipeRange">Invloed Sleepsnelheid op Schot <output id="advSwipeRangeVal">100%</output></label>
+            <input id="advSwipeRange" type="range" min="50" max="200" step="5" value="100">
+            <span class="setting-hint">Gevoeligheid van schotkracht t.o.v. de swipesnelheid.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advMinSwipeSpeed">Minimale Sleepsnelheid Drempel <output id="advMinSwipeSpeedVal">0,3 px/ms</output></label>
+            <input id="advMinSwipeSpeed" type="range" min="0.1" max="1.5" step="0.1" value="0.3">
+            <span class="setting-hint">Drempelwaarde om een schotbeweging te registreren.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advMinSwipeDistance">Minimale Veegafstand <output id="advMinSwipeDistanceVal">100 px</output></label>
+            <input id="advMinSwipeDistance" type="range" min="20" max="250" step="5" value="100">
+            <span class="setting-hint">Minimale verticale verplaatsing van de vinger/cursor om een schot te triggeren.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advSwipePowerMultiplier">Swipe Kracht Vermenigvuldiger <output id="advSwipePowerMultiplierVal">28</output></label>
+            <input id="advSwipePowerMultiplier" type="range" min="10" max="100" step="2" value="28">
+            <span class="setting-hint">Omzettingsfactor van veegsnelheid naar schotkracht (percentage).</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advAimSensitivity">Richtinggevoeligheid (Aim Sensitivity) <output id="advAimSensitivityVal">1,5×</output></label>
+            <input id="advAimSensitivity" type="range" min="0.5" max="3.0" step="0.1" value="1.5">
+            <span class="setting-hint">Gevoeligheid van zijdelingse veegafwijkingen naar het doeloppervlak.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advPrecisionTolerance">Swipeprecisie-tolerantie <output id="advPrecisionToleranceVal">12 px</output></label>
+            <input id="advPrecisionTolerance" type="range" min="0" max="60" step="2" value="12">
+            <span class="setting-hint">Speling in het veegtraject voordat er een richtingsafwijking ontstaat.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advDeviationPenalty">Straf voor Afwijking <output id="advDeviationPenaltyVal">100%</output></label>
+            <input id="advDeviationPenalty" type="range" min="25" max="250" step="5" value="100">
+            <span class="setting-hint">Hoeveel de puck afzwaait naar links/rechts bij een onzuivere swipe.</span>
+          </div>
+        </div>
+
+        <!-- 6. Fysieke Stick Specificaties, Upgrades & Modifiers -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Bouw &amp; Modifiers</span>
+          <h3 class="advanced-group-title">6. Stick Specificaties &amp; Modifiers</h3>
+          <p class="advanced-group-desc">Fysieke specificaties, bladcurve, wanddikte en tape die gewicht, snelheid en lift beïnvloeden.</p>
+
+          <!-- Live Stick Modifiers Readout Grid -->
+          <div class="adv-stats-grid">
+            <div class="adv-stat-card">
+              <span class="adv-stat-lbl">Stick Gewicht</span>
+              <span id="advStatWeight" class="adv-stat-num">400 g</span>
+            </div>
+            <div class="adv-stat-card">
+              <span class="adv-stat-lbl">Puck Snelheid</span>
+              <span id="advStatPuckSpeed" class="adv-stat-num">100%</span>
+            </div>
+            <div class="adv-stat-card">
+              <span class="adv-stat-lbl">Release Quickness</span>
+              <span id="advStatQuickness" class="adv-stat-num">100%</span>
+            </div>
+            <div class="adv-stat-card">
+              <span class="adv-stat-lbl">Nauwkeurigheid</span>
+              <span id="advStatAccuracy" class="adv-stat-num">100%</span>
+            </div>
+            <div class="adv-stat-card">
+              <span class="adv-stat-lbl">Y-Lift Tendens</span>
+              <span id="advStatTendency" class="adv-stat-num">+0.0%</span>
+            </div>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBladeCurve">Bladcurve / Patroon (Blade Pattern)</label>
+            <select id="advBladeCurve" class="customizer-select">
+              <option value="P02">P02 (Klassiek / Laag schot)</option>
+              <option value="P08">P08 (Aanvallend / Hoge lift)</option>
+              <option value="P14">P14 (Toe curve / Snelle release)</option>
+              <option value="P28" selected>P28 (Open toe / Maximale snip-lift)</option>
+              <option value="P28JR">P28JR (Junior variant)</option>
+              <option value="P28M">P28M (Medium variant)</option>
+              <option value="P77">P77 (All-round)</option>
+              <option value="P88">P88 (Mid-curve / Vlakker &amp; accuraat)</option>
+              <option value="P90TM">P90TM (Moderne hybride curve)</option>
+              <option value="P91">P91 (Hakcurve)</option>
+              <option value="P92">P92 (Klassieke all-rounder)</option>
+              <option value="P92JR">P92JR (Junior all-rounder)</option>
+              <option value="P92M">P92M (Medium all-rounder)</option>
+            </select>
+            <span class="setting-hint">Bepaalt schothoogte (Y-tendens), balspin en releasehoek.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advBladeTexture">Bladtextuur (Blade Finish)</label>
+            <select id="advBladeTexture" class="customizer-select">
+              <option value="3d-texture">3D textuur (+1% precisie)</option>
+              <option value="sanded">Geschuurd (+1% precisie)</option>
+              <option value="matte-no-texture">Mat zonder textuur (Standaard)</option>
+              <option value="gloss-no-texture">Glanzend zonder textuur</option>
+            </select>
+            <span class="setting-hint">Grip tussen puck en blad voor controle en nauwkeurigheid.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advShaftWall">Schacht Wanddikte Preset</label>
+            <select id="advShaftWall" class="customizer-select">
+              <option value="ultra-thin">Ultra dun (1,0 mm - Max pucksnelheid, lichtst)</option>
+              <option value="flinter-thin">Flinter dun (1,5 mm)</option>
+              <option value="very-thin" selected>Zeer dun (2,0 mm - Neutraal balans)</option>
+              <option value="thin">Dun (2,5 mm)</option>
+              <option value="regular">Regulier (3,0 mm - Stevigst / zwaarder)</option>
+            </select>
+            <span class="setting-hint">Dunnere wanden genereren meer pucksnelheid bij schoten.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advShaftThickness">Exacte Wanddikte <output id="advShaftThicknessVal">2,0 mm</output></label>
+            <input id="advShaftThickness" type="range" min="1.0" max="4.0" step="0.1" value="2.0">
+            <span class="setting-hint">Numerieke wanddikte in mm (bepaalt gewicht en flex-energie).</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advShaftSurface">Schacht Oppervlak / Coating</label>
+            <select id="advShaftSurface" class="customizer-select">
+              <option value="mat-without-grip" selected>Mat zonder grip</option>
+              <option value="mat-with-grip">Mat met grip (+2% pucksnelheid, +1% precisie)</option>
+              <option value="gloss-without-grip">Glanzend zonder grip</option>
+              <option value="gloss-with-grip">Glanzend met grip (+2% pucksnelheid, +1% precisie)</option>
+              <option value="supergloss-with-grip">Superglanzend met grip (+2% pucksnelheid, +1% precisie)</option>
+            </select>
+            <span class="setting-hint">Gripcoating op de schacht verbetert energieoverdracht.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advShaft3dGrip">Schacht 3D Grip Patroon</label>
+            <select id="advShaft3dGrip" class="customizer-select">
+              <option value="fully-covered" selected>Helemaal bedekt met grip</option>
+              <option value="candy-cane">Zuurstok patroon grip (Candy Cane)</option>
+              <option value="herringbone">Vissengraat grip (Herringbone)</option>
+              <option value="right-angles">Rechte hoeken grip</option>
+              <option value="slanted-angles">Schuine hoeken grip</option>
+              <option value="none">Geen 3D grip</option>
+            </select>
+            <span class="setting-hint">3D textuurreliëf op de schacht voor tastgevoel en vingercontrole.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advShaftShape">Schacht Vorm (Shaft Geometry)</label>
+            <select id="advShaftShape" class="customizer-select">
+              <option value="micro-concaaf" selected>Micro Concaaf</option>
+              <option value="concaaf">Concaaf</option>
+              <option value="pentagon">Vijfhoek (Pentagon)</option>
+            </select>
+            <span class="setting-hint">Geometrisch dwarsdoorsnedeprofiel van de stickschacht.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advAgeCategory">Leeftijdscategorie / Schachtformaat</label>
+            <select id="advAgeCategory" class="customizer-select">
+              <option value="SR" selected>Senior (SR - 1400 mm / standaard diameter)</option>
+              <option value="INT">Intermediate (INT - 1320 mm / iets dunnere schacht)</option>
+              <option value="JR">Junior (JR - 1200 mm / jeugdschacht)</option>
+              <option value="YTH">Youth (YTH - 1060 mm / smalste schacht)</option>
+            </select>
+            <span class="setting-hint">Bepaalt de verhoudingen en de aanbevolen flex-schaal.</span>
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advHandedness">Handvoorkeur (Handedness)</label>
+            <select id="advHandedness" class="customizer-select">
+              <option value="right" selected>Rechtshandig (Right Hand)</option>
+              <option value="left">Linkshandig (Left Hand)</option>
+            </select>
+            <span class="setting-hint">Zijde van het lichaam en oriëntatie van het blad t.o.v. de puck.</span>
+          </div>
+
+          <div class="adv-checkboxes-card">
+            <label class="customizer-checkbox-label">
+              <input type="checkbox" id="advShaftGrip">
+              <span>Schacht Grip Coating (+15g gewicht, extra houvast)</span>
+            </label>
+            <label class="customizer-checkbox-label">
+              <input type="checkbox" id="advBladeGrip">
+              <span>Blad Grip Afwerking (Behoudt spin bij impact)</span>
+            </label>
+            <label class="customizer-checkbox-label">
+              <input type="checkbox" id="advStickTape">
+              <span>Butt-End Tape (+10g gewicht, handstop)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 7. Tijdlijn & Doorbuiging Simulatie Preview -->
+        <div class="advanced-group">
+          <span class="advanced-group-kicker">Simulatie Preview</span>
+          <h3 class="advanced-group-title">7. Tijdlijn &amp; Doorbuiging Simulatie</h3>
+          <p class="advanced-group-desc">Inspecteer de stickvervorming frame-voor-frame langs de volledige schotcyclus (0 - 1200 ms).</p>
+
+          <div class="game-setting-row">
+            <label for="advTimeline">Tijdlijn Positie <output id="advTimelineVal">600 ms</output></label>
+            <input id="advTimeline" type="range" min="0" max="1200" step="5" value="600">
+          </div>
+
+          <div class="game-setting-row">
+            <label for="advAnimPlaybackSpeed">Animatie Afspeelsnelheid <output id="advAnimPlaybackSpeedVal">100%</output></label>
+            <input id="advAnimPlaybackSpeed" type="range" min="25" max="300" step="5" value="100">
+            <span class="setting-hint">Bepaalt hoe snel de schot- en flex-animatie in de simulatie afspeelt.</span>
+          </div>
+
+          <div class="adv-timeline-controls">
+            <button type="button" id="btnAdvHoldMax" class="btn-toggle active">✓ Vasthouden (600 ms)</button>
+            <button type="button" id="btnAdvPlay" class="btn-play">▶ Play</button>
+          </div>
+
+          <div class="quick-jumps adv-quick-jumps">
+            <button type="button" class="btn-jump adv-btn-jump" data-time="0">0 ms (Rust)</button>
+            <button type="button" class="btn-jump adv-btn-jump" data-time="450">450 ms (Laadstart)</button>
+            <button type="button" class="btn-jump adv-btn-jump active" data-time="600">600 ms (Max Flex)</button>
+            <button type="button" class="btn-jump adv-btn-jump" data-time="750">750 ms (Release)</button>
+            <button type="button" class="btn-jump adv-btn-jump" data-time="1000">1000 ms (Recoil)</button>
+          </div>
+        </div>
+
+        <button type="button" class="menu-btn secondary adv-reset-btn" id="btnResetAdvSettings">↺ Herstel alle geavanceerde waarden naar standaard</button>
       </div>
 
       <div class="game-settings-actions">
@@ -214,7 +710,15 @@
           <option value="slanted-angles">Schuine hoeken grip</option><option value="none">Geen 3D grip</option>
         </select>
         <select id="custKickpoint" aria-label="Kickpoint Preset">
-          <option value="low">Low Kick</option><option value="hybrid">Hybrid Kick</option><option value="mid">Mid Kick</option>
+          <option value="ultra-low">Ultra Low Kick</option>
+          <option value="low">Low Kick</option>
+          <option value="mid-low">Mid-Low Kick</option>
+          <option value="hybrid">Hybrid Kick</option>
+          <option value="mid" selected>Mid Kick</option>
+          <option value="amplified-mid">Amplified Mid Kick</option>
+          <option value="high">High Kick</option>
+          <option value="neutral">Neutraal</option>
+          <option value="custom">Custom Kick</option>
         </select>
         <select id="custBladeTexture" aria-label="Blade Texture">
           <option value="3d-texture">3D textuur</option><option value="sanded">Geschuurd</option>
@@ -274,15 +778,21 @@
 
   <canvas id="aimTracerCanvas" class="aim-tracer-canvas"></canvas>
 
-  <div id="handedness-popup" class="glass-panel">
-    <h2>Select Your Handedness</h2>
-    <p>Do you shoot Left or Right?</p>
-    <div style="display: flex; gap: 20px; justify-content: center; margin-top: 20px;">
-      <button class="menu-btn" onclick="selectTutorialHandedness('left')">Left</button>
-      <button class="menu-btn" onclick="selectTutorialHandedness('right')">Right</button>
+  <div id="handedness-popup" class="glass-panel" hidden>
+    <div class="handedness-eyebrow">Tutorial</div>
+    <h2 class="handedness-title">Select your handedness</h2>
+    <div class="handedness-options">
+      <button type="button" class="handedness-card" onclick="selectTutorialHandedness('left')">
+        <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/sticknarrowLinks.png?v=1789809024" alt="Left" height="80" style="height: 80px; max-height: 80px; width: auto; max-width: 100%; object-fit: contain;" />
+        <span>Left</span>
+      </button>
+      <button type="button" class="handedness-card" onclick="selectTutorialHandedness('right')">
+        <img src="https://cdn.shopify.com/s/files/1/1038/7203/7203/files/sticknarrowRechts.png?v=1789809357" alt="Right" height="80" style="height: 80px; max-height: 80px; width: auto; max-width: 100%; object-fit: contain;" />
+        <span>Right</span>
+      </button>
     </div>
-    <div style="margin-top: 15px;">
-      <button class="menu-btn" style="background: #999; font-size: 0.9em;" onclick="skipTutorialHandedness()">Skip (Default Right)</button>
+    <div class="handedness-actions">
+      <button type="button" class="handedness-skip-btn" onclick="skipTutorial()">Skip Tutorial</button>
     </div>
   </div>
 
@@ -294,20 +804,50 @@
       <button onclick="selectCrossbarStick('mid')">Mid Kick</button>
       <button onclick="selectCrossbarStick('hybrid')">Hybrid Kick</button>
     </div>
+    <button type="button" id="btnHideTutorialHud" class="tutorial-hud-hide-btn">Hide</button>
   </div>
 
   <div id="game-ui">
     <div class="top-bar">
       <div class="top-actions">
         <button class="btn-action glass-panel" id="btnMenu" title="Hoofdmenu">☰ Menu</button>
+        <button class="btn-action glass-panel" id="btnHints" title="Hints tonen">💡 Hints</button>
         <button class="btn-action glass-panel" id="btnInstantReplay" title="Speel het laatste schot opnieuw" disabled>⟲ Replay</button>
-        <button class="btn-action glass-panel" id="btnResetAll" title="Herstel standaardwaarden">↺ Reset</button>
       </div>
-    </div>
 
-    <div id="score-overlay" class="score-overlay">
-      <div>Score: <span id="score-val">0</span></div>
-      <div>Shots: <span id="shots-val">0</span></div>
+      <!-- Live Broadcast Scorebug -->
+      <div id="scorebug" class="scorebug" aria-label="Scorebord">
+        <div class="scorebug-item scorebug-score">
+          <span class="scorebug-label">SCORE</span>
+          <span class="scorebug-val" id="scorebug-val-score">0</span>
+        </div>
+        <div class="scorebug-item scorebug-shots">
+          <span class="scorebug-label">SHOTS</span>
+          <span class="scorebug-val" id="scorebug-val-shots">0</span>
+        </div>
+        <div class="scorebug-item scorebug-release">
+          <span class="scorebug-label">FASTEST RELEASE</span>
+          <div class="scorebug-val-group">
+            <span class="scorebug-val" id="scorebug-val-release">—</span>
+            <span class="scorebug-unit" id="scorebug-unit-release" style="display: none;">MS</span>
+          </div>
+          <div class="scorebug-stick" id="scorebug-stick-release" style="display: none;">
+            <img class="scorebug-stick-img" id="scorebug-stick-img-release" alt="Stick type" src="" />
+            <span class="scorebug-stick-label" id="scorebug-stick-lbl-release"></span>
+          </div>
+        </div>
+        <div class="scorebug-item scorebug-speed">
+          <span class="scorebug-label">HARDEST SHOT</span>
+          <div class="scorebug-val-group">
+            <span class="scorebug-val" id="scorebug-val-speed">—</span>
+            <span class="scorebug-unit" id="scorebug-unit-speed" style="display: none;">KM/H</span>
+          </div>
+          <div class="scorebug-stick" id="scorebug-stick-speed" style="display: none;">
+            <img class="scorebug-stick-img" id="scorebug-stick-img-speed" alt="Stick type" src="" />
+            <span class="scorebug-stick-label" id="scorebug-stick-lbl-speed"></span>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Speed Counter overlay -->
@@ -342,7 +882,7 @@
 
     <!-- Swipe Zone Element -->
     <div id="swipeZone" class="swipe-zone">
-      Start Swipe Hier
+      <button class="btn-action glass-panel swipe-reset-btn" id="btnResetAll" title="Puck terug naar schietpositie" hidden>↺ Reset</button>
     </div>
   </div>
 

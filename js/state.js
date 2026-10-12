@@ -61,7 +61,14 @@ export const game = {
   targetStartTime: 0,
   targetTimeElapsed: 0,
   activeTargets: [],
-  particles: []
+  particles: [],
+
+  // Scoreboard stats
+  fastestRelease: 0,
+  fastestReleaseKp: null,
+  hardestShot: 0,
+  hardestShotKp: null,
+  hardestShotKmh: 0
 };
 
 export const swipeData = {

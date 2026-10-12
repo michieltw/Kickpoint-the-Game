@@ -1,12 +1,13 @@
 import * as THREE from 'three';
-import { gameSettings, StickCustomizerState, GOAL } from './config.js';
+import { gameSettings, physicsSettings, StickCustomizerState, GOAL } from './config.js';
 import { state, game, swipeData } from './state.js';
 import { getStiffnessDynamics } from './physics.js';
 import { camera } from './scene.js'; // game.net is in sceneGame.net technically, or we map it
 import { getStickShotModifiers } from './stick-effects.js';
 
 export function getGoalAim(clientX, clientY, pathErrorX = 0) {
-  const aimX = clientX + pathErrorX * 1.5;
+  const aimSensitivity = physicsSettings?.aimSensitivity ?? 1.5;
+  const aimX = clientX + pathErrorX * aimSensitivity;
   const ndc = new THREE.Vector2(
     (aimX / window.innerWidth) * 2 - 1,
     -(clientY / window.innerHeight) * 2 + 1
@@ -38,6 +39,7 @@ export function bindInput(controls, syncUiFromState) {
   resizeAimCanvas();
 
   swipeZone.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('#btnResetAll')) return;
     aimCtx.clearRect(0, 0, aimCanvas.width, aimCanvas.height);
     if (game.puckState !== 'idle' || state.isPlaying) return;
     swipeData.isSwiping = true;
@@ -73,7 +75,8 @@ export function bindInput(controls, syncUiFromState) {
     swipeData.endX = e.clientX;
     swipeData.endTime = performance.now();
 
-    if (swipeData.startY - swipeData.endY > 100) {
+    const minSwipeDist = physicsSettings?.minSwipeDistance ?? 100;
+    if (swipeData.startY - swipeData.endY > minSwipeDist) {
         let timeToPuck = swipeData.puckHitTime > 0 ? (swipeData.puckHitTime - swipeData.startTime) : (swipeData.endTime - swipeData.startTime) / 2;
         if (timeToPuck < 50) timeToPuck = 50;
 
@@ -81,7 +84,8 @@ export function bindInput(controls, syncUiFromState) {
 
         const speed = distToPuck / timeToPuck;
         if (speed < gameSettings.minSwipeSpeed) return;
-        swipeData.power = Math.max(20, Math.min(100, speed * 52 * gameSettings.swipeRange));
+        const powerMultiplier = physicsSettings?.swipePowerMultiplier ?? 28;
+        swipeData.power = Math.max(20, Math.min(100, speed * powerMultiplier * gameSettings.swipeRange));
 
         let maxPathErrorX = 0;
         let maxPathErrorMagnitude = 0;
@@ -114,8 +118,10 @@ export function bindInput(controls, syncUiFromState) {
         game.shotAim.y += shotModifiers.shotTendencyY * GOAL.height;
         game.shotDeviationX = inaccurateAim.x - unbiasedAim.x;
         const stiffnessDynamics = getStiffnessDynamics();
+        const relSpeedMult = Math.max(0.1, physicsSettings?.releaseSpeedMultiplier ?? 1.0);
+        const quickness = Math.max(0.1, game.shotQuickness || 1);
         game.contactTime = Math.max(540, Math.min(660, 600 * stiffnessDynamics.timingScale));
-        game.releaseTime = game.contactTime + 180 * stiffnessDynamics.timingScale;
+        game.releaseTime = game.contactTime + ((physicsSettings?.puckDwellTime ?? 180) * stiffnessDynamics.timingScale) / (relSpeedMult * quickness);
 
         // Draw Aim Tracer if enabled
         if(gameSettings.showAimTracer && swipeData.path.length > 1) {

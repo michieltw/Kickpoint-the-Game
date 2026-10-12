@@ -91,13 +91,18 @@ export const STICK_MODIFIER_RULES = Object.freeze({
     }
   },
   kickpoint: {
-    values: { low: -1, hybrid: 0, mid: 1 },
-    effects: {
-      quickness: { curve: 'neutral', strength: 0 },
-      puckSpeed: { curve: 'neutral', strength: 0 },
-      accuracy: { curve: 'neutral', strength: 0 },
-      shotTendencyY: { curve: 'neutral', strength: 0 }
-    }
+    presets: {
+      'ultra-low': { quickness: 1.25, puckSpeed: 0.90 },
+      low: { quickness: 1.18, puckSpeed: 0.94 },
+      'mid-low': { quickness: 1.10, puckSpeed: 0.98 },
+      hybrid: { quickness: 1.02, puckSpeed: 1.02 },
+      mid: { quickness: 0.88, puckSpeed: 1.10 },
+      'amplified-mid': { quickness: 0.82, puckSpeed: 1.14 },
+      high: { quickness: 0.78, puckSpeed: 1.18 },
+      neutral: { quickness: 1.00, puckSpeed: 1.00 },
+      custom: { quickness: 1.00, puckSpeed: 1.00 }
+    },
+    effects: {}
   },
   shaftThickness: {
     min: 1,

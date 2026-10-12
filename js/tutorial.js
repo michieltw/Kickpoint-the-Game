@@ -1,11 +1,12 @@
 import { appState } from './state.js';
-import { updateUiMode } from './ui.js';
+import { updateUiMode, applyKickpointPreset } from './ui.js';
 import { StickCustomizerState } from './config.js';
 
 // Helper to trigger the main model load since handleStickModelChange is private in main.js
 // but we can trigger it via firing the change event on custKickpoint
 function triggerStickUpdate(kickpoint) {
     StickCustomizerState.kickpoint = kickpoint;
+    applyKickpointPreset(kickpoint);
     const custKickpoint = document.getElementById('custKickpoint');
     if (custKickpoint) {
         custKickpoint.value = kickpoint;
@@ -62,17 +63,33 @@ export function selectTutorialHandedness(handedness) {
     beginTutorialPhases();
 }
 
-export function skipTutorialHandedness() {
+export function skipTutorial() {
     const popup = document.getElementById('handedness-popup');
     if (popup) {
         popup.hidden = true;
         popup.style.display = 'none';
     }
-    beginTutorialPhases();
+    const hud = document.getElementById('tutorial-hud');
+    if (hud) {
+        hud.style.display = 'none';
+    }
+    appState.tutorial = {
+        isActive: false,
+        phase: 0,
+        shotsTaken: 0,
+        hits: 0,
+        maxShotsPerPhase: 3
+    };
+    appState.mode = 'menu';
+    updateUiMode();
+    window.dispatchEvent(new CustomEvent('tutorialKickpointSwitched'));
 }
 
+export const skipTutorialHandedness = skipTutorial;
+
 window.selectTutorialHandedness = selectTutorialHandedness;
-window.skipTutorialHandedness = skipTutorialHandedness;
+window.skipTutorial = skipTutorial;
+window.skipTutorialHandedness = skipTutorial;
 
 export function handleTutorialShotComplete() {
     if (!appState.tutorial || !appState.tutorial.isActive) return;
