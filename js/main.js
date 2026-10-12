@@ -2,7 +2,18 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { appState, state, game, swipeData } from './state.js';
 import { gameSettings, physicsSettings, StickCustomizerState, L_total, Z_center, X_center, gravity, puckRadius, rinkWidth, targetRadius, GOAL, flightMinTime, flightMaxTime } from './config.js';
-import { updatePhysics, getStiffnessDynamics, getBladeContactProgress, getBladePoint, initializeBladePath } from './physics.js';
+import {
+  updatePhysics,
+  getStiffnessDynamics,
+  getBladeContactProgress,
+  getBladePoint,
+  initializeBladePath,
+  resolveShotPhysics,
+  calculateReleaseSpeed,
+  calculateShotDispersion,
+  calculateLaunchVector,
+  getAimAdjustedLaunchVelocity
+} from './physics.js';
 import { scene, camera, renderer, controls, ghostPuck, projectedArrow, puckSwipeMesh, updateProjectedArrow, stickParams, targetGroup, particleGroup, createTargetTexture, shotTracerGeo, shotTracerLine, updateBoardLogos, updateGoalSpeedDisplay, updateScoreboard } from './scene.js';
 import { updateUiMode, syncUiFromState, initUiBindings, drawStiffnessCurve, applyKickpointPreset } from './ui.js';
 import { spawnTargets, shatterTarget } from './targets.js';
@@ -425,62 +436,6 @@ function installStickModel(root) {
 // Replay controls
 let replayPaused = false;
 let replayDirection = 1;
-
-function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bladeVelocity) {
-  const delta = target.clone().sub(start);
-  // Find the flight time at the requested speed that compensates for gravity.
-  const activeGravity = physicsSettings?.gravityValue ?? gravity;
-  const getVelocityAtTime = (time) => new THREE.Vector3(
-    delta.x / (speedMultiplier * time),
-    delta.y / (speedMultiplier * time) + activeGravity * time / (2 * speedMultiplier),
-    delta.z / (speedMultiplier * time)
-  );
-  const getSpeedError = (time) => getVelocityAtTime(time).length() - speed;
-  const minTime = flightMinTime;
-  const maxTime = flightMaxTime;
-  const samples = 256;
-  let previousTime = minTime;
-  let previousError = getSpeedError(previousTime);
-  let bracket = null;
-
-  for (let i = 1; i <= samples; i++) {
-    const time = minTime + (maxTime - minTime) * i / samples;
-    const error = getSpeedError(time);
-    if (previousError * error <= 0) {
-      bracket = [previousTime, time];
-      break;
-    }
-    previousTime = time;
-    previousError = error;
-  }
-
-  if (!bracket) {
-    const directVelocity = delta.normalize().multiplyScalar(speed);
-    return {
-      velocity: directVelocity.sub(bladeVelocity),
-      flightTime: Math.max(minTime, start.distanceTo(target) / (speed * speedMultiplier))
-    };
-  }
-
-  let [low, high] = bracket;
-  let lowError = getSpeedError(low);
-  for (let i = 0; i < 32; i++) {
-    const middle = (low + high) / 2;
-    const middleError = getSpeedError(middle);
-    if (lowError * middleError <= 0) {
-      high = middle;
-    } else {
-      low = middle;
-      lowError = middleError;
-    }
-  }
-  const flightTime = (low + high) / 2;
-
-  return {
-    velocity: getVelocityAtTime(flightTime).sub(bladeVelocity),
-    flightTime
-  };
-}
 
 function updateGameScore() {
   const scoreVal = document.getElementById('score-val');
@@ -1055,28 +1010,18 @@ function animate() {
       const rollOffBlade = (game.bladeContactProgress + (1.05 - game.bladeContactProgress) * Math.max(0, Math.min(1, (state.timeline - game.contactTime) / (game.releaseTime - game.contactTime)))) >= 1.0;
 
       if (bladeHasStartedSlowing || releaseSafetyLimitReached || rollOffBlade) {
-        const target = game.shotAim || new THREE.Vector3(0, 300, game.net.position.z);
-        const flightTarget = target.clone();
-        flightTarget.x += game.shotDeviationX;
-        flightTarget.z = game.net.position.z - 1;
-        const stiffnessDynamics = getStiffnessDynamics();
         const swipePower = swipeData.power ? swipeData.power / 100 : 0.8;
-        const whip = state.bladeWhipStrength / 100;
-        const shotModifiers = getStickShotModifiers(StickCustomizerState);
+        const shotPhysics = resolveShotPhysics({
+          power: swipeData.power,
+          timingQuality: getStiffnessDynamics(),
+          stick: StickCustomizerState,
+          kickPoint: StickCustomizerState.kickpoint,
+          state: state,
+          aimPoint: game.shotAim || new THREE.Vector3(0, 300, game.net.position.z)
+        });
 
-        const baseImpulse = physicsSettings?.baseShotSpeed ?? 5000;
-        const whipBonus = physicsSettings?.whipBonusSpeed ?? 7000;
-        const swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * swipePower) * stiffnessDynamics.powerScale;
-        const aimAdjustedLaunch = getAimAdjustedLaunchVelocity(
-          game.puck.position,
-          flightTarget,
-          swipeDrivenSpeed * shotModifiers.puckSpeed,
-          gameSettings.shotSpeed,
-          game.bladeVelocity
-        );
-        game.puckVelocity.copy(aimAdjustedLaunch.velocity).multiplyScalar(gameSettings.shotSpeed);
-        game.puckVelocity.addScaledVector(game.bladeVelocity, gameSettings.shotSpeed);
-        const speed = game.puckVelocity.length();
+        game.puckVelocity.copy(shotPhysics.launchVector);
+        const speed = shotPhysics.speed;
 
         // Calculate and show speed on the in-goal digital radar display.
         // speed is in mm/s. Convert to m/s by dividing by 1000.
@@ -1118,7 +1063,7 @@ function animate() {
         });
 
         game.flightStart.copy(game.puck.position);
-        game.flightDuration = aimAdjustedLaunch.flightTime;
+        game.flightDuration = shotPhysics.flightDuration;
 
         game.shotElapsed = 0;
         game.shotWobbleOffset = 0;

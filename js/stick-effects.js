@@ -217,3 +217,5 @@ export function getStickShotModifiers(customizer = {}) {
   totals.shotTendencyY = clamp(totals.shotTendencyY, STICK_EFFECT_LIMITS.shotTendency);
   return totals;
 }
+
+export const applyStickEffects = getStickShotModifiers;

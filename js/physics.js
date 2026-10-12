@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { L_total, Z_center, X_center, SEGMENTS, gameSettings, physicsSettings } from './config.js';
-import { state, game } from './state.js';
+import { L_total, Z_center, X_center, SEGMENTS, gameSettings, physicsSettings, StickCustomizerState, GOAL, gravity, flightMinTime, flightMaxTime } from './config.js';
+import { state, game, swipeData } from './state.js';
 import { bgMarker, thMarker, stickParams } from './scene.js';
+import { getStickShotModifiers } from './stick-effects.js';
 
 export let sortedStiffnessCurve = [...state.stiffnessCurve].sort((a, b) => a.y - b.y);
 export let cachedStiffnessDynamics = null;
@@ -411,3 +412,195 @@ export function getBladeContactProgress() {
   const contactDistance = physicsSettings?.bladeCatchDistance ?? 250;
   return closestPoint.distanceToSquared(game.puck.position) <= contactDistance ** 2 ? progress : null;
 }
+
+export function getAimAdjustedLaunchVelocity(start, target, speed, speedMultiplier, bladeVelocity) {
+  const delta = target.clone().sub(start);
+  // Find the flight time at the requested speed that compensates for gravity.
+  const activeGravity = physicsSettings?.gravityValue ?? gravity;
+  const getVelocityAtTime = (time) => new THREE.Vector3(
+    delta.x / (speedMultiplier * time),
+    delta.y / (speedMultiplier * time) + activeGravity * time / (2 * speedMultiplier),
+    delta.z / (speedMultiplier * time)
+  );
+  const getSpeedError = (time) => getVelocityAtTime(time).length() - speed;
+  const minTime = flightMinTime;
+  const maxTime = flightMaxTime;
+  const samples = 256;
+  let previousTime = minTime;
+  let previousError = getSpeedError(previousTime);
+  let bracket = null;
+
+  for (let i = 1; i <= samples; i++) {
+    const time = minTime + (maxTime - minTime) * i / samples;
+    const error = getSpeedError(time);
+    if (previousError * error <= 0) {
+      bracket = [previousTime, time];
+      break;
+    }
+    previousTime = time;
+    previousError = error;
+  }
+
+  if (!bracket) {
+    const directVelocity = delta.normalize().multiplyScalar(speed);
+    return {
+      velocity: directVelocity.sub(bladeVelocity),
+      flightTime: Math.max(minTime, start.distanceTo(target) / (speed * speedMultiplier))
+    };
+  }
+
+  let [low, high] = bracket;
+  let lowError = getSpeedError(low);
+  for (let i = 0; i < 32; i++) {
+    const middle = (low + high) / 2;
+    const middleError = getSpeedError(middle);
+    if (lowError * middleError <= 0) {
+      high = middle;
+    } else {
+      low = middle;
+      lowError = middleError;
+    }
+  }
+  const flightTime = (low + high) / 2;
+
+  return {
+    velocity: getVelocityAtTime(flightTime).sub(bladeVelocity),
+    flightTime
+  };
+}
+
+/**
+ * Fase 1: Release Speed Calculation
+ * Bundelt schuttersenergie, timing-multiplier, flex mismatch/power-bonus,
+ * kickpoint profielbonus en mechanica-bonussen conform bestaande physics.
+ */
+export function calculateReleaseSpeed(power, timingQuality, stick, kickPoint, stateObj) {
+  const normPower = typeof power === 'number'
+    ? (power > 1 ? power / 100 : power)
+    : (swipeData.power ? swipeData.power / 100 : 0.8);
+
+  const activeState = stateObj || state;
+  const whip = (activeState?.bladeWhipStrength ?? 100) / 100;
+
+  const dynamics = timingQuality || getStiffnessDynamics();
+  const powerScale = dynamics?.powerScale ?? 1.0;
+
+  const stickConfig = stick || StickCustomizerState;
+  const modifiers = (stickConfig && typeof stickConfig.puckSpeed === 'number')
+    ? stickConfig
+    : getStickShotModifiers(stickConfig);
+
+  const baseImpulse = physicsSettings?.baseShotSpeed ?? 5000;
+  const whipBonus = physicsSettings?.whipBonusSpeed ?? 7000;
+  const swipeDrivenSpeed = (baseImpulse + whipBonus * whip) * (0.35 + 0.65 * normPower) * powerScale;
+
+  return swipeDrivenSpeed * (modifiers.puckSpeed ?? 1.0);
+}
+
+/**
+ * Fase 2: Shot Dispersion Calculation
+ * Bundelt spreiding en ruis (timing spread multiplier, stick-stabiliteit,
+ * kickpoint spread modifier en blade-hoek deviatie).
+ */
+export function calculateShotDispersion(timingQuality, stick, kickPoint, stateObj) {
+  const stickConfig = stick || StickCustomizerState;
+  const modifiers = (stickConfig && typeof stickConfig.accuracy === 'number')
+    ? stickConfig
+    : getStickShotModifiers(stickConfig);
+
+  const deviationX = typeof game?.shotDeviationX === 'number' ? game.shotDeviationX : 0;
+  const tendencyX = (modifiers.shotTendencyX ?? 0) * GOAL.width;
+  const tendencyY = (modifiers.shotTendencyY ?? 0) * GOAL.height;
+
+  return {
+    deviationX,
+    deviationY: 0,
+    tendencyX,
+    tendencyY,
+    accuracy: modifiers.accuracy ?? 1,
+    offset: new THREE.Vector3(deviationX, 0, -1),
+    x: deviationX,
+    y: 0,
+    z: -1
+  };
+}
+
+/**
+ * Fase 3: Launch Vector Calculation
+ * Zet berekende snelheid en spreiding om naar de 3D Three.js Vector3
+ * richting het doel met behoud van de bestaande lanceerhoeken.
+ */
+export function calculateLaunchVector(releaseSpeed, aimPoint, dispersion, shotType, startPos, bladeVelocity) {
+  const netZ = game.net?.position?.z ?? -20600;
+  const target = aimPoint ? aimPoint.clone() : (game.shotAim ? game.shotAim.clone() : new THREE.Vector3(0, 300, netZ));
+  const flightTarget = target.clone();
+
+  if (dispersion) {
+    if (dispersion.offset instanceof THREE.Vector3) {
+      flightTarget.add(dispersion.offset);
+    } else if (dispersion instanceof THREE.Vector3) {
+      flightTarget.add(dispersion);
+    } else {
+      flightTarget.x += (dispersion.deviationX ?? dispersion.x ?? 0);
+      flightTarget.y += (dispersion.deviationY ?? dispersion.y ?? 0);
+      flightTarget.z = (dispersion.z !== undefined ? (target.z + dispersion.z) : (flightTarget.z - 1));
+    }
+  } else {
+    flightTarget.x += (game.shotDeviationX || 0);
+    flightTarget.z = flightTarget.z - 1;
+  }
+
+  const start = startPos || (game.puck ? game.puck.position : new THREE.Vector3(95, 12.5, -20120));
+  const bladeVel = bladeVelocity || (game.bladeVelocity ? game.bladeVelocity : new THREE.Vector3(0, 0, 0));
+  const speedMultiplier = gameSettings.shotSpeed;
+
+  const aimAdjustedLaunch = getAimAdjustedLaunchVelocity(
+    start,
+    flightTarget,
+    releaseSpeed,
+    speedMultiplier,
+    bladeVel
+  );
+
+  const launchVector = aimAdjustedLaunch.velocity.clone().multiplyScalar(speedMultiplier).addScaledVector(bladeVel, speedMultiplier);
+  launchVector.flightTime = aimAdjustedLaunch.flightTime;
+  launchVector.flightTarget = flightTarget;
+
+  return launchVector;
+}
+
+/**
+ * Fase 4: Coördinerende pipeline functie
+ * Voert de drie stappen sequentieel uit en retourneert het volledige physics resultaat.
+ */
+export function resolveShotPhysics(power, timingQuality, stick, kickPoint, stateObj, aimPoint, shotType) {
+  let p = power, tq = timingQuality, st = stick, kp = kickPoint, sObj = stateObj, aim = aimPoint, stType = shotType;
+  if (typeof power === 'object' && power !== null && !Array.isArray(power) && ('power' in power || 'stick' in power || 'timingQuality' in power)) {
+    ({
+      power: p,
+      timingQuality: tq,
+      stick: st,
+      kickPoint: kp,
+      state: sObj,
+      aimPoint: aim,
+      shotType: stType
+    } = power);
+  }
+
+  const releaseSpeed = calculateReleaseSpeed(p, tq, st, kp, sObj);
+  const dispersion = calculateShotDispersion(tq, st, kp, sObj);
+  const launchVector = calculateLaunchVector(releaseSpeed, aim, dispersion, stType);
+
+  return {
+    releaseSpeed,
+    dispersion,
+    launchVector,
+    velocity: launchVector,
+    flightTime: launchVector.flightTime,
+    flightDuration: launchVector.flightTime,
+    flightTarget: launchVector.flightTarget,
+    speed: launchVector.length()
+  };
+}
+
+export const calculateShotVelocity = resolveShotPhysics;
