@@ -721,7 +721,7 @@ function resolveGoalCollisions(previousPosition) {
   }
 }
 
-export function applyStickSlapshotAngle(angleRad) {
+export function applyStickSlapshotAngle(angleRad, forwardOffsetMm = 0) {
   if (!stickParams.stickGroup) return;
   if (!stickParams.restGroupPosition || !stickParams.restGroupQuaternion) {
     stickParams.restGroupPosition = stickParams.stickGroup.position.clone();
@@ -730,6 +730,7 @@ export function applyStickSlapshotAngle(angleRad) {
 
   if (Math.abs(angleRad) < 0.0001) {
     stickParams.stickGroup.position.copy(stickParams.restGroupPosition);
+    stickParams.stickGroup.position.z -= forwardOffsetMm;
     stickParams.stickGroup.quaternion.copy(stickParams.restGroupQuaternion);
     stickParams.stickGroup.updateMatrixWorld(true);
     return;
@@ -752,6 +753,7 @@ export function applyStickSlapshotAngle(angleRad) {
   offset.applyQuaternion(qRot);
 
   stickParams.stickGroup.position.copy(restPivot).add(offset);
+  stickParams.stickGroup.position.z -= forwardOffsetMm;
   stickParams.stickGroup.quaternion.copy(stickParams.restGroupQuaternion).premultiply(qRot);
   stickParams.stickGroup.updateMatrixWorld(true);
 }
@@ -759,9 +761,9 @@ export function applyStickSlapshotAngle(angleRad) {
 window.setStickSlapshotAngle = applyStickSlapshotAngle;
 
 function spawnIceChips(pos) {
-  const particleGeo = new THREE.PlaneGeometry(18, 18);
-  const particleMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, side: THREE.DoubleSide });
   for (let i = 0; i < 14; i++) {
+    const particleGeo = new THREE.PlaneGeometry(18, 18);
+    const particleMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, side: THREE.DoubleSide, transparent: true });
     const mesh = new THREE.Mesh(particleGeo, particleMat);
     mesh.position.copy(pos);
     mesh.position.y = 8;
@@ -771,6 +773,8 @@ function spawnIceChips(pos) {
       vx: (Math.random() - 0.5) * 450,
       vy: Math.random() * 350 + 120,
       vz: -Math.random() * 500,
+      rx: (Math.random() - 0.5) * 10,
+      ry: (Math.random() - 0.5) * 10,
       life: 0.45
     });
   }
@@ -856,8 +860,9 @@ function resetPuck() {
   if (stickParams.stickGroup) {
       stickParams.restGroupPosition = stickParams.stickGroup.position.clone();
       stickParams.restGroupQuaternion = stickParams.stickGroup.quaternion.clone();
-      applyStickSlapshotAngle(0);
+      applyStickSlapshotAngle(0, 0);
   }
+  game.restPuckPosition = game.puck.position.clone();
 
   updateProjectedArrow(game.puck.position);
 
@@ -1031,15 +1036,23 @@ function animate() {
     state.timeline = Math.round(next);
     syncUiFromState();
 
-    if (game.isSlapshot && swipeData.triggered) {
+    if (game.isSlapshot) {
       const iceHitTime = game.slapshotIceHitTime || 380;
       if (state.timeline < iceHitTime) {
         const downswingProgress = Math.max(0, Math.min(1, state.timeline / iceHitTime));
         // Accelerating downswing towards the ice
         const currentAngle = game.slapshotMaxAngle * (1 - Math.pow(downswingProgress, 1.8));
-        applyStickSlapshotAngle(currentAngle);
+        applyStickSlapshotAngle(currentAngle, 0);
       } else {
-        applyStickSlapshotAngle(0);
+        // Travel horizontally in the direction of the puck (-Z, no extra vertical movement)
+        // ending up 500 mm (0.5 m) past the starting point when the slapshot motion completes at timeline = 1200
+        const travelProgress = Math.max(0, Math.min(1, (state.timeline - iceHitTime) / Math.max(1, 1200 - iceHitTime)));
+        const travelEase = 0.5 * (1 - Math.cos(travelProgress * Math.PI));
+        const forwardOffsetMm = 500 * travelEase;
+        applyStickSlapshotAngle(0, forwardOffsetMm);
+        if (game.puckState === 'idle' && game.restPuckPosition) {
+          game.puck.position.z = game.restPuckPosition.z - forwardOffsetMm;
+        }
         if (!game.slapshotHitIceTriggered) {
           game.slapshotHitIceTriggered = true;
           if (game.bladeHeelIndex >= 0) {

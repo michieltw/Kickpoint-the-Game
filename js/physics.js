@@ -255,7 +255,7 @@ export function updatePhysics() {
 
   let isReleased = false, currentBendDeg = 0, leverAngleDeg = 0, topPullDownMm = 0, pullProgress = 0;
 
-  const isSlapshot = Boolean(game?.isSlapshot && swipeData.triggered);
+  const isSlapshot = Boolean(game?.isSlapshot);
   const slapshotIceHit = game?.slapshotIceHitTime ?? 380;
 
   if (state.holdMaxBend || t <= tPeak) {
